@@ -251,34 +251,17 @@ function tlEdgeCheck(sc) {
   }
 }
 
-/* Dynamischer Y-Zoom nach Grenzflächen-Gewichtung, ab Spalte startIdx:
-   Verbindung 1 muss komplett ins Bild. Jede weitere (2., 3.) wird danach
-   gewichtet, wie viel ZUSÄTZLICHE Fläche sie relativ zum bisherigen
-   Ausschnitt kostet: kleiner Zuwachs → fließt fast voll ein (etwas
-   rauszoomen), großer Zuwachs (Langläufer) → wird weitgehend ignoriert.
-   Gewicht w = max(0, 1 − (Zuwachs/Ausschnitt) / 1.5). */
+/* Dynamischer Y-Zoom: der Anzeigebereich wird exakt auf die Verbindung der
+   Zielspalte (startIdx) skaliert — sie füllt die Sichtfläche und ist damit
+   immer vollständig zu sehen. */
 function tlAutoZoom(sc, startIdx = 0) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
-  const list = tl.itins.slice(Math.max(0, startIdx), Math.max(0, startIdx) + 3);
-  if (!list.length) return tl.ppm || 4;
-  const dep0 = +new Date(transitLegs(list[0])[0].from.departure);
-  // benötigte Höhe (Minuten ab dep0), um Verbindung k komplett zu zeigen
-  const reqMin = it => {
-    const legs = transitLegs(it);
-    return Math.max(1, (+new Date(legs[legs.length - 1].to.arrival) - dep0) / 60000);
-  };
-  let T = reqMin(list[0]); // Nr. 1 ist Pflicht
-  // weitere nach benötigter Höhe aufsteigend einpreisen
-  const rest = list.slice(1).map(reqMin).sort((a, b) => a - b);
-  for (const R of rest) {
-    const M = R - T;
-    if (M <= 0) continue; // passt ohnehin schon rein
-    const r = M / T;
-    // bis 35% Zuwachs voll einpreisen, darüber abblenden, ab 150% ignorieren
-    const w = r <= 0.35 ? 1 : Math.max(0, 1 - (r - 0.35) / 1.15);
-    T += w * M;
-  }
-  const ppm = usable / T;
+  const it = tl.itins[Math.min(tl.itins.length - 1, Math.max(0, startIdx))];
+  if (!it) return tl.ppm || 4;
+  const legs = transitLegs(it);
+  const durMin = Math.max(1,
+    (+new Date(legs[legs.length - 1].to.arrival) - +new Date(legs[0].from.departure)) / 60000);
+  const ppm = usable / durMin;
   return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
