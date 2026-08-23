@@ -45,7 +45,7 @@ python3 -m http.server 8080
 - **Grafikansicht** (Standard): vertikale Zeitachse, jede Verbindung ein Balken von Abfahrt
   bis Ankunft, farbige Segmente je Verkehrsmittel, „jetzt“-Linie. Scrollen in alle Richtungen —
   landet man im Leeren, zieht die Ansicht automatisch zum nächsten Balken. Zoom per Pinch,
-  Strg+Mausrad oder ＋/−-Knöpfe. Balken antippen öffnet die Details. ☰/▦ wechselt zur Listenansicht.
+  Strg+Mausrad zur Feinjustierung – der Grund-Zoom stellt sich automatisch ein. Balken antippen öffnet die Details. ☰/▦ wechselt zur Listenansicht.
 - ⇄ tauscht die Richtung, „Spätere Verbindungen“ blättert weiter.
 - „Buttons übertragen“: Link kopieren/teilen, auf dem anderen Gerät öffnen und
   „Buttons übernehmen?“ bestätigen.

@@ -94,9 +94,19 @@ function renderTimeline(itins, focus = "start") {
   tl.t0 = min - TL.PAD_MIN * 60000;
   tl.t1 = max + TL.PAD_MIN * 60000;
 
-  // Neuer Suchlauf: Zoom so wählen, dass die ersten 2–3 Verbindungen komplett
-  // ins Bild passen (Ausreißer gehen nur gedämpft ein)
-  if (!sameSearch) tl.ppm = tlAutoZoom(scroller);
+  // Startspalte (im „Jetzt“-Modus die erste noch erreichbare Verbindung)
+  let startIdx = 0;
+  if (app.searchTime.kind === "now") {
+    const i = tl.itins.findIndex(it =>
+      +new Date(transitLegs(it)[0].from.departure) >= Date.now() - 30000);
+    if (i > 0) startIdx = i;
+  }
+
+  // Neuer Suchlauf: Y-Zoom dynamisch aus den Verbindungen ab der Startspalte
+  if (!sameSearch) {
+    tl.ppm = tlAutoZoom(scroller, startIdx);
+    tl.lastZoomIdx = startIdx;
+  }
 
   // Im „Jetzt“-Modus garantiert genug Kopffreiheit über der Jetzt-Linie,
   // damit sie unter der Kopf-Kachel positioniert werden kann
@@ -139,15 +149,8 @@ function renderTimeline(itins, focus = "start") {
   } else {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
-    // (Jetzt-Linie bzw. Balken, 40%-Regel)
-    let idx = 0;
-    if (app.searchTime.kind === "now") {
-      const i = tl.itins.findIndex(it =>
-        +new Date(transitLegs(it)[0].from.departure) >= Date.now() - 30000);
-      if (i > 0) idx = i;
-    }
-    scroller.scrollLeft = idx * (tl.colW + TL.GAP);
-    scroller.scrollTop = tlAlignTopFor(tl.bars[idx] || tl.bars[0], scroller);
+    scroller.scrollLeft = startIdx * (tl.colW + TL.GAP);
+    scroller.scrollTop = tlAlignTopFor(tl.bars[startIdx] || tl.bars[0], scroller);
   }
   tl.lastAlignLeft = scroller.scrollLeft;
 }
@@ -248,27 +251,34 @@ function tlEdgeCheck(sc) {
   }
 }
 
-/* Default-Zoom: Ziel ist, dass die ersten R Verbindungen (Einstellung
-   „Verbindungen komplett im Bild“, 3–6) vertikal komplett sichtbar sind.
-   Für k = R/R+1/R+2 wird der ideale Zoom berechnet und mit abnehmenden
-   Gewichten gemittelt — ein Langläufer (Nachtzug) drückt nur gedämpft. */
-function tlAutoZoom(sc) {
+/* Dynamischer Y-Zoom nach Grenzflächen-Gewichtung, ab Spalte startIdx:
+   Verbindung 1 muss komplett ins Bild. Jede weitere (2., 3.) wird danach
+   gewichtet, wie viel ZUSÄTZLICHE Fläche sie relativ zum bisherigen
+   Ausschnitt kostet: kleiner Zuwachs → fließt fast voll ein (etwas
+   rauszoomen), großer Zuwachs (Langläufer) → wird weitgehend ignoriert.
+   Gewicht w = max(0, 1 − (Zuwachs/Ausschnitt) / 1.5). */
+function tlAutoZoom(sc, startIdx = 0) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
-  const dep0 = +new Date(transitLegs(tl.itins[0])[0].from.departure);
-  const spanMin = (k) => {
-    let end = 0;
-    for (let i = 0; i < Math.min(k, tl.itins.length); i++) {
-      const legs = transitLegs(tl.itins[i]);
-      end = Math.max(end, +new Date(legs[legs.length - 1].to.arrival));
-    }
-    return (end - dep0) / 60000;
+  const list = tl.itins.slice(Math.max(0, startIdx), Math.max(0, startIdx) + 3);
+  if (!list.length) return tl.ppm || 4;
+  const dep0 = +new Date(transitLegs(list[0])[0].from.departure);
+  // benötigte Höhe (Minuten ab dep0), um Verbindung k komplett zu zeigen
+  const reqMin = it => {
+    const legs = transitLegs(it);
+    return Math.max(1, (+new Date(legs[legs.length - 1].to.arrival) - dep0) / 60000);
   };
-  let num = 0, den = 0;
-  for (const [k, w] of [[3, 1], [4, 0.55], [5, 0.3]]) {
-    const s = spanMin(k);
-    if (s > 0) { num += w * (usable / s); den += w; }
+  let T = reqMin(list[0]); // Nr. 1 ist Pflicht
+  // weitere nach benötigter Höhe aufsteigend einpreisen
+  const rest = list.slice(1).map(reqMin).sort((a, b) => a - b);
+  for (const R of rest) {
+    const M = R - T;
+    if (M <= 0) continue; // passt ohnehin schon rein
+    const r = M / T;
+    // bis 35% Zuwachs voll einpreisen, darüber abblenden, ab 150% ignorieren
+    const w = r <= 0.35 ? 1 : Math.max(0, 1 - (r - 0.35) / 1.15);
+    T += w * M;
   }
-  const ppm = den ? num / den : 4;
+  const ppm = usable / T;
   return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
@@ -411,9 +421,6 @@ function tlSetZoom(newPpm, anchorClientY) {
 function tlInitInteractions() {
   const sc = byId("timeline");
 
-  byId("tl-zoom-in").addEventListener("click", () => tlSetZoom(tl.ppm * 1.4));
-  byId("tl-zoom-out").addEventListener("click", () => tlSetZoom(tl.ppm / 1.4));
-
   sc.addEventListener("wheel", (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault();
@@ -428,8 +435,18 @@ function tlInitInteractions() {
   function releaseGlide() {
     const step = tl.colW + TL.GAP;
     const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
-    const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
     const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+
+    // Dynamischen Y-Zoom nur bei Spaltenwechsel anwenden (Pinch in derselben
+    // Spalte bleibt unangetastet); baut ggf. neu, Bildmitte bleibt verankert
+    const idx0 = Math.min(tl.itins.length - 1, Math.max(0, Math.round(targetLeft / step)));
+    if (idx0 !== tl.lastZoomIdx) {
+      tl.lastZoomIdx = idx0;
+      const dyn = tlAutoZoom(sc, idx0);
+      if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) tlSetZoom(dyn);
+    }
+
+    const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
     let targetTop = Math.min(maxTop, Math.max(0, sc.scrollTop));
 
     // Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
@@ -549,6 +566,15 @@ function tlAlign(sc) {
   const step = tl.colW + TL.GAP;
   const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
   const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+
+  // Dynamischer Y-Zoom nur bei Spaltenwechsel (Maus-/Trackpad-Pfad)
+  const idx0 = Math.min(tl.itins.length - 1, Math.max(0, Math.round(targetLeft / step)));
+  if (idx0 !== tl.lastZoomIdx) {
+    tl.lastZoomIdx = idx0;
+    const dyn = tlAutoZoom(sc, idx0);
+    if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) tlSetZoom(dyn);
+  }
+
   const needH = Math.abs(sc.scrollLeft - targetLeft) > 2;
 
   const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
