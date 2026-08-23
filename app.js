@@ -1,12 +1,12 @@
 "use strict";
 
 const API = "https://api.transitous.org/api/v1";
+const MIN_SLOTS = 4, MAX_SLOTS = 24;
 // Optional: URL des deployten db-link-workers (siehe README, Ordner db-link-worker/).
 // Wenn gesetzt, öffnet „Bei der DB öffnen“ exakt die gewählte Verbindung (vbid-Link,
 // öffnet auf dem Handy den DB Navigator mit „Zu meinen Reisen hinzufügen“).
 // Leer = Fallback auf die vorbefüllte bahn.de-Suche.
 const DB_LINK_PROXY = "";
-const SLOT_COUNT = 12;
 const STORAGE_KEY = "pp.buttons.v1";
 const LONGPRESS_MS = 550;
 
@@ -49,13 +49,18 @@ function defaultHiddenCats() {
   return new Set(CATS.filter(c => !settings.show[c]));
 }
 
+// Die Kachel-Liste ist geordnet inkl. Leerstellen (Position = Index);
+// ihre Länge bestimmt die Anzahl der angezeigten Felder.
 function loadSlots() {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    const arr = Array.isArray(raw) ? raw.slice(0, SLOT_COUNT) : [];
-    while (arr.length < SLOT_COUNT) arr.push(null);
-    return arr;
-  } catch { return new Array(SLOT_COUNT).fill(null); }
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (Array.isArray(raw) && raw.length) {
+      const arr = raw.slice(0, MAX_SLOTS);
+      while (arr.length < MIN_SLOTS) arr.push(null);
+      return arr;
+    }
+  } catch { /* Default nutzen */ }
+  return new Array(12).fill(null);
 }
 function saveSlots() { localStorage.setItem(STORAGE_KEY, JSON.stringify(slots)); }
 
@@ -108,6 +113,12 @@ function renderGrid() {
   });
 }
 
+// Neue Suche vom Startscreen beginnt immer in der „Jetzt“-Ansicht
+function startFreshSearch(from, to) {
+  app.searchTime = { kind: "now", time: null, arriveBy: false };
+  startSearch(from, to);
+}
+
 function onSlotTap(i) {
   if (app.editMode) { setEditMode(false); openEdit(i); return; }
   if (!slots[i]) { openEdit(i); return; }
@@ -121,7 +132,7 @@ function onSlotTap(i) {
   } else {
     const from = slots[app.selectedStart], to = slots[i];
     app.selectedStart = null;
-    startSearch(from, to);
+    startFreshSearch(from, to);
   }
 }
 
@@ -130,21 +141,22 @@ function setEditMode(on) {
   app.selectedStart = null;
   byId("btn-editmode").textContent = on ? "✓ Fertig" : "✎ Bearbeiten";
   byId("grid-hint").innerHTML = on
-    ? "Button antippen, um ihn zu ändern oder zu leeren."
+    ? "Antippen zum Ändern/Leeren – ziehen zum Verschieben."
     : "Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.";
   gridEl.classList.toggle("editing", on);
   renderGrid();
 }
 byId("btn-editmode").addEventListener("click", () => setEditMode(!app.editMode));
 
-// Tap, Long-Press und Wisch-Verbindung (Linie von Start zu Ziel ziehen)
+// Tap, Long-Press, Wisch-Verbindung (Linie zum Ziel) und – im Bearbeiten-Modus –
+// Verschieben der Kachel per Ziehen (Positionstausch)
 function attachStationPointer(btn, i) {
-  let holdTimer = null, held = false, dragging = false;
+  let holdTimer = null, held = false, dragging = false, mode = null;
   let activeId = null, startX = 0, startY = 0, dropSlot = null;
 
   btn.addEventListener("pointerdown", (e) => {
     activeId = e.pointerId;
-    held = false; dragging = false; dropSlot = null;
+    held = false; dragging = false; dropSlot = null; mode = null;
     startX = e.clientX; startY = e.clientY;
     holdTimer = setTimeout(() => {
       held = true;
@@ -156,14 +168,16 @@ function attachStationPointer(btn, i) {
   btn.addEventListener("pointermove", (e) => {
     if (e.pointerId !== activeId || held) return;
     if (!dragging) {
-      if (!slots[i] || app.editMode) return;
+      if (!slots[i]) return;
       if (Math.hypot(e.clientX - startX, e.clientY - startY) < 14) return;
       dragging = true;
+      mode = app.editMode ? "move" : "connect";
       clearTimeout(holdTimer);
       try { btn.setPointerCapture(e.pointerId); } catch { /* egal */ }
-      dragStart(btn);
+      if (mode === "connect") dragStart(btn);
+      else moveStart(btn, i);
     }
-    dropSlot = dragMove(e, btn, i);
+    dropSlot = mode === "connect" ? dragMove(e, btn, i) : moveMove(e, btn);
   });
 
   const finish = (e, ok) => {
@@ -171,12 +185,21 @@ function attachStationPointer(btn, i) {
     activeId = null;
     clearTimeout(holdTimer);
     if (!dragging) return;
-    dragEnd();
     held = true; // nachfolgenden Click schlucken
-    if (ok && dropSlot !== null) {
-      const from = slots[i], to = slots[dropSlot];
-      app.selectedStart = null;
-      startSearch(from, to);
+    if (mode === "connect") {
+      dragEnd();
+      if (ok && dropSlot !== null) {
+        const from = slots[i], to = slots[dropSlot];
+        app.selectedStart = null;
+        startFreshSearch(from, to);
+      }
+    } else {
+      moveEnd();
+      if (ok && dropSlot !== null && dropSlot !== i) {
+        [slots[i], slots[dropSlot]] = [slots[dropSlot], slots[i]];
+        saveSlots();
+        renderGrid(); // Bearbeiten-Modus bleibt aktiv für weitere Umordnungen
+      }
     }
     dragging = false;
   };
@@ -233,6 +256,41 @@ function dragEnd() {
   dragSvg = dragLine = null;
   if (dragFrom) dragFrom.classList.remove("selected");
   dragFrom = null;
+  gridEl.querySelectorAll(".droptarget").forEach(el => el.classList.remove("droptarget"));
+}
+
+/* --- Kachel verschieben (Bearbeiten-Modus): Ziehen tauscht die Positionen --- */
+
+let moveGhost = null, moveSource = null;
+
+function moveStart(btn, i) {
+  moveSource = btn;
+  btn.classList.add("moving");
+  if (navigator.vibrate) navigator.vibrate(30);
+  moveGhost = document.createElement("div");
+  moveGhost.className = "moveghost";
+  moveGhost.textContent = slots[i].name;
+  document.body.appendChild(moveGhost);
+}
+
+function moveMove(e, sourceBtn) {
+  moveGhost.style.left = e.clientX + "px";
+  moveGhost.style.top = e.clientY + "px";
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const target = under && under.closest ? under.closest(".stationbtn") : null;
+  gridEl.querySelectorAll(".droptarget").forEach(el => el.classList.remove("droptarget"));
+  if (target && target !== sourceBtn) {
+    target.classList.add("droptarget"); // auch leere Felder sind gültige Ziele
+    return Number(target.dataset.slot);
+  }
+  return null;
+}
+
+function moveEnd() {
+  if (moveGhost) moveGhost.remove();
+  moveGhost = null;
+  if (moveSource) moveSource.classList.remove("moving");
+  moveSource = null;
   gridEl.querySelectorAll(".droptarget").forEach(el => el.classList.remove("droptarget"));
 }
 
@@ -695,8 +753,8 @@ function maybeImportConfig() {
     // v1 = nur Button-Array, v2 = {v, slots, show}
     const newSlots = Array.isArray(imported) ? imported : imported.slots;
     if (Array.isArray(newSlots) && confirm("Buttons übernehmen? Die im Link gespeicherte Konfiguration ersetzt deine aktuelle.")) {
-      slots = newSlots.slice(0, SLOT_COUNT);
-      while (slots.length < SLOT_COUNT) slots.push(null);
+      slots = newSlots.slice(0, MAX_SLOTS);
+      while (slots.length < MIN_SLOTS) slots.push(null);
       saveSlots();
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
@@ -741,7 +799,22 @@ byId("btn-settings").addEventListener("click", () => {
   document.querySelectorAll("#settings-cats input").forEach(cb => {
     cb.checked = settings.show[cb.dataset.cat];
   });
+  byId("set-count").value = slots.length;
   byId("settings-dialog").showModal();
+});
+
+// Kachel-Anzahl ändern – Verkleinern kann nie belegte Kacheln löschen
+byId("set-count").addEventListener("change", () => {
+  let n = Math.round(Number(byId("set-count").value)) || slots.length;
+  n = Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, n));
+  let lastUsed = -1;
+  slots.forEach((s, idx) => { if (s) lastUsed = idx; });
+  n = Math.max(n, lastUsed + 1);
+  while (slots.length < n) slots.push(null);
+  slots.length = n;
+  byId("set-count").value = n;
+  saveSlots();
+  renderGrid();
 });
 
 byId("settings-cats").addEventListener("change", (e) => {

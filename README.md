@@ -25,7 +25,10 @@ python3 -m http.server 8080
 ## Bedienung
 
 - Tap auf „+“: Bahnhof suchen (Live-Suche) und auf dem Button speichern.
-- „✎ Bearbeiten“ (oder Long-Press auf einen Button): Station ändern oder Button leeren.
+- „✎ Bearbeiten“ (oder Long-Press auf einen Button): Station ändern oder Button leeren;
+  im Bearbeiten-Modus tauscht Ziehen die Position zweier Kacheln. Kachel-Anzahl in ⚙
+  einstellbar (4–24; Verkleinern kann belegte Kacheln nie löschen). Reihenfolge und
+  Lücken sind Teil der Slot-Liste und wandern damit im Übertragungs-Link mit.
 - Tap Start-Button, dann Tap Ziel-Button: Verbindungen ab jetzt.
 - **Zeitleiste:** „Jetzt“ (Default) · in der Grafik lädt Scrollen an den linken/rechten Rand
   automatisch frühere/spätere Verbindungen nach (ein Batch = eine API-Anfrage; in der Liste

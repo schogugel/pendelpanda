@@ -82,6 +82,27 @@ body {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+/* Kachel-Verschieben im Bearbeiten-Modus */
+.stationbtn.moving { opacity: .4; }
+.moveghost {
+  position: fixed; z-index: 99; pointer-events: none;
+  transform: translate(-50%, -120%);
+  max-width: 45vw; padding: .5rem .8rem;
+  background: var(--card); color: var(--text);
+  border: 1.5px solid var(--accent); border-radius: 12px;
+  font-weight: 600; font-size: .95rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  overflow-wrap: anywhere;
+}
+.countrow {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  margin: .9rem 0 .3rem; font-size: .95rem;
+}
+.countrow input {
+  width: 5rem; font: inherit; padding: .45rem .5rem; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text);
+}
 @media (min-width: 480px) { .buttongrid { grid-template-columns: repeat(3, 1fr); } }
 
 .stationbtn {

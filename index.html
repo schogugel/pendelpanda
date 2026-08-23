@@ -97,6 +97,9 @@
     <label><input type="checkbox" data-cat="utram"> <i class="catdot seg-utram"></i> U-Bahn &amp; Tram</label>
     <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus &amp; Sonstige</label>
   </div>
+  <label class="countrow">Anzahl Kacheln (4–24)
+    <input type="number" id="set-count" min="4" max="24" step="1" inputmode="numeric">
+  </label>
   <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden. Einstellungen und Buttons wandern über „Buttons übertragen“ gemeinsam als Link mit.</p>
   <form method="dialog"><button class="widebtn">Fertig</button></form>
 </dialog>
@@ -129,7 +132,7 @@
   <h2>Hilfe</h2>
   <ul>
     <li>Unbelegte Buttons zeigen ein „+“ – antippen und Bahnhof suchen.</li>
-    <li><strong>Ändern oder löschen:</strong> „✎ Bearbeiten“ antippen, dann den gewünschten Button wählen („Diesen Button leeren“ entfernt ihn). Abkürzung: Button lange gedrückt halten.</li>
+    <li><strong>Ändern, löschen, verschieben:</strong> „✎ Bearbeiten“ antippen – dann öffnet Antippen die Stationswahl („Diesen Button leeren“ entfernt sie) und <strong>Ziehen tauscht die Position</strong> zweier Kacheln. Abkürzung fürs Ändern: Button lange gedrückt halten. Die Anzahl der Kacheln stellst du im ⚙-Menü ein.</li>
     <li>Zwei belegte Buttons antippen: der erste wird <strong>Start</strong> (markiert), der zweite <strong>Ziel</strong> – die Verbindungen ab jetzt erscheinen sofort, inklusive Verspätungen und Gleis.</li>
     <li>Oder <strong>wischen</strong>: Finger auf den Start-Button legen und eine Linie zum Ziel-Button ziehen – beim Loslassen startet die Suche.</li>
     <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
