@@ -103,6 +103,28 @@ body {
   border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--card); color: var(--text);
 }
+/* Dreifach-Schalter mit gleitendem Daumen (3/4/5) */
+.seg3 {
+  position: relative; display: flex; width: 9.5rem; flex: none;
+  border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--bg); padding: 3px;
+}
+.seg3::before {
+  content: ""; position: absolute; top: 3px; bottom: 3px;
+  left: 3px; width: calc((100% - 6px) / 3);
+  background: var(--accent); border-radius: 999px;
+  transition: transform .18s ease;
+}
+.seg3[data-idx="1"]::before { transform: translateX(100%); }
+.seg3[data-idx="2"]::before { transform: translateX(200%); }
+.seg3 button {
+  position: relative; z-index: 1; flex: 1;
+  border: none; background: none; cursor: pointer;
+  font: inherit; font-weight: 600; padding: .35rem 0;
+  color: var(--muted); transition: color .18s ease;
+}
+.seg3 button.active { color: #fff; }
+@media (prefers-color-scheme: dark) { .seg3 button.active { color: #0e1512; } }
 @media (min-width: 480px) { .buttongrid { grid-template-columns: repeat(3, 1fr); } }
 
 .stationbtn {

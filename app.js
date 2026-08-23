@@ -37,14 +37,12 @@ function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
     show: { fern: false, regio: true, sbahn: true, utram: true, bus: true },
-    cols: 3, // Spalten nebeneinander in der Grafik (3–10)
-    rows: 3, // Verbindungen, die vertikal komplett ins Bild passen sollen (3–6)
+    rows: 3, // Verbindungen, die vertikal komplett ins Bild passen sollen (3/4/5)
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
     if (s && s.show) for (const c of CATS) if (typeof s.show[c] === "boolean") def.show[c] = s.show[c];
-    if (s && Number.isFinite(s.cols)) def.cols = Math.min(10, Math.max(3, Math.round(s.cols)));
-    if (s && Number.isFinite(s.rows)) def.rows = Math.min(6, Math.max(3, Math.round(s.rows)));
+    if (s && Number.isFinite(s.rows)) def.rows = Math.min(5, Math.max(3, Math.round(s.rows)));
   } catch { /* Default behalten */ }
   return def;
 }
@@ -730,7 +728,7 @@ function dbLink(fromName, toName, depIso, arrIso) {
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show, cols: settings.cols, rows: settings.rows };
+  const payload = { v: 2, slots, show: settings.show, rows: settings.rows };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
@@ -764,8 +762,7 @@ function maybeImportConfig() {
       saveSlots();
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
-        if (Number.isFinite(imported.cols)) settings.cols = Math.min(10, Math.max(3, Math.round(imported.cols)));
-        if (Number.isFinite(imported.rows)) settings.rows = Math.min(6, Math.max(3, Math.round(imported.rows)));
+        if (Number.isFinite(imported.rows)) settings.rows = Math.min(5, Math.max(3, Math.round(imported.rows)));
         saveSettings();
       }
       alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
@@ -808,23 +805,26 @@ byId("btn-settings").addEventListener("click", () => {
     cb.checked = settings.show[cb.dataset.cat];
   });
   byId("set-count").value = slots.length;
-  byId("set-cols").value = settings.cols;
-  byId("set-rows").value = settings.rows;
+  renderRowsControl();
   byId("settings-dialog").showModal();
 });
 
 let gridSettingsDirty = false;
-byId("set-cols").addEventListener("change", () => {
-  settings.cols = Math.min(10, Math.max(3, Math.round(Number(byId("set-cols").value)) || 3));
-  byId("set-cols").value = settings.cols;
+
+function renderRowsControl() {
+  const idx = [3, 4, 5].indexOf(settings.rows);
+  byId("set-rows").dataset.idx = idx >= 0 ? idx : 0;
+  document.querySelectorAll("#set-rows button").forEach(b =>
+    b.classList.toggle("active", Number(b.dataset.rows) === settings.rows));
+}
+
+byId("set-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-rows]");
+  if (!b) return;
+  settings.rows = Number(b.dataset.rows);
   saveSettings();
   gridSettingsDirty = true;
-});
-byId("set-rows").addEventListener("change", () => {
-  settings.rows = Math.min(6, Math.max(3, Math.round(Number(byId("set-rows").value)) || 3));
-  byId("set-rows").value = settings.rows;
-  saveSettings();
-  gridSettingsDirty = true;
+  renderRowsControl();
 });
 byId("settings-dialog").addEventListener("close", () => {
   if (gridSettingsDirty && app.search && app.itins.length) {

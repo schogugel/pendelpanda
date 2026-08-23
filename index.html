@@ -100,12 +100,13 @@
   <label class="countrow">Anzahl Kacheln (4–24)
     <input type="number" id="set-count" min="4" max="24" step="1" inputmode="numeric">
   </label>
-  <label class="countrow">Grafik: Verbindungen nebeneinander (3–10)
-    <input type="number" id="set-cols" min="3" max="10" step="1" inputmode="numeric">
-  </label>
-  <label class="countrow">Grafik: Verbindungen komplett im Bild (3–6)
-    <input type="number" id="set-rows" min="3" max="6" step="1" inputmode="numeric">
-  </label>
+  <div class="countrow">Grafik: Verbindungen komplett im Bild
+    <div class="seg3" id="set-rows" role="radiogroup" aria-label="Verbindungen komplett im Bild">
+      <button type="button" data-rows="3">3</button>
+      <button type="button" data-rows="4">4</button>
+      <button type="button" data-rows="5">5</button>
+    </div>
+  </div>
   <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden. Einstellungen und Buttons wandern über „Buttons übertragen“ gemeinsam als Link mit.</p>
   <form method="dialog"><button class="widebtn">Fertig</button></form>
 </dialog>

@@ -49,10 +49,9 @@ function renderTimeline(itins, focus = "start") {
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
 
-  // Spaltenbreite aus der Einstellung „Spalten nebeneinander“ (3–10)
-  const nCols = Math.min(10, Math.max(3, settings.cols || 3));
+  // Fünf Spalten nebeneinander (auf großen Screens gedeckelte Breite)
   const usableW = Math.max(140, scroller.clientWidth - TL.AXIS_W);
-  tl.colW = Math.max(44, Math.round(usableW / nCols) - TL.GAP);
+  tl.colW = Math.min(140, Math.max(44, Math.round(usableW / 5) - TL.GAP));
 
   let min = Infinity, max = -Infinity;
   for (const it of tl.itins) {
@@ -174,7 +173,7 @@ function tlAutoZoom(sc) {
     }
     return (end - dep0) / 60000;
   };
-  const R = Math.min(6, Math.max(3, settings.rows || 3));
+  const R = Math.min(5, Math.max(3, settings.rows || 3));
   let num = 0, den = 0;
   for (const [k, w] of [[R, 1], [R + 1, 0.55], [R + 2, 0.3]]) {
     const s = spanMin(k);
