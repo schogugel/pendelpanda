@@ -118,9 +118,12 @@ function renderGrid() {
   });
 }
 
-// Neue Suche vom Startscreen beginnt immer in der „Jetzt“-Ansicht
+// Neue Suche vom Startscreen: immer „Jetzt“-Ansicht und Legenden-Filter
+// zurück auf die Einstellungen. Innerhalb einer Detailansicht (Zeit ändern,
+// Richtung tauschen) bleibt die Filterung dagegen erhalten.
 function startFreshSearch(from, to) {
   app.searchTime = { kind: "now", time: null, arriveBy: false };
+  app.hiddenCats = defaultHiddenCats();
   startSearch(from, to);
 }
 
@@ -372,7 +375,6 @@ const resultsList = byId("results-list");
 function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
-  app.hiddenCats = defaultHiddenCats();
   app.autoLoads = 0;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
@@ -486,8 +488,9 @@ async function runPlan(direction = null, limit = 8) {
       return;
     }
     renderResults();
-    // Wenn nach dem Legenden-Filter zu wenig übrig bleibt: automatisch nachladen
-    if (visibleItins().length < 5 && app.nextPageCursor && app.autoLoads < 3) {
+    // Wenn nach dem Legenden-Filter weniger Treffer übrig sind als Spalten
+    // angezeigt werden: automatisch (gefiltert zählend) nachladen
+    if (visibleItins().length < neededVisible() && app.nextPageCursor && app.autoLoads < 4) {
       app.autoLoads++;
       await runPlan("later");
     }
@@ -563,6 +566,19 @@ function visibleItins() {
     transitLegs(it).every(l => !app.hiddenCats.has(productClass(l.mode))));
 }
 
+// So viele Verbindungen sollten nach dem Filtern mindestens da sein:
+// in der Grafik die eingestellte Spaltenzahl, in der Liste fünf
+function neededVisible() {
+  return app.viewMode === "graph" ? Math.min(5, Math.max(3, settings.cols || 3)) : 5;
+}
+
+function maybeAutoFill() {
+  if (visibleItins().length < neededVisible() && app.nextPageCursor && app.autoLoads < 4 && !app.paging) {
+    app.autoLoads++;
+    loadMore("later");
+  }
+}
+
 function renderLegend() {
   const present = new Set();
   for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
@@ -580,7 +596,9 @@ function renderLegend() {
     b.addEventListener("click", () => {
       if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
       else app.hiddenCats.add(c);
+      app.autoLoads = 0;
       renderResults();
+      maybeAutoFill(); // Filter kann die Trefferzahl unter die Spaltenzahl drücken
     });
     el.appendChild(b);
   }
