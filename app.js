@@ -21,6 +21,14 @@ const app = {
   itins: [],             // geladene Verbindungen (inkl. „Später“-Seiten)
   nextPageCursor: null,
   viewMode: localStorage.getItem("pp.view") || "graph", // "graph" | "list"
+  filter: localStorage.getItem("pp.filter") || "dticket",
+};
+
+// Verkehrsmittel-Filter (transitModes der MOTIS-API); null = alles
+const FILTERS = {
+  dticket: "REGIONAL_RAIL,REGIONAL_FAST_RAIL,SUBURBAN,SUBWAY,TRAM,BUS,FERRY,METRO",
+  alle: null,
+  nobus: "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,REGIONAL_RAIL,REGIONAL_FAST_RAIL,SUBURBAN,SUBWAY,TRAM,FERRY,METRO",
 };
 
 function loadSlots() {
@@ -301,6 +309,12 @@ byId("btn-swap").addEventListener("click", () => {
   if (app.search) startSearch(app.search.to, app.search.from, app.search.offsetMin);
 });
 
+byId("filter-select").addEventListener("change", () => {
+  app.filter = byId("filter-select").value;
+  localStorage.setItem("pp.filter", app.filter);
+  if (app.search) startSearch(app.search.from, app.search.to, app.search.offsetMin);
+});
+
 laterBtn.addEventListener("click", () => runPlan(app.nextPageCursor));
 
 async function runPlan(pageCursor = null) {
@@ -322,6 +336,7 @@ async function runPlan(pageCursor = null) {
     numItineraries: "6",
     language: "de",
   });
+  if (FILTERS[app.filter]) params.set("transitModes", FILTERS[app.filter]);
   if (pageCursor) params.set("pageCursor", pageCursor);
   try {
     const res = await fetch(`${API}/plan?${params}`);
@@ -548,6 +563,7 @@ function escapeHtml(s) {
 /* ---------------- Start ---------------- */
 
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
+byId("filter-select").value = app.filter;
 
 maybeImportConfig();
 renderGrid();
