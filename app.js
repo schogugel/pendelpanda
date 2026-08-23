@@ -77,9 +77,7 @@ function renderGrid() {
     btn.className = "stationbtn" + (slot ? "" : " empty") + (app.selectedStart === i ? " selected" : "");
     btn.textContent = slot ? slot.name : "+";
     btn.dataset.slot = i;
-    attachTapAndHold(btn,
-      () => onSlotTap(i),
-      () => { if (slots[i]) openEdit(i); });
+    attachStationPointer(btn, i);
     gridEl.appendChild(btn);
   });
 }
@@ -107,25 +105,109 @@ function setEditMode(on) {
   byId("btn-editmode").textContent = on ? "✓ Fertig" : "✎ Bearbeiten";
   byId("grid-hint").innerHTML = on
     ? "Button antippen, um ihn zu ändern oder zu leeren."
-    : "Tippe auf <strong>Start</strong>, dann auf <strong>Ziel</strong>.";
+    : "Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.";
   gridEl.classList.toggle("editing", on);
   renderGrid();
 }
 byId("btn-editmode").addEventListener("click", () => setEditMode(!app.editMode));
 
-// Tap vs. Long-Press ohne jQuery Mobile
-function attachTapAndHold(el, onTap, onHold) {
-  let timer = null, held = false;
-  el.addEventListener("pointerdown", () => {
-    held = false;
-    timer = setTimeout(() => { held = true; if (navigator.vibrate) navigator.vibrate(60); onHold(); }, LONGPRESS_MS);
+// Tap, Long-Press und Wisch-Verbindung (Linie von Start zu Ziel ziehen)
+function attachStationPointer(btn, i) {
+  let holdTimer = null, held = false, dragging = false;
+  let activeId = null, startX = 0, startY = 0, dropSlot = null;
+
+  btn.addEventListener("pointerdown", (e) => {
+    activeId = e.pointerId;
+    held = false; dragging = false; dropSlot = null;
+    startX = e.clientX; startY = e.clientY;
+    holdTimer = setTimeout(() => {
+      held = true;
+      if (navigator.vibrate) navigator.vibrate(60);
+      if (slots[i]) openEdit(i);
+    }, LONGPRESS_MS);
   });
-  const cancel = () => { clearTimeout(timer); };
-  el.addEventListener("pointerup", cancel);
-  el.addEventListener("pointerleave", cancel);
-  el.addEventListener("pointercancel", cancel);
-  el.addEventListener("click", (e) => { e.preventDefault(); if (!held) onTap(); });
-  el.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  btn.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== activeId || held) return;
+    if (!dragging) {
+      if (!slots[i] || app.editMode) return;
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < 14) return;
+      dragging = true;
+      clearTimeout(holdTimer);
+      try { btn.setPointerCapture(e.pointerId); } catch { /* egal */ }
+      dragStart(btn);
+    }
+    dropSlot = dragMove(e, btn, i);
+  });
+
+  const finish = (e, ok) => {
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    clearTimeout(holdTimer);
+    if (!dragging) return;
+    dragEnd();
+    held = true; // nachfolgenden Click schlucken
+    if (ok && dropSlot !== null) {
+      const from = slots[i], to = slots[dropSlot];
+      app.selectedStart = null;
+      startSearch(from, to);
+    }
+    dragging = false;
+  };
+  btn.addEventListener("pointerup", (e) => finish(e, true));
+  btn.addEventListener("pointercancel", (e) => finish(e, false));
+  btn.addEventListener("pointerleave", () => { if (!dragging) clearTimeout(holdTimer); });
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!held && !dragging) onSlotTap(i);
+    held = false;
+  });
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+/* --- Wisch-Verbindung: Linie über dem Grid --- */
+
+let dragSvg = null, dragLine = null, dragFrom = null;
+
+function dragStart(btn) {
+  dragFrom = btn;
+  btn.classList.add("selected");
+  if (navigator.vibrate) navigator.vibrate(30);
+  dragSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  dragSvg.setAttribute("class", "dragline");
+  dragLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  dragSvg.appendChild(dragLine);
+  gridEl.appendChild(dragSvg);
+}
+
+function dragMove(e, sourceBtn, sourceSlot) {
+  const grid = gridEl.getBoundingClientRect();
+  const b = sourceBtn.getBoundingClientRect();
+  dragLine.setAttribute("x1", b.left + b.width / 2 - grid.left);
+  dragLine.setAttribute("y1", b.top + b.height / 2 - grid.top);
+  dragLine.setAttribute("x2", e.clientX - grid.left);
+  dragLine.setAttribute("y2", e.clientY - grid.top);
+
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const target = under && under.closest ? under.closest(".stationbtn") : null;
+  gridEl.querySelectorAll(".droptarget").forEach(el => el.classList.remove("droptarget"));
+  if (target && target !== sourceBtn) {
+    const slot = Number(target.dataset.slot);
+    if (slots[slot]) {
+      target.classList.add("droptarget");
+      return slot;
+    }
+  }
+  return null;
+}
+
+function dragEnd() {
+  if (dragSvg) dragSvg.remove();
+  dragSvg = dragLine = null;
+  if (dragFrom) dragFrom.classList.remove("selected");
+  dragFrom = null;
+  gridEl.querySelectorAll(".droptarget").forEach(el => el.classList.remove("droptarget"));
 }
 
 /* ---------------- Station anlegen / bearbeiten ---------------- */
