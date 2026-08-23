@@ -359,7 +359,12 @@ function tlInitInteractions() {
 
   sc.addEventListener("pointerdown", (e) => {
     tl.pointers.set(e.pointerId, e);
-    tl.autoScrolling = false; // laufendes Gleiten übernehmen
+    // Laufendes Gleiten sofort anhalten und übernehmen — so sind auch Taps
+    // während der Einrast-Animation sofort klickbar
+    if (tl.autoScrolling) {
+      tl.autoScrolling = false;
+      sc.scrollTo({ left: sc.scrollLeft, top: sc.scrollTop, behavior: "auto" });
+    }
     if (tl.pointers.size === 2) {
       const [a, b] = [...tl.pointers.values()];
       tl.pinchBase = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), ppm: tl.ppm };
@@ -394,7 +399,7 @@ function tlInitInteractions() {
     tl.pointers.delete(e.pointerId);
     if (tl.pointers.size < 2) tl.pinchBase = null;
     if (e.pointerType === "touch" && tl.pointers.size === 0 && panLast) {
-      if (panMoved > 10) { tl.suppressClick = true; releaseGlide(); }
+      if (panMoved > 10) { tl.panEndAt = performance.now(); releaseGlide(); }
       panLast = null;
     }
   };
@@ -403,7 +408,13 @@ function tlInitInteractions() {
 
   // Nach echtem Panning keinen Balken-Tap auslösen
   sc.addEventListener("click", (e) => {
-    if (tl.suppressClick) { tl.suppressClick = false; e.stopPropagation(); e.preventDefault(); }
+    // Nur Klicks direkt nach einem echten Pan schlucken — als ablaufendes
+    // Zeitfenster statt Flag, denn nach Wischgesten feuert der Browser oft
+    // gar keinen Klick und ein Flag würde den NÄCHSTEN echten Tap fressen
+    if (tl.panEndAt && performance.now() - tl.panEndAt < 300) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
   }, true);
 
   sc.addEventListener("scroll", () => {
