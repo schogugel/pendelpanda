@@ -434,7 +434,7 @@ function itKey(it) {
 }
 
 // direction: null = neue Suche, "later" / "earlier" = blättern per Cursor
-async function runPlan(direction = null) {
+async function runPlan(direction = null, limit = 8) {
   const { from, to } = app.search;
   const loading = `<p class="status">Suche Verbindungen …</p>`;
   if (!direction) {
@@ -449,7 +449,7 @@ async function runPlan(direction = null) {
     fromPlace: from.id,
     toPlace: to.id,
     time: baseTime.toISOString(),
-    numItineraries: "8",
+    numItineraries: String(limit),
     language: "de",
   });
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
@@ -479,9 +479,15 @@ async function runPlan(direction = null) {
       await runPlan("earlier");
       return;
     }
+    // „Jetzt“: die EINE gerade verpasste Verbindung mitladen — so hat die Grafik
+    // oberhalb der Jetzt-Linie echten Inhalt und genug Scrollraum
+    if (!direction && t.kind === "now" && app.prevPageCursor) {
+      await runPlan("earlier", 1);
+      return;
+    }
     renderResults();
     // Wenn nach dem Legenden-Filter zu wenig übrig bleibt: automatisch nachladen
-    if (visibleItins().length < 5 && app.nextPageCursor && app.autoLoads < 3 && direction !== "earlier") {
+    if (visibleItins().length < 5 && app.nextPageCursor && app.autoLoads < 3) {
       app.autoLoads++;
       await runPlan("later");
     }

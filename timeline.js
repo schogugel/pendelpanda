@@ -86,6 +86,13 @@ function renderTimeline(itins, focus = "start") {
   // ins Bild passen (Ausreißer gehen nur gedämpft ein)
   if (!sameSearch) tl.ppm = tlAutoZoom(scroller);
 
+  // Im „Jetzt“-Modus garantiert genug Kopffreiheit über der Jetzt-Linie,
+  // damit sie unter der Kopf-Kachel positioniert werden kann
+  if (app.searchTime.kind === "now") {
+    const needMs = (90 / tl.ppm + 4) * 60000;
+    tl.t0 = Math.min(tl.t0, Date.now() - needMs);
+  }
+
   tlBuild(scroller);
 
   if (keepScroll) {
@@ -108,9 +115,16 @@ function renderTimeline(itins, focus = "start") {
     if (bar.head) bar.head.classList.add("tl-focus");
   } else {
     // Start: im „Jetzt“-Modus richtet die rote Jetzt-Linie die Ansicht aus
-    // (leicht unter der Kopf-Kachel), sonst der erste Balken
-    scroller.scrollLeft = 0;
+    // (leicht unter der Kopf-Kachel); linkeste sichtbare Spalte ist die erste
+    // noch ERREICHBARE Verbindung — die verpasste davor steht links daneben
     const now = Date.now();
+    let left = 0;
+    if (app.searchTime.kind === "now") {
+      const idx = tl.itins.findIndex(it =>
+        +new Date(transitLegs(it)[0].from.departure) >= now - 30000);
+      if (idx > 0) left = idx * (tl.colW + TL.GAP);
+    }
+    scroller.scrollLeft = left;
     const anchor = (app.searchTime.kind === "now" && now >= tl.t0 && now <= tl.t1)
       ? tlY(now)
       : tl.bars[0].top;
