@@ -60,7 +60,8 @@ body {
   max-width: 640px; margin: 0 auto;
 }
 .topbar-logo { width: 34px; height: 34px; border-radius: 8px; }
-.topbar h1 { font-size: 1.25rem; letter-spacing: .01em; }
+.topbar h1 { font-size: 1.25rem; letter-spacing: .01em; flex: 1; }
+#btn-settings { font-size: 1.3rem; }
 
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }
 .hint { color: var(--muted); font-size: .9rem; margin: .2rem 0 .8rem; }
@@ -143,15 +144,6 @@ body {
   margin-top: 1.2rem; width: 100%; padding: .7rem; font: inherit;
   border-radius: 12px; border: 1.5px solid var(--bad); color: var(--bad); background: none; cursor: pointer;
 }
-
-/* ---------- Filter ---------- */
-.filterselect {
-  width: 100%; margin-bottom: .6rem;
-  padding: .6rem .7rem; font: inherit; font-size: .95rem;
-  border: 1.5px solid var(--border); border-radius: 12px;
-  background: var(--card); color: var(--text);
-}
-.filterselect:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
 
 /* ---------- Zeit-Chips ---------- */
 .timechips { display: flex; gap: .5rem; margin-bottom: .9rem; flex-wrap: wrap; }
@@ -294,9 +286,35 @@ body {
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   font-size: 1.15rem; cursor: pointer; box-shadow: var(--shadow);
 }
-.tl-legend { display: flex; gap: .9rem; flex-wrap: wrap; margin-top: .55rem; font-size: .78rem; color: var(--muted); }
-.tl-key { display: inline-flex; align-items: center; gap: .3rem; }
-.tl-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+/* Interaktive Legende: Antippen blendet Verbindungen mit der Kategorie aus/ein */
+.tl-legend { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .55rem; }
+.tl-key {
+  display: inline-flex; align-items: center; gap: .35rem;
+  border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--card); color: var(--muted);
+  font: inherit; font-size: .78rem; padding: .3rem .65rem; cursor: pointer;
+}
+.tl-key i, .catdot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.tl-key.off { opacity: .42; }
+.tl-key.off i { background: var(--muted); }
+.tl-key.off { text-decoration: line-through; }
+
+/* ---------- Zeit-Dialog & Einstellungen ---------- */
+.segmented { display: flex; gap: .5rem; margin: .6rem 0; }
+.segmented label {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
+  border: 1.5px solid var(--border); border-radius: 10px; padding: .55rem;
+  font-size: .92rem; cursor: pointer;
+}
+.segmented label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+#time-input {
+  width: 100%; font: inherit; font-size: 1rem; padding: .6rem .7rem; margin: .4rem 0 .8rem;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); color-scheme: light dark;
+}
+.checklist { display: flex; flex-direction: column; gap: .55rem; margin: .7rem 0; }
+.checklist label { display: flex; align-items: center; gap: .55rem; font-size: .95rem; cursor: pointer; }
+.checklist input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
 
 /* ---------- Dialoge: Details & Übertragen ---------- */
 #trip-dialog { width: min(520px, calc(100vw - 2rem)); }

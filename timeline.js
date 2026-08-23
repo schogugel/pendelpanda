@@ -37,11 +37,10 @@ function productClass(mode) {
   if (["SUBWAY", "TRAM"].includes(mode)) return "utram";
   return "bus";
 }
-const PRODUCT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige" };
-
-function renderTimeline(itins) {
+function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
   const prevT0 = tl.t0;
+  const prevFirstKey = tl.itins.length ? itKey(tl.itins[0]) : null;
   const keepScroll = tl.itins.length && itins.length > tl.itins.length;
   const prev = { left: scroller.scrollLeft, top: scroller.scrollTop };
 
@@ -60,14 +59,20 @@ function renderTimeline(itins) {
   tlBuild(scroller);
 
   if (keepScroll) {
-    scroller.scrollLeft = prev.left;
+    // Wurden frühere Verbindungen vorangestellt, sind die Spalten nach rechts gerückt
+    const shift = prevFirstKey ? Math.max(0, tl.itins.findIndex(it => itKey(it) === prevFirstKey)) : 0;
+    scroller.scrollLeft = prev.left + shift * (TL.COL_W + TL.GAP);
     scroller.scrollTop = prev.top + tlY(prevT0);
+  } else if (focus === "end") {
+    // „Letzte Verbindungen“: ans Ende der Nacht scrollen
+    const last = tl.bars[tl.bars.length - 1];
+    scroller.scrollLeft = scroller.scrollWidth;
+    scroller.scrollTop = Math.max(0, last.top + last.height - scroller.clientHeight + 40);
   } else {
     // Start: erste Verbindung oben links im Blick
     scroller.scrollLeft = 0;
     scroller.scrollTop = Math.max(0, tl.bars[0].top - TL.HEAD_H - 12);
   }
-  tlLegend();
 }
 
 function tlBuild(scroller) {
@@ -203,15 +208,6 @@ function tlColumn(it, left) {
 
   tl.bars.push({ colLeft: left, top, height, itin: it });
   return col;
-}
-
-function tlLegend() {
-  const present = new Set();
-  for (const it of tl.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
-  byId("tl-legend").innerHTML = ["fern", "regio", "sbahn", "utram", "bus"]
-    .filter(c => present.has(c))
-    .map(c => `<span class="tl-key"><i class="seg-${c}"></i>${PRODUCT_LABEL[c]}</span>`)
-    .join("");
 }
 
 /* ---------- Zoom ---------- */

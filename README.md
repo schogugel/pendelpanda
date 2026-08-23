@@ -26,7 +26,13 @@ python3 -m http.server 8080
 
 - Tap auf „+“: Bahnhof suchen (Live-Suche) und auf dem Button speichern.
 - „✎ Bearbeiten“ (oder Long-Press auf einen Button): Station ändern oder Button leeren.
-- Tap Start-Button, dann Tap Ziel-Button: Verbindungen ab jetzt; Zeit-Chips für +5/+10/+20 min.
+- Tap Start-Button, dann Tap Ziel-Button: Verbindungen ab jetzt.
+- **Zeitleiste:** „Jetzt“ (Default) · „◂ Frühere“/„Spätere ▸“ blättern verbindungsweise ·
+  „Letzte“ zeigt die letzten Verbindungen der Nacht (plus die ersten des Morgens danach) ·
+  📅 öffnet die Datum/Uhrzeit-Wahl mit Abfahrt-/Ankunft-Umschalter.
+- **Legende = Filter:** Legendeneinträge unter den Ergebnissen sind antippbar; ausgegraut =
+  Verbindungen, die dieses Verkehrsmittel enthalten, sind ausgeblendet. Die Standardauswahl
+  kommt aus den Einstellungen (⚙, Default: Deutschlandticket-Sicht ohne Fernverkehr).
 - **Grafikansicht** (Standard): vertikale Zeitachse, jede Verbindung ein Balken von Abfahrt
   bis Ankunft, farbige Segmente je Verkehrsmittel, „jetzt“-Linie. Scrollen in alle Richtungen —
   landet man im Leeren, zieht die Ansicht automatisch zum nächsten Balken. Zoom per Pinch,
@@ -34,6 +40,24 @@ python3 -m http.server 8080
 - ⇄ tauscht die Richtung, „Spätere Verbindungen“ blättert weiter.
 - „Buttons übertragen“: Link kopieren/teilen, auf dem anderen Gerät öffnen und
   „Buttons übernehmen?“ bestätigen.
+
+## Architektur & Personalisierung
+
+- **Kein Backend.** Alles läuft im Browser; die einzige externe Abhängigkeit ist die
+  Transitous-API (`/geocode` für die Stationssuche, `/plan` fürs Routing inkl. Echtzeit).
+- **Suche ungefiltert, Filter clientseitig.** `/plan` wird ohne Verkehrsmittel-Filter
+  abgefragt; die Legende blendet ganze Verbindungen aus, deren Abschnitte eine deaktivierte
+  Kategorie enthalten (fern/regio/sbahn/utram/bus, Mapping in `timeline.js: productClass`).
+  So lässt sich Ausgeblendetes ohne neue Anfrage wieder einblenden. Bleiben nach dem Filtern
+  <5 Verbindungen, lädt die App automatisch weitere Seiten nach.
+- **Blättern über API-Cursor.** „Frühere“/„Spätere“ nutzen `previousPageCursor`/
+  `nextPageCursor` der MOTIS-API (verbindungsweise, nicht zeitfensterbasiert).
+- **Personalisierung lebt in `localStorage` und reist per URL.** Gespeichert werden
+  `pp.buttons.v1` (Bahnhofs-Buttons), `pp.settings` (Standard-Verkehrsmittel) und `pp.view`
+  (Listen-/Grafikansicht). „Buttons übertragen“ kodiert Buttons **und** Einstellungen als
+  Base64-JSON in den Link: `#cfg=` → `{v: 2, slots: […], show: {fern: false, …}}`.
+  Beim Öffnen eines solchen Links fragt die App, ob die Konfiguration übernommen werden
+  soll. Alte v1-Links (nur Button-Array) werden weiterhin verstanden.
 
 ## „Bei der DB öffnen“ mit exakter Verbindung (optional, empfohlen)
 

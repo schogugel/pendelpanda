@@ -17,19 +17,37 @@ const app = {
   selectedStart: null,   // Slot-Index
   editSlot: null,        // Slot-Index in Bearbeitung
   editMode: false,       // „✎ Bearbeiten“ aktiv
-  search: null,          // {from, to, offsetMin}
+  search: null,          // {from, to}
   itins: [],             // geladene Verbindungen (inkl. „Später“-Seiten)
   nextPageCursor: null,
   viewMode: localStorage.getItem("pp.view") || "graph", // "graph" | "list"
-  filter: localStorage.getItem("pp.filter") || "dticket",
+  // Zeitnavigation: kind = now | custom | letzte
+  searchTime: { kind: "now", time: null, arriveBy: false },
+  prevPageCursor: null,
+  hiddenCats: new Set(),  // aktuell über die Legende ausgeblendete Kategorien
+  autoLoads: 0,           // automatische Nachlade-Runden pro Suche
 };
 
-// Verkehrsmittel-Filter (transitModes der MOTIS-API); null = alles
-const FILTERS = {
-  dticket: "REGIONAL_RAIL,REGIONAL_FAST_RAIL,SUBURBAN,SUBWAY,TRAM,BUS,FERRY,METRO",
-  alle: null,
-  nobus: "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,REGIONAL_RAIL,REGIONAL_FAST_RAIL,SUBURBAN,SUBWAY,TRAM,FERRY,METRO",
-};
+/* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
+
+const CATS = ["fern", "regio", "sbahn", "utram", "bus"];
+const CAT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige" };
+
+function loadSettings() {
+  // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
+  const def = { show: { fern: false, regio: true, sbahn: true, utram: true, bus: true } };
+  try {
+    const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
+    if (s && s.show) for (const c of CATS) if (typeof s.show[c] === "boolean") def.show[c] = s.show[c];
+  } catch { /* Default behalten */ }
+  return def;
+}
+let settings = loadSettings();
+function saveSettings() { localStorage.setItem("pp.settings", JSON.stringify(settings)); }
+
+function defaultHiddenCats() {
+  return new Set(CATS.filter(c => !settings.show[c]));
+}
 
 function loadSlots() {
   try {
@@ -287,76 +305,160 @@ clearSlotBtn.addEventListener("click", () => {
 /* ---------------- Verbindungssuche ---------------- */
 
 const resultsList = byId("results-list");
-const laterBtn = byId("btn-later");
 
-function startSearch(from, to, offsetMin = 0) {
-  app.search = { from, to, offsetMin };
+function startSearch(from, to) {
+  app.search = { from, to };
   app.itins = [];
+  app.hiddenCats = defaultHiddenCats();
+  app.autoLoads = 0;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
-  document.querySelectorAll("#timechips .chip").forEach(c =>
-    c.classList.toggle("active", Number(c.dataset.offset) === offsetMin));
+  updateChips();
   navigate("results");
   runPlan();
 }
 
-byId("timechips").addEventListener("click", (e) => {
-  const chip = e.target.closest(".chip");
-  if (!chip || !app.search) return;
-  startSearch(app.search.from, app.search.to, Number(chip.dataset.offset));
-});
+function updateChips() {
+  byId("chip-now").classList.toggle("active", app.searchTime.kind === "now");
+  byId("chip-last").classList.toggle("active", app.searchTime.kind === "letzte");
+  byId("chip-time").classList.toggle("active", app.searchTime.kind === "custom");
+}
+
+function restartWith(kind, time = null, arriveBy = false) {
+  app.searchTime = { kind, time, arriveBy };
+  if (app.search) startSearch(app.search.from, app.search.to);
+}
+
+byId("chip-now").addEventListener("click", () => restartWith("now"));
+byId("chip-last").addEventListener("click", () => restartWith("letzte"));
+byId("chip-earlier").addEventListener("click", () => runPlan("earlier"));
+byId("chip-later").addEventListener("click", () => runPlan("later"));
 
 byId("btn-swap").addEventListener("click", () => {
-  if (app.search) startSearch(app.search.to, app.search.from, app.search.offsetMin);
+  if (app.search) startSearch(app.search.to, app.search.from);
 });
 
-byId("filter-select").addEventListener("change", () => {
-  app.filter = byId("filter-select").value;
-  localStorage.setItem("pp.filter", app.filter);
-  if (app.search) startSearch(app.search.from, app.search.to, app.search.offsetMin);
-});
+// Nächstes Betriebsende der Nacht (~03:30) für „Letzte Verbindungen“
+function nextNightEnd() {
+  const d = new Date();
+  d.setHours(3, 30, 0, 0);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  return d;
+}
 
-laterBtn.addEventListener("click", () => runPlan(app.nextPageCursor));
+function itKey(it) {
+  const legs = transitLegs(it);
+  return legs.map(l => `${l.tripId}@${l.from.scheduledDeparture}`).join("|") || it.startTime;
+}
 
-async function runPlan(pageCursor = null) {
-  const { from, to, offsetMin } = app.search;
-  if (!pageCursor) {
-    const msg = `<p class="status">Suche Verbindungen …</p>`;
-    resultsList.innerHTML = msg;
-    byId("timeline").innerHTML = msg;
-    laterBtn.hidden = true;
-  } else {
-    laterBtn.disabled = true;
-    laterBtn.textContent = "Lade …";
+// direction: null = neue Suche, "later" / "earlier" = blättern per Cursor
+async function runPlan(direction = null) {
+  const { from, to } = app.search;
+  const loading = `<p class="status">Suche Verbindungen …</p>`;
+  if (!direction) {
+    resultsList.innerHTML = loading;
+    byId("timeline").innerHTML = loading;
   }
-  const time = new Date(Date.now() + offsetMin * 60000).toISOString();
+  const t = app.searchTime;
+  const baseTime = t.kind === "custom" ? new Date(t.time)
+    : t.kind === "letzte" ? nextNightEnd()
+    : new Date();
   const params = new URLSearchParams({
     fromPlace: from.id,
     toPlace: to.id,
-    time,
+    time: baseTime.toISOString(),
     numItineraries: "6",
     language: "de",
   });
-  if (FILTERS[app.filter]) params.set("transitModes", FILTERS[app.filter]);
-  if (pageCursor) params.set("pageCursor", pageCursor);
+  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
+  if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
+  if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
+
+  const busy = direction === "earlier" ? byId("chip-earlier") : byId("chip-later");
+  if (direction) { busy.disabled = true; }
   try {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     const fresh = data.itineraries || [];
-    app.itins = pageCursor ? app.itins.concat(fresh) : fresh;
-    app.nextPageCursor = data.nextPageCursor || null;
+    const known = new Set(app.itins.map(itKey));
+    const add = fresh.filter(it => !known.has(itKey(it)));
+    if (direction === "earlier") {
+      app.itins = add.concat(app.itins);
+      app.prevPageCursor = data.previousPageCursor || null;
+    } else if (direction === "later") {
+      app.itins = app.itins.concat(add);
+      app.nextPageCursor = data.nextPageCursor || null;
+    } else {
+      app.itins = fresh;
+      app.prevPageCursor = data.previousPageCursor || null;
+      app.nextPageCursor = data.nextPageCursor || null;
+    }
     renderResults();
-    laterBtn.hidden = !app.nextPageCursor;
-    laterBtn.disabled = false;
-    laterBtn.textContent = "Spätere Verbindungen ↓";
+    // „Letzte“: automatisch die Nacht-Verbindungen VOR dem Morgen dazuladen
+    if (!direction && t.kind === "letzte" && app.prevPageCursor) {
+      await runPlan("earlier");
+      return;
+    }
+    // Wenn nach dem Legenden-Filter zu wenig übrig bleibt: automatisch nachladen
+    if (visibleItins().length < 5 && app.nextPageCursor && app.autoLoads < 3 && direction !== "earlier") {
+      app.autoLoads++;
+      await runPlan("later");
+    }
   } catch (e) {
-    if (!pageCursor) {
+    if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
       resultsList.innerHTML = msg;
       byId("timeline").innerHTML = msg;
     }
-    laterBtn.disabled = false;
-    laterBtn.textContent = pageCursor ? "Fehler – nochmal versuchen" : "Spätere Verbindungen ↓";
+  } finally {
+    byId("chip-earlier").disabled = false;
+    byId("chip-later").disabled = false;
+  }
+}
+
+/* --- Datum/Uhrzeit-Dialog --- */
+
+byId("chip-time").addEventListener("click", () => {
+  const d = app.searchTime.kind === "custom" ? new Date(app.searchTime.time) : new Date();
+  byId("time-input").value = localMinuteIso(d.toISOString());
+  byId("time-dialog").showModal();
+});
+
+byId("time-apply").addEventListener("click", () => {
+  const v = byId("time-input").value;
+  if (!v) return;
+  const arriveBy = document.querySelector('input[name="timedir"]:checked').value === "arr";
+  byId("time-dialog").close();
+  restartWith("custom", new Date(v).toISOString(), arriveBy);
+});
+
+/* --- Legende: Kategorien ein-/ausblenden wie bei einer dynamischen Grafik --- */
+
+function visibleItins() {
+  return app.itins.filter(it =>
+    transitLegs(it).every(l => !app.hiddenCats.has(productClass(l.mode))));
+}
+
+function renderLegend() {
+  const present = new Set();
+  for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
+  const el = byId("tl-legend");
+  el.innerHTML = "";
+  for (const c of CATS) {
+    if (!present.has(c) && !app.hiddenCats.has(c)) continue;
+    if (!present.has(c)) continue; // ausgeblendet UND nicht vorhanden → weglassen
+    const b = document.createElement("button");
+    b.className = "tl-key" + (app.hiddenCats.has(c) ? " off" : "");
+    b.innerHTML = `<i class="seg-${c}"></i>${CAT_LABEL[c]}`;
+    b.title = app.hiddenCats.has(c)
+      ? `Verbindungen mit ${CAT_LABEL[c]} wieder einblenden`
+      : `Verbindungen mit ${CAT_LABEL[c]} ausblenden`;
+    b.addEventListener("click", () => {
+      if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
+      else app.hiddenCats.add(c);
+      renderResults();
+    });
+    el.appendChild(b);
   }
 }
 
@@ -367,17 +469,20 @@ function renderResults() {
   const toggle = byId("btn-viewmode");
   toggle.textContent = graph ? "☰" : "▦";
   toggle.title = graph ? "Als Liste anzeigen" : "Als Grafik anzeigen";
-  if (!app.itins.length) {
-    const msg = `<p class="status">Keine Verbindungen gefunden.</p>`;
+  renderLegend();
+  const visible = visibleItins();
+  if (!visible.length) {
+    const msg = app.itins.length
+      ? `<p class="status">Alle geladenen Verbindungen sind über die Legende ausgeblendet – unten wieder einblenden.</p>`
+      : `<p class="status">Keine Verbindungen gefunden.</p>`;
     if (graph) byId("timeline").innerHTML = msg; else resultsList.innerHTML = msg;
-    byId("tl-legend").innerHTML = "";
     return;
   }
   if (graph) {
-    renderTimeline(app.itins);
+    renderTimeline(visible, app.searchTime.kind === "letzte" ? "end" : "start");
   } else {
     resultsList.innerHTML = "";
-    renderItineraries(app.itins);
+    renderItineraries(visible);
   }
 }
 
@@ -502,7 +607,9 @@ function dbLink(fromName, toName, depIso, arrIso) {
 
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
-  const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(slots))));
+  // v2: Buttons UND Einstellungen wandern gemeinsam im Link
+  const payload = { v: 2, slots, show: settings.show };
+  const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
   byId("share-copy").textContent = "Link kopieren";
@@ -527,11 +634,17 @@ function maybeImportConfig() {
   if (!location.hash.startsWith("#cfg=")) return;
   try {
     const imported = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(5)))));
-    if (Array.isArray(imported) && confirm("Buttons übernehmen? Die im Link gespeicherten Bahnhofs-Buttons ersetzen deine aktuellen.")) {
-      slots = imported.slice(0, SLOT_COUNT);
+    // v1 = nur Button-Array, v2 = {v, slots, show}
+    const newSlots = Array.isArray(imported) ? imported : imported.slots;
+    if (Array.isArray(newSlots) && confirm("Buttons übernehmen? Die im Link gespeicherte Konfiguration ersetzt deine aktuelle.")) {
+      slots = newSlots.slice(0, SLOT_COUNT);
       while (slots.length < SLOT_COUNT) slots.push(null);
       saveSlots();
-      alert(`${slots.filter(Boolean).length} Buttons übernommen.`);
+      if (imported.show) {
+        for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
+        saveSettings();
+      }
+      alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
     }
   } catch { alert("Der Übertragungslink ist leider ungültig."); }
   history.replaceState(null, "", location.pathname);
@@ -563,7 +676,22 @@ function escapeHtml(s) {
 /* ---------------- Start ---------------- */
 
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
-byId("filter-select").value = app.filter;
+
+/* --- Einstellungs-Dialog --- */
+
+byId("btn-settings").addEventListener("click", () => {
+  document.querySelectorAll("#settings-cats input").forEach(cb => {
+    cb.checked = settings.show[cb.dataset.cat];
+  });
+  byId("settings-dialog").showModal();
+});
+
+byId("settings-cats").addEventListener("change", (e) => {
+  const cb = e.target.closest("input[data-cat]");
+  if (!cb) return;
+  settings.show[cb.dataset.cat] = cb.checked;
+  saveSettings();
+});
 
 maybeImportConfig();
 renderGrid();

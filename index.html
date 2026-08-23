@@ -17,6 +17,7 @@
 <header class="topbar">
   <img src="icons/icon-192.png" alt="" class="topbar-logo">
   <h1>PendelPanda</h1>
+  <button id="btn-settings" class="iconbtn" aria-label="Einstellungen" title="Einstellungen">⚙</button>
 </header>
 
 <!-- ANSICHT: BUTTON-GRID -->
@@ -53,16 +54,12 @@
     <button id="btn-viewmode" class="iconbtn" title="Listen-/Grafikansicht">☰</button>
     <button id="btn-swap" class="iconbtn" title="Richtung tauschen">⇄</button>
   </div>
-  <select id="filter-select" class="filterselect" aria-label="Verbindungsfilter">
-    <option value="dticket">🎫 Deutschlandticket – nur Nahverkehr</option>
-    <option value="alle">Alle Verbindungen</option>
-    <option value="nobus">Ohne Busverbindungen</option>
-  </select>
   <div class="timechips" id="timechips">
-    <button data-offset="0" class="chip active">Jetzt</button>
-    <button data-offset="5" class="chip">+5 min</button>
-    <button data-offset="10" class="chip">+10 min</button>
-    <button data-offset="20" class="chip">+20 min</button>
+    <button id="chip-earlier" class="chip" title="Frühere Verbindungen laden">◂ Frühere</button>
+    <button id="chip-now" class="chip active">Jetzt</button>
+    <button id="chip-later" class="chip" title="Spätere Verbindungen laden">Spätere ▸</button>
+    <button id="chip-last" class="chip" title="Letzte Verbindungen der Nacht">Letzte</button>
+    <button id="chip-time" class="chip" title="Datum &amp; Uhrzeit wählen">📅</button>
   </div>
   <div id="results-list" class="results-list" aria-live="polite"></div>
   <div id="timeline-wrap" class="timeline-wrap" hidden>
@@ -71,10 +68,36 @@
       <button id="tl-zoom-in" aria-label="Vergrößern">＋</button>
       <button id="tl-zoom-out" aria-label="Verkleinern">－</button>
     </div>
-    <p class="tl-legend" id="tl-legend"></p>
   </div>
-  <button id="btn-later" class="widebtn" hidden>Spätere Verbindungen ↓</button>
+  <p class="tl-legend" id="tl-legend" title="Antippen blendet Verbindungen mit diesem Verkehrsmittel aus oder ein"></p>
 </main>
+
+<!-- ZEITPUNKT WÄHLEN -->
+<dialog id="time-dialog">
+  <h2>Zeitpunkt wählen</h2>
+  <div class="segmented">
+    <label><input type="radio" name="timedir" value="dep" checked> Abfahrt ab</label>
+    <label><input type="radio" name="timedir" value="arr"> Ankunft bis</label>
+  </div>
+  <input type="datetime-local" id="time-input" aria-label="Datum und Uhrzeit">
+  <button id="time-apply" class="widebtn">Verbindungen suchen</button>
+  <form method="dialog"><button class="linklike">Abbrechen</button></form>
+</dialog>
+
+<!-- EINSTELLUNGEN -->
+<dialog id="settings-dialog">
+  <h2>Einstellungen</h2>
+  <p class="hint">Diese Verkehrsmittel standardmäßig anzeigen:</p>
+  <div class="checklist" id="settings-cats">
+    <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernverkehr (ICE, IC, EC)</label>
+    <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
+    <label><input type="checkbox" data-cat="sbahn"> <i class="catdot seg-sbahn"></i> S-Bahn</label>
+    <label><input type="checkbox" data-cat="utram"> <i class="catdot seg-utram"></i> U-Bahn &amp; Tram</label>
+    <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus &amp; Sonstige</label>
+  </div>
+  <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden. Einstellungen und Buttons wandern über „Buttons übertragen“ gemeinsam als Link mit.</p>
+  <form method="dialog"><button class="widebtn">Fertig</button></form>
+</dialog>
 
 <!-- VERBINDUNGSDETAILS (Grafikansicht) -->
 <dialog id="trip-dialog">
@@ -109,6 +132,8 @@
     <li>Oder <strong>wischen</strong>: Finger auf den Start-Button legen und eine Linie zum Ziel-Button ziehen – beim Loslassen startet die Suche.</li>
     <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
     <li><strong>Grafikansicht:</strong> Jede Verbindung ist ein Balken von Abfahrt (oben) bis Ankunft (unten). Scrollen in alle Richtungen; Zoom mit zwei Fingern, Strg+Mausrad oder ＋/−. Tippen auf einen Balken zeigt die Details, ☰/▦ wechselt zwischen Liste und Grafik.</li>
+    <li><strong>Legende = Filter:</strong> Ein Eintrag in der Legende unter den Ergebnissen lässt sich antippen – ausgegraut heißt, Verbindungen mit diesem Verkehrsmittel sind ausgeblendet (nochmal antippen blendet sie wieder ein). Was standardmäßig ausgeblendet ist, legst du im ⚙-Menü fest.</li>
+    <li><strong>Zeitleiste:</strong> „Jetzt“ ist die Standardsicht. „◂ Frühere“ und „Spätere ▸“ laden die vorigen bzw. nächsten Verbindungen dazu, „Letzte“ zeigt die letzten Verbindungen der Nacht (inklusive der ersten am Morgen danach), 📅 öffnet die Datums- und Uhrzeitwahl – wahlweise nach Abfahrt oder Ankunft.</li>
     <li>„Bei der DB öffnen“ führt zur Buchung, Wagenreihung &amp; Co. auf bahn.de.</li>
     <li><strong>„Buttons übertragen“:</strong> erzeugt einen Link mit deiner Belegung. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandern die Buttons mit.</li>
   </ul>
