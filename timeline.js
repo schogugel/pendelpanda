@@ -10,11 +10,11 @@
 const TL = {
   MIN_PPM: 1.5,
   MAX_PPM: 14,
-  COL_W: 128,
-  GAP: 10,
+  COL_W: 100,
+  GAP: 8,
   AXIS_W: 50,
   PAD_MIN: 14,      // Minuten Luft über erster Abfahrt / unter letzter Ankunft
-  HEAD_H: 46,
+  HEAD_H: 58,
 };
 
 const tl = {
@@ -58,6 +58,10 @@ function renderTimeline(itins, focus = "start") {
   tl.t0 = min - TL.PAD_MIN * 60000;
   tl.t1 = max + TL.PAD_MIN * 60000;
 
+  // Neuer Suchlauf: Zoom so wählen, dass die ersten 2–3 Verbindungen komplett
+  // ins Bild passen (Ausreißer gehen nur gedämpft ein)
+  if (!sameSearch) tl.ppm = tlAutoZoom(scroller);
+
   tlBuild(scroller);
 
   if (keepScroll) {
@@ -79,10 +83,11 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollTop = Math.max(0, bar.top - TL.HEAD_H - 50);
     if (bar.head) bar.head.classList.add("tl-focus");
   } else {
-    // Start: erste Verbindung oben links im Blick
+    // Start: erste Verbindung oben links, leicht unter der Kopf-Kachel
     scroller.scrollLeft = 0;
-    scroller.scrollTop = Math.max(0, tl.bars[0].top - TL.HEAD_H - 12);
+    scroller.scrollTop = Math.max(0, tl.bars[0].top - TL.HEAD_H - 10);
   }
+  tl.lastAlignLeft = scroller.scrollLeft;
 }
 
 function tlBuild(scroller) {
@@ -131,6 +136,29 @@ function tlEdgeCheck(sc) {
     tl.lastEdgeLoad = now;
     loadMore("later");
   }
+}
+
+/* Default-Zoom: für k = 2/3/4 komplett sichtbare Verbindungen den idealen
+   Zoom berechnen und mit abnehmenden Gewichten mitteln — ein einzelner
+   Langläufer (Nachtzug) drückt den Zoom so nur gedämpft. */
+function tlAutoZoom(sc) {
+  const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
+  const dep0 = +new Date(transitLegs(tl.itins[0])[0].from.departure);
+  const spanMin = (k) => {
+    let end = 0;
+    for (let i = 0; i < Math.min(k, tl.itins.length); i++) {
+      const legs = transitLegs(tl.itins[i]);
+      end = Math.max(end, +new Date(legs[legs.length - 1].to.arrival));
+    }
+    return (end - dep0) / 60000;
+  };
+  let num = 0, den = 0;
+  for (const [k, w] of [[2, 1], [3, 0.55], [4, 0.3]]) {
+    const s = spanMin(k);
+    if (s > 0) { num += w * (usable / s); den += w; }
+  }
+  const ppm = den ? num / den : 4;
+  return Math.min(TL.MAX_PPM, Math.max(TL.MIN_PPM, ppm));
 }
 
 function tlGrid(h, w) {
@@ -200,8 +228,9 @@ function tlColumn(it, left) {
   const head = document.createElement("button");
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
   head.innerHTML =
-    `<strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}` +
-    `<small>${Math.round(it.duration / 60)} min · ${it.transfers} Umst.</small>`;
+    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}</span>` +
+    `<small>${Math.round(it.duration / 60)} min</small>` +
+    `<small>${it.transfers} Umst.</small>`;
   head.addEventListener("click", () => {
     const sc = byId("timeline");
     const viewTop = sc.scrollTop + TL.HEAD_H, viewBot = sc.scrollTop + sc.clientHeight;
@@ -273,14 +302,40 @@ function tlInitInteractions() {
     tlSetZoom(tl.ppm * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientY);
   }, { passive: false });
 
-  // Pinch-Zoom mit zwei Fingern
+  /* Freies Touch-Panning (kein Achsen-Threshold: diagonal ab dem ersten Pixel)
+     mit eigener Trägheit, plus Pinch-Zoom mit zwei Fingern. */
+  let panLast = null, panVel = { x: 0, y: 0 }, panMoved = 0;
+
+  const stopInertia = () => { if (tl.inertiaRAF) cancelAnimationFrame(tl.inertiaRAF); tl.inertiaRAF = null; };
+
+  function startInertia() {
+    let vx = panVel.x, vy = panVel.y, last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(50, now - last); last = now;
+      const decay = Math.pow(0.94, dt / 16);
+      vx *= decay; vy *= decay;
+      if (Math.abs(vx) < 0.03 && Math.abs(vy) < 0.03) { tl.inertiaRAF = null; return; }
+      sc.scrollLeft -= vx * dt;
+      sc.scrollTop -= vy * dt;
+      tl.inertiaRAF = requestAnimationFrame(step);
+    };
+    tl.inertiaRAF = requestAnimationFrame(step);
+  }
+
   sc.addEventListener("pointerdown", (e) => {
     tl.pointers.set(e.pointerId, e);
+    stopInertia();
     if (tl.pointers.size === 2) {
       const [a, b] = [...tl.pointers.values()];
       tl.pinchBase = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), ppm: tl.ppm };
+      panLast = null;
+    } else if (tl.pointers.size === 1 && e.pointerType === "touch") {
+      panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
+      panMoved = 0; panVel = { x: 0, y: 0 };
+      try { e.target.setPointerCapture(e.pointerId); } catch { /* egal */ }
     }
   });
+
   sc.addEventListener("pointermove", (e) => {
     if (!tl.pointers.has(e.pointerId)) return;
     tl.pointers.set(e.pointerId, e);
@@ -288,38 +343,62 @@ function tlInitInteractions() {
       const [a, b] = [...tl.pointers.values()];
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       if (dist > 20) tlSetZoom(tl.pinchBase.ppm * dist / tl.pinchBase.dist, (a.clientY + b.clientY) / 2);
+      return;
+    }
+    if (panLast && e.pointerType === "touch" && tl.pointers.size === 1) {
+      const dx = e.clientX - panLast.x, dy = e.clientY - panLast.y;
+      const dt = Math.max(1, performance.now() - panLast.t);
+      sc.scrollLeft -= dx;
+      sc.scrollTop -= dy;
+      panVel = { x: dx / dt, y: dy / dt };
+      panMoved += Math.abs(dx) + Math.abs(dy);
+      panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
     }
   });
-  const lift = (e) => { tl.pointers.delete(e.pointerId); if (tl.pointers.size < 2) tl.pinchBase = null; };
+
+  const lift = (e) => {
+    tl.pointers.delete(e.pointerId);
+    if (tl.pointers.size < 2) tl.pinchBase = null;
+    if (e.pointerType === "touch" && tl.pointers.size === 0 && panLast) {
+      if (panMoved > 10) { tl.suppressClick = true; startInertia(); }
+      panLast = null;
+    }
+  };
   sc.addEventListener("pointerup", lift);
   sc.addEventListener("pointercancel", lift);
 
-  // Nie im Leeren landen: Wenn nach dem Scrollen kein Balken im Bild ist,
-  // sanft zum Balken der sichtbaren Spalte nachziehen.
+  // Nach echtem Panning keinen Balken-Tap auslösen
+  sc.addEventListener("click", (e) => {
+    if (tl.suppressClick) { tl.suppressClick = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+
   sc.addEventListener("scroll", () => {
     if (tl.autoScrolling) return;
     tlEdgeCheck(sc);
     clearTimeout(tl.followTimer);
-    tl.followTimer = setTimeout(() => tlFollow(sc), 180);
+    tl.followTimer = setTimeout(() => tlAlign(sc), 260);
   });
 }
 
-function tlFollow(sc) {
-  if (!tl.bars.length || tl.autoScrolling) return;
+/* Sanftes Einrasten: Nach horizontalem Spaltenwechsel gleitet die Ansicht so,
+   dass der Balken der linkesten sichtbaren Spalte leicht unter der Kopf-Kachel
+   beginnt. Reines Hoch-/Runterscrollen bleibt unangetastet – außer gar kein
+   Balken ist mehr im Bild. */
+function tlAlign(sc) {
+  if (!tl.bars.length || tl.autoScrolling || tl.pointers.size || tl.inertiaRAF) return;
   const vx0 = sc.scrollLeft + TL.AXIS_W, vx1 = sc.scrollLeft + sc.clientWidth;
   const vy0 = sc.scrollTop + TL.HEAD_H, vy1 = sc.scrollTop + sc.clientHeight;
   const visible = tl.bars.filter(b => b.colLeft + TL.COL_W > vx0 && b.colLeft < vx1);
   if (!visible.length) return;
-  const inView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
-  if (inView) return;
-  // nächstliegenden Balken der sichtbaren Spalten anfahren
-  const target = visible.reduce((best, b) => {
-    const d = b.top > vy1 ? b.top - vy1 : vy0 - (b.top + b.height);
-    return d < best.d ? { d, b } : best;
-  }, { d: Infinity, b: visible[0] }).b;
-  tl.autoScrolling = true;
-  sc.scrollTo({ top: Math.max(0, target.top - TL.HEAD_H - 12), behavior: "smooth" });
-  setTimeout(() => { tl.autoScrolling = false; }, 600);
+  const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
+  const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
+  const target = Math.max(0, visible[0].top - TL.HEAD_H - 10);
+  if ((horizMoved || !anyInView) && Math.abs(sc.scrollTop - target) > 8) {
+    tl.autoScrolling = true;
+    sc.scrollTo({ top: target, behavior: "smooth" });
+    setTimeout(() => { tl.autoScrolling = false; }, 650);
+  }
+  tl.lastAlignLeft = sc.scrollLeft;
 }
 
 document.addEventListener("DOMContentLoaded", tlInitInteractions);
