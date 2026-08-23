@@ -280,6 +280,20 @@ body {
   text-align: center; font-size: .72rem; color: var(--muted);
   font-variant-numeric: tabular-nums; pointer-events: none;
 }
+/* Nachlade-Anzeige am Rand + Fokus der „letzten anständigen“ Verbindung */
+.tl-edgeload {
+  position: absolute; top: 50%; left: 10px; transform: translateY(-50%);
+  background: var(--accent); color: #fff; font-size: .78rem; font-weight: 600;
+  padding: .35rem .7rem; border-radius: 999px; z-index: 5; box-shadow: var(--shadow);
+}
+.tl-edgeload-r { left: auto; right: 10px; }
+.tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
+.loadbtn {
+  width: 100%; margin: .2rem 0 .6rem; padding: .55rem; font: inherit; font-size: .9rem;
+  border: 1.5px dashed var(--border); border-radius: 10px;
+  background: none; color: var(--accent); cursor: pointer;
+}
+
 .tl-zoomctl { position: absolute; right: 10px; bottom: 44px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
 .tl-zoomctl button {
   width: 40px; height: 40px; border-radius: 50%;

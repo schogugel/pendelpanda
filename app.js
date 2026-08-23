@@ -311,6 +311,7 @@ function startSearch(from, to) {
   app.itins = [];
   app.hiddenCats = defaultHiddenCats();
   app.autoLoads = 0;
+  app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
   updateChips();
   navigate("results");
@@ -330,8 +331,27 @@ function restartWith(kind, time = null, arriveBy = false) {
 
 byId("chip-now").addEventListener("click", () => restartWith("now"));
 byId("chip-last").addEventListener("click", () => restartWith("letzte"));
-byId("chip-earlier").addEventListener("click", () => runPlan("earlier"));
-byId("chip-later").addEventListener("click", () => runPlan("later"));
+
+// Nachladen: in der Grafik durch Scrollen an den Rand, in der Liste per Button.
+// Ein Batch = genau eine API-Anfrage (numItineraries Verbindungen pro Cursor-Seite).
+async function loadMore(direction) {
+  if (app.paging || !app.search) return;
+  const cursor = direction === "earlier" ? app.prevPageCursor : app.nextPageCursor;
+  if (!cursor) return;
+  app.paging = true;
+  const edge = byId(direction === "earlier" ? "tl-load-left" : "tl-load-right");
+  const btn = byId(direction === "earlier" ? "list-earlier" : "list-later");
+  edge.hidden = false;
+  btn.disabled = true;
+  try { await runPlan(direction); }
+  finally {
+    app.paging = false;
+    edge.hidden = true;
+    btn.disabled = false;
+  }
+}
+byId("list-earlier").addEventListener("click", () => loadMore("earlier"));
+byId("list-later").addEventListener("click", () => loadMore("later"));
 
 byId("btn-swap").addEventListener("click", () => {
   if (app.search) startSearch(app.search.to, app.search.from);
@@ -366,15 +386,13 @@ async function runPlan(direction = null) {
     fromPlace: from.id,
     toPlace: to.id,
     time: baseTime.toISOString(),
-    numItineraries: "6",
+    numItineraries: "8",
     language: "de",
   });
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
-  const busy = direction === "earlier" ? byId("chip-earlier") : byId("chip-later");
-  if (direction) { busy.disabled = true; }
   try {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -393,12 +411,12 @@ async function runPlan(direction = null) {
       app.prevPageCursor = data.previousPageCursor || null;
       app.nextPageCursor = data.nextPageCursor || null;
     }
-    renderResults();
-    // „Letzte“: automatisch die Nacht-Verbindungen VOR dem Morgen dazuladen
+    // „Letzte“: erst die Nacht-Verbindungen VOR dem Morgen dazuladen, dann rendern
     if (!direction && t.kind === "letzte" && app.prevPageCursor) {
       await runPlan("earlier");
       return;
     }
+    renderResults();
     // Wenn nach dem Legenden-Filter zu wenig übrig bleibt: automatisch nachladen
     if (visibleItins().length < 5 && app.nextPageCursor && app.autoLoads < 3 && direction !== "earlier") {
       app.autoLoads++;
@@ -410,10 +428,47 @@ async function runPlan(direction = null) {
       resultsList.innerHTML = msg;
       byId("timeline").innerHTML = msg;
     }
-  } finally {
-    byId("chip-earlier").disabled = false;
-    byId("chip-later").disabled = false;
   }
+}
+
+/* --- „Letzte anständige Verbindung“ ---
+   1) Nachtflaute erkennen: Median-Takt der Abfahrten; der letzte Abstand
+      >= max(90 min, 2,5 × Takt) ist die Betriebspause.
+   2) Anständig = kein Stranden: längste Umstiegs-Wartezeit <= 45 min
+      (Gesamtdauer ist bewusst KEIN Kriterium – durchfahrende Nachtzüge sind ok).
+   Gefiltert wird nichts; die Verbindung wird nur fokussiert. */
+function findLastDecent(itins, anchorMs) {
+  const list = itins.map(it => {
+    const legs = transitLegs(it);
+    let maxGap = 0;
+    for (let i = 1; i < legs.length; i++) {
+      maxGap = Math.max(maxGap, +new Date(legs[i].from.departure) - +new Date(legs[i - 1].to.arrival));
+    }
+    return { key: itKey(it), dep: +new Date(legs[0].from.departure), maxGap };
+  }).sort((a, b) => a.dep - b.dep);
+  if (!list.length) return null;
+  if (list.length < 3) return list[list.length - 1].key;
+
+  const deltas = list.slice(1).map((c, i) => c.dep - list[i].dep);
+  const sorted = [...deltas].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const gapThresh = Math.max(90 * 60000, 2.5 * median);
+  let gapIdx = -1;
+  deltas.forEach((d, i) => { if (d >= gapThresh) gapIdx = i; });
+
+  // Keine Flaute gefunden (Strecke fährt durch): letzte Verbindung vor dem
+  // Morgen-Anker nehmen statt willkürlich der letzten geladenen
+  let beforeGap;
+  if (gapIdx >= 0) beforeGap = list.slice(0, gapIdx + 1);
+  else {
+    beforeGap = anchorMs ? list.filter(c => c.dep < anchorMs) : list;
+    if (!beforeGap.length) beforeGap = list;
+  }
+  const DECENT_WAIT = 45 * 60000;
+  for (let i = beforeGap.length - 1; i >= 0; i--) {
+    if (beforeGap[i].maxGap <= DECENT_WAIT) return beforeGap[i].key;
+  }
+  return beforeGap[beforeGap.length - 1].key;
 }
 
 /* --- Datum/Uhrzeit-Dialog --- */
@@ -471,6 +526,8 @@ function renderResults() {
   toggle.title = graph ? "Als Liste anzeigen" : "Als Grafik anzeigen";
   renderLegend();
   const visible = visibleItins();
+  byId("list-earlier").hidden = graph || !visible.length || !app.prevPageCursor;
+  byId("list-later").hidden = graph || !visible.length || !app.nextPageCursor;
   if (!visible.length) {
     const msg = app.itins.length
       ? `<p class="status">Alle geladenen Verbindungen sind über die Legende ausgeblendet – unten wieder einblenden.</p>`
@@ -479,7 +536,8 @@ function renderResults() {
     return;
   }
   if (graph) {
-    renderTimeline(visible, app.searchTime.kind === "letzte" ? "end" : "start");
+    const focus = app.searchTime.kind === "letzte" ? (findLastDecent(visible, +nextNightEnd()) || "end") : "start";
+    renderTimeline(visible, focus);
   } else {
     resultsList.innerHTML = "";
     renderItineraries(visible);

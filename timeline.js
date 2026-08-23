@@ -41,7 +41,9 @@ function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
   const prevT0 = tl.t0;
   const prevFirstKey = tl.itins.length ? itKey(tl.itins[0]) : null;
-  const keepScroll = tl.itins.length && itins.length > tl.itins.length;
+  const sameSearch = tl.searchTag === app.searchTag;
+  tl.searchTag = app.searchTag;
+  const keepScroll = sameSearch && tl.itins.length && itins.length > tl.itins.length;
   const prev = { left: scroller.scrollLeft, top: scroller.scrollTop };
 
   tl.itins = itins.filter(it => transitLegs(it).length);
@@ -64,10 +66,18 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollLeft = prev.left + shift * (TL.COL_W + TL.GAP);
     scroller.scrollTop = prev.top + tlY(prevT0);
   } else if (focus === "end") {
-    // „Letzte Verbindungen“: ans Ende der Nacht scrollen
+    // ans Ende scrollen
     const last = tl.bars[tl.bars.length - 1];
     scroller.scrollLeft = scroller.scrollWidth;
     scroller.scrollTop = Math.max(0, last.top + last.height - scroller.clientHeight + 40);
+  } else if (focus !== "start") {
+    // eine bestimmte Verbindung fokussieren (z. B. letzte anständige der Nacht),
+    // mit Kontext davor und danach im Bild
+    const idx = tl.itins.findIndex(it => itKey(it) === focus);
+    const bar = idx >= 0 ? tl.bars[idx] : tl.bars[tl.bars.length - 1];
+    scroller.scrollLeft = Math.max(0, bar.colLeft - TL.AXIS_W - (scroller.clientWidth - TL.AXIS_W) * 0.3);
+    scroller.scrollTop = Math.max(0, bar.top - TL.HEAD_H - 50);
+    if (bar.head) bar.head.classList.add("tl-focus");
   } else {
     // Start: erste Verbindung oben links im Blick
     scroller.scrollLeft = 0;
@@ -96,6 +106,31 @@ function tlBuild(scroller) {
 
   scroller.innerHTML = "";
   scroller.appendChild(canvas);
+  // Rand-Nachladen erst scharf schalten, wenn der Nutzer den Rand verlassen hat
+  tl.armedLeft = false;
+  tl.armedRight = false;
+}
+
+/* Am Rand angekommen → nächsten Batch in diese Richtung laden.
+   Scharf geschaltet wird eine Seite erst, sobald man NICHT am Rand ist —
+   die Startposition am linken Rand löst also nichts aus. */
+function tlEdgeCheck(sc) {
+  if (sc.scrollWidth <= sc.clientWidth + 4) return;
+  const atLeft = sc.scrollLeft <= 2;
+  const atRight = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;
+  if (!atLeft) tl.armedLeft = true;
+  if (!atRight) tl.armedRight = true;
+  const now = Date.now();
+  if (now - (tl.lastEdgeLoad || 0) < 1500 || typeof loadMore !== "function") return;
+  if (atLeft && tl.armedLeft) {
+    tl.armedLeft = false;
+    tl.lastEdgeLoad = now;
+    loadMore("earlier");
+  } else if (atRight && tl.armedRight) {
+    tl.armedRight = false;
+    tl.lastEdgeLoad = now;
+    loadMore("later");
+  }
 }
 
 function tlGrid(h, w) {
@@ -206,7 +241,7 @@ function tlColumn(it, left) {
   col.appendChild(bar);
   col.appendChild(t1lbl);
 
-  tl.bars.push({ colLeft: left, top, height, itin: it });
+  tl.bars.push({ colLeft: left, top, height, itin: it, head });
   return col;
 }
 
@@ -263,6 +298,7 @@ function tlInitInteractions() {
   // sanft zum Balken der sichtbaren Spalte nachziehen.
   sc.addEventListener("scroll", () => {
     if (tl.autoScrolling) return;
+    tlEdgeCheck(sc);
     clearTimeout(tl.followTimer);
     tl.followTimer = setTimeout(() => tlFollow(sc), 180);
   });

@@ -55,19 +55,21 @@
     <button id="btn-swap" class="iconbtn" title="Richtung tauschen">⇄</button>
   </div>
   <div class="timechips" id="timechips">
-    <button id="chip-earlier" class="chip" title="Frühere Verbindungen laden">◂ Frühere</button>
     <button id="chip-now" class="chip active">Jetzt</button>
-    <button id="chip-later" class="chip" title="Spätere Verbindungen laden">Spätere ▸</button>
     <button id="chip-last" class="chip" title="Letzte Verbindungen der Nacht">Letzte</button>
     <button id="chip-time" class="chip" title="Datum &amp; Uhrzeit wählen">📅</button>
   </div>
+  <button id="list-earlier" class="loadbtn" hidden>◂ Frühere anzeigen</button>
   <div id="results-list" class="results-list" aria-live="polite"></div>
+  <button id="list-later" class="loadbtn" hidden>Spätere anzeigen ▸</button>
   <div id="timeline-wrap" class="timeline-wrap" hidden>
     <div id="timeline" class="timeline" aria-label="Grafischer Fahrplan"></div>
     <div class="tl-zoomctl">
       <button id="tl-zoom-in" aria-label="Vergrößern">＋</button>
       <button id="tl-zoom-out" aria-label="Verkleinern">－</button>
     </div>
+    <div id="tl-load-left" class="tl-edgeload" hidden>◂ lädt frühere …</div>
+    <div id="tl-load-right" class="tl-edgeload tl-edgeload-r" hidden>lädt spätere … ▸</div>
   </div>
   <p class="tl-legend" id="tl-legend" title="Antippen blendet Verbindungen mit diesem Verkehrsmittel aus oder ein"></p>
 </main>
@@ -133,7 +135,7 @@
     <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
     <li><strong>Grafikansicht:</strong> Jede Verbindung ist ein Balken von Abfahrt (oben) bis Ankunft (unten). Scrollen in alle Richtungen; Zoom mit zwei Fingern, Strg+Mausrad oder ＋/−. Tippen auf einen Balken zeigt die Details, ☰/▦ wechselt zwischen Liste und Grafik.</li>
     <li><strong>Legende = Filter:</strong> Ein Eintrag in der Legende unter den Ergebnissen lässt sich antippen – ausgegraut heißt, Verbindungen mit diesem Verkehrsmittel sind ausgeblendet (nochmal antippen blendet sie wieder ein). Was standardmäßig ausgeblendet ist, legst du im ⚙-Menü fest.</li>
-    <li><strong>Zeitleiste:</strong> „Jetzt“ ist die Standardsicht. „◂ Frühere“ und „Spätere ▸“ laden die vorigen bzw. nächsten Verbindungen dazu, „Letzte“ zeigt die letzten Verbindungen der Nacht (inklusive der ersten am Morgen danach), 📅 öffnet die Datums- und Uhrzeitwahl – wahlweise nach Abfahrt oder Ankunft.</li>
+    <li><strong>Zeitleiste:</strong> „Jetzt“ ist die Standardsicht. In der Grafik einfach an den linken oder rechten Rand scrollen – frühere bzw. spätere Verbindungen werden automatisch nachgeladen (in der Liste über die Knöpfe oben/unten). „Letzte“ springt zur letzten Verbindung der Nacht, bei der man unterwegs nicht strandet – markiert, mit den Verbindungen davor und dem ersten Morgen-Zug daneben. 📅 öffnet die Datums- und Uhrzeitwahl – wahlweise nach Abfahrt oder Ankunft.</li>
     <li>„Bei der DB öffnen“ führt zur Buchung, Wagenreihung &amp; Co. auf bahn.de.</li>
     <li><strong>„Buttons übertragen“:</strong> erzeugt einen Link mit deiner Belegung. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandern die Buttons mit.</li>
   </ul>

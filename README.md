@@ -27,9 +27,15 @@ python3 -m http.server 8080
 - Tap auf „+“: Bahnhof suchen (Live-Suche) und auf dem Button speichern.
 - „✎ Bearbeiten“ (oder Long-Press auf einen Button): Station ändern oder Button leeren.
 - Tap Start-Button, dann Tap Ziel-Button: Verbindungen ab jetzt.
-- **Zeitleiste:** „Jetzt“ (Default) · „◂ Frühere“/„Spätere ▸“ blättern verbindungsweise ·
-  „Letzte“ zeigt die letzten Verbindungen der Nacht (plus die ersten des Morgens danach) ·
+- **Zeitleiste:** „Jetzt“ (Default) · in der Grafik lädt Scrollen an den linken/rechten Rand
+  automatisch frühere/spätere Verbindungen nach (ein Batch = eine API-Anfrage; in der Liste
+  per Knopf) · „Letzte“ fokussiert die letzte „anständige“ Verbindung der Nacht ·
   📅 öffnet die Datum/Uhrzeit-Wahl mit Abfahrt-/Ankunft-Umschalter.
+- **„Letzte anständige Verbindung“-Regel:** Die Nachtflaute wird ohne feste Uhrzeit erkannt
+  (letzter Abfahrts-Abstand ≥ max(90 min, 2,5 × Median-Takt der geladenen Verbindungen));
+  „anständig“ heißt: längste Umstiegs-Wartezeit ≤ 45 min (Gesamtdauer ist kein Kriterium,
+  durchfahrende Nachtzüge zählen als anständig). Es wird nichts gefiltert – die Verbindung
+  wird nur fokussiert und markiert, mit Kontext davor/danach.
 - **Legende = Filter:** Legendeneinträge unter den Ergebnissen sind antippbar; ausgegraut =
   Verbindungen, die dieses Verkehrsmittel enthalten, sind ausgeblendet. Die Standardauswahl
   kommt aus den Einstellungen (⚙, Default: Deutschlandticket-Sicht ohne Fernverkehr).
