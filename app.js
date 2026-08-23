@@ -860,12 +860,11 @@ function maybeImportConfig() {
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
-// Fahrdauer als Stunden+Minuten (unter einer Stunde nur Minuten)
+// Fahrdauer kompakt: unter einer Stunde „42 min“, sonst „1:40 h“
 function fmtDur(seconds) {
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60), rest = m % 60;
-  return rest ? `${h} h ${rest} min` : `${h} h`;
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")} h`;
 }
 function diffMin(scheduledIso, actualIso) {
   if (!scheduledIso || !actualIso) return 0;
