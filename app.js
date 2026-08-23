@@ -477,6 +477,10 @@ async function runPlan(direction = null, limit = 8) {
       app.prevPageCursor = data.previousPageCursor || null;
       app.nextPageCursor = data.nextPageCursor || null;
     }
+    // Spalten immer chronologisch nach Abfahrt (API-Reihenfolge ist teils
+    // ein Qualitäts-Ranking und würde die Kaskade der Grafik brechen)
+    const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(tls[0].from.departure) : Infinity; };
+    app.itins.sort((a, b) => depOf(a) - depOf(b));
     // „Letzte“: erst die Nacht-Verbindungen VOR dem Morgen dazuladen, dann rendern
     if (!direction && t.kind === "letzte" && app.prevPageCursor) {
       await runPlan("earlier");
@@ -722,7 +726,7 @@ function renderItineraries(itineraries) {
       <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
       <span class="trip-meta">
         <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${durMin} min · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}</span>
+        <span class="trip-sub">${durMin} min · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-label">⚠ Umstieg</span>` : ""}</span>
       </span>
       ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
 
@@ -747,6 +751,9 @@ function fillDetails(container, it) {
       const w = document.createElement("p");
       w.className = "walkleg";
       w.textContent = `🚶 ${Math.round(l.duration / 60)} min Fußweg`;
+      if (legCancelled(l)) {
+        w.innerHTML += ` · <span class="warn-label">⚠ Meldung am Umstiegshalt – Anschluss vor Ort prüfen</span>`;
+      }
       container.appendChild(w);
       continue;
     }

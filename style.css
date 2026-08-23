@@ -341,6 +341,11 @@ body {
 }
 .tl-edgeload-r { left: auto; right: 10px; }
 .tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
+.warn-label { color: var(--warn); font-weight: 700; }
+/* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut */
+.tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; }
+.tl-col.dominated .tl-head { opacity: .6; }
+.tl-col.dominated .tl-arr { opacity: .5; }
 .loadbtn {
   width: 100%; margin: .2rem 0 .6rem; padding: .55rem; font: inherit; font-size: .9rem;
   border: 1.5px dashed var(--border); border-radius: 10px;

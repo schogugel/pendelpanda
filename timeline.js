@@ -36,22 +36,16 @@ function legCancelled(l) {
     (l.intermediateStops || []).some(s => s.cancelled));
 }
 
-/* Welche VERKEHRSMITTEL-Abschnitte einer Verbindung sind vom Ausfall betroffen?
-   Wichtig: Die Daten hängen das Flag teils an den Umsteige-FUSSWEG statt ans
-   Verkehrsmittel — dann gilt der Anschluss dahinter als betroffen (sonst der
-   Abschnitt davor). */
+/* Nur echte VERKEHRSMITTEL-Flags zählen als Ausfall. Flags auf Umsteige-
+   Fußwegen sind erfahrungsgemäß Echtzeitdaten-Artefakte am Umstiegshalt
+   (die Direktsuche zeigt dieselben Anschlüsse als fahrend) — sie werden
+   als „Umstieg prüfen“-Hinweis behandelt, nicht als Ausfall. */
 function cancelledTransitLegs(it) {
-  const legs = it.legs;
-  const flagged = new Set();
-  legs.forEach((l, i) => {
-    if (!legCancelled(l)) return;
-    if (l.mode !== "WALK") { flagged.add(l); return; }
-    let target = null;
-    for (let j = i + 1; j < legs.length && !target; j++) if (legs[j].mode !== "WALK") target = legs[j];
-    for (let j = i - 1; j >= 0 && !target; j--) if (legs[j].mode !== "WALK") target = legs[j];
-    if (target) flagged.add(target);
-  });
-  return flagged;
+  return new Set(it.legs.filter(l => l.mode !== "WALK" && legCancelled(l)));
+}
+
+function transferWarning(it) {
+  return it.legs.some(l => l.mode === "WALK" && legCancelled(l));
 }
 
 function productClass(mode) {
@@ -211,9 +205,18 @@ function tlBuild(scroller) {
   canvas.appendChild(tlAxis(heightPx));
   tlNowLine(canvas, widthPx);
 
+  // Dominierte Verbindungen (fahren früher los, kommen nicht früher an als
+  // eine später startende) werden ausgegraut dargestellt
+  const times = tl.itins.map(it => {
+    const legs = transitLegs(it);
+    return { dep: +new Date(legs[0].from.departure), arr: +new Date(legs[legs.length - 1].to.arrival) };
+  });
+  const dominated = times.map((a, i) => times.some((b, j) =>
+    j !== i && b.dep >= a.dep && b.arr <= a.arr && (b.dep > a.dep || b.arr < a.arr)));
+
   tl.itins.forEach((it, i) => {
     const left = TL.AXIS_W + TL.GAP + i * (tl.colW + TL.GAP);
-    canvas.appendChild(tlColumn(it, left));
+    canvas.appendChild(tlColumn(it, left, dominated[i]));
   });
 
   scroller.innerHTML = "";
@@ -319,17 +322,18 @@ function tlNowLine(canvas, w) {
   canvas.appendChild(line);
 }
 
-function tlColumn(it, left) {
+function tlColumn(it, left, isDominated = false) {
   const legs = transitLegs(it);
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
   const flagged = cancelledTransitLegs(it);
   const cancelled = flagged.size > 0;
+  const warn = !cancelled && transferWarning(it);
   const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
   const top = tlY(+new Date(dep.departure));
   const height = Math.max(10, tlY(+new Date(arr.arrival)) - top);
 
   const col = document.createElement("div");
-  col.className = "tl-col";
+  col.className = "tl-col" + (isDominated ? " dominated" : "");
   col.style.left = left + "px";
   col.style.width = tl.colW + "px";
 
@@ -339,7 +343,8 @@ function tlColumn(it, left) {
   head.innerHTML =
     `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}</span>` +
     `<small>${Math.round(it.duration / 60)} min</small>` +
-    `<small>${it.transfers} Umst.</small>`;
+    `<small>${it.transfers} Umst.</small>` +
+    (warn ? `<small class="warn-label">⚠ Umstieg prüfen</small>` : "");
   head.addEventListener("click", () => {
     const sc = byId("timeline");
     const viewTop = sc.scrollTop + tlHeadClear(), viewBot = sc.scrollTop + sc.clientHeight;
