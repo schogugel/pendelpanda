@@ -80,14 +80,25 @@ function renderTimeline(itins, focus = "start") {
     const idx = tl.itins.findIndex(it => itKey(it) === focus);
     const bar = idx >= 0 ? tl.bars[idx] : tl.bars[tl.bars.length - 1];
     scroller.scrollLeft = Math.max(0, bar.colLeft - TL.AXIS_W - (scroller.clientWidth - TL.AXIS_W) * 0.3);
-    scroller.scrollTop = Math.max(0, bar.top - TL.HEAD_H - 50);
+    scroller.scrollTop = Math.max(0, bar.top - tlHeadClear() - 30);
     if (bar.head) bar.head.classList.add("tl-focus");
   } else {
-    // Start: erste Verbindung oben links, leicht unter der Kopf-Kachel
+    // Start: im „Jetzt“-Modus richtet die rote Jetzt-Linie die Ansicht aus
+    // (leicht unter der Kopf-Kachel), sonst der erste Balken
     scroller.scrollLeft = 0;
-    scroller.scrollTop = Math.max(0, tl.bars[0].top - TL.HEAD_H - 10);
+    const now = Date.now();
+    const anchor = (app.searchTime.kind === "now" && now >= tl.t0 && now <= tl.t1)
+      ? tlY(now)
+      : tl.bars[0].top;
+    scroller.scrollTop = Math.max(0, anchor - tlHeadClear());
   }
   tl.lastAlignLeft = scroller.scrollLeft;
+}
+
+// Tatsächlicher Platzbedarf der sticky Kopf-Kachel (gemessen, nicht geschätzt)
+function tlHeadClear() {
+  const h = tl.bars[0]?.head?.offsetHeight || TL.HEAD_H;
+  return h + 6 + 10; // sticky-Offset + Luft
 }
 
 function tlBuild(scroller) {
@@ -233,10 +244,10 @@ function tlColumn(it, left) {
     `<small>${it.transfers} Umst.</small>`;
   head.addEventListener("click", () => {
     const sc = byId("timeline");
-    const viewTop = sc.scrollTop + TL.HEAD_H, viewBot = sc.scrollTop + sc.clientHeight;
-    if (top < viewTop || top > viewBot - 40) {
+    const viewTop = sc.scrollTop + tlHeadClear(), viewBot = sc.scrollTop + sc.clientHeight;
+    if (top < viewTop - 10 || top > viewBot - 40) {
       tl.autoScrolling = true;
-      sc.scrollTo({ top: Math.max(0, top - TL.HEAD_H - 12), behavior: "smooth" });
+      sc.scrollTo({ top: Math.max(0, top - tlHeadClear()), behavior: "smooth" });
       setTimeout(() => { tl.autoScrolling = false; }, 500);
     } else {
       openTripDialog(it);
@@ -392,7 +403,7 @@ function tlAlign(sc) {
   if (!visible.length) return;
   const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
-  const target = Math.max(0, visible[0].top - TL.HEAD_H - 10);
+  const target = Math.max(0, visible[0].top - tlHeadClear());
   if ((horizMoved || !anyInView) && Math.abs(sc.scrollTop - target) > 8) {
     tl.autoScrolling = true;
     sc.scrollTo({ top: target, behavior: "smooth" });
