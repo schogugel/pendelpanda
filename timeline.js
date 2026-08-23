@@ -391,25 +391,39 @@ function tlInitInteractions() {
   });
 }
 
-/* Sanftes Einrasten: Nach horizontalem Spaltenwechsel gleitet die Ansicht so,
-   dass der Balken der linkesten sichtbaren Spalte leicht unter der Kopf-Kachel
-   beginnt. Reines Hoch-/Runterscrollen bleibt unangetastet – außer gar kein
-   Balken ist mehr im Bild. */
+/* Sanftes Einrasten nach dem Scrollen:
+   - horizontal: auf die nächste Spaltengrenze (mehr als die halbe Spalte
+     sichtbar → voll einblenden, sonst rausschieben), keine abgeschnittenen
+     Spalten am linken Rand
+   - vertikal: nach Spaltenwechsel gleitet die Ansicht, bis der linkeste
+     sichtbare Balken leicht unter der Kopf-Kachel beginnt; reines
+     Hoch-/Runterscrollen bleibt unangetastet, außer kein Balken ist im Bild */
 function tlAlign(sc) {
   if (!tl.bars.length || tl.autoScrolling || tl.pointers.size || tl.inertiaRAF) return;
-  const vx0 = sc.scrollLeft + TL.AXIS_W, vx1 = sc.scrollLeft + sc.clientWidth;
-  const vy0 = sc.scrollTop + TL.HEAD_H, vy1 = sc.scrollTop + sc.clientHeight;
+  const step = TL.COL_W + TL.GAP;
+  const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
+  const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+  const needH = Math.abs(sc.scrollLeft - targetLeft) > 2;
+
+  const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
+  const vy0 = sc.scrollTop + tlHeadClear(), vy1 = sc.scrollTop + sc.clientHeight;
   const visible = tl.bars.filter(b => b.colLeft + TL.COL_W > vx0 && b.colLeft < vx1);
-  if (!visible.length) return;
+  if (!visible.length) { tl.lastAlignLeft = targetLeft; return; }
   const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
-  const target = Math.max(0, visible[0].top - tlHeadClear());
-  if ((horizMoved || !anyInView) && Math.abs(sc.scrollTop - target) > 8) {
+  const targetTop = Math.max(0, visible[0].top - tlHeadClear());
+  const needV = (horizMoved || !anyInView) && Math.abs(sc.scrollTop - targetTop) > 8;
+
+  if (needH || needV) {
     tl.autoScrolling = true;
-    sc.scrollTo({ top: target, behavior: "smooth" });
+    sc.scrollTo({
+      left: needH ? targetLeft : sc.scrollLeft,
+      top: needV ? targetTop : sc.scrollTop,
+      behavior: "smooth",
+    });
     setTimeout(() => { tl.autoScrolling = false; }, 650);
   }
-  tl.lastAlignLeft = sc.scrollLeft;
+  tl.lastAlignLeft = needH ? targetLeft : sc.scrollLeft;
 }
 
 document.addEventListener("DOMContentLoaded", tlInitInteractions);
