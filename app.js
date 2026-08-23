@@ -375,12 +375,14 @@ const resultsList = byId("results-list");
 function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
+  app.probeItins = [];
   app.autoLoads = 0;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
   updateChips();
   navigate("results");
   runPlan();
+  probeHidden(); // läuft parallel, füttert nur die Legende
 }
 
 function updateChips() {
@@ -608,9 +610,44 @@ function maybeAutoFill() {
   if (!app.paging) ensureFilled();
 }
 
+/* Sondierung für die Legende: kleine Parallel-Anfrage (3 Ergebnisse) nur mit
+   den AUSGEBLENDETEN Kategorien. Gibt es dort Verbindungen im Zeitfenster,
+   erscheint der ausgegraute Legenden-Chip zum Wieder-Einblenden — die
+   Verbindungen selbst bleiben ausgeblendet, bis man ihn antippt. */
+async function probeHidden() {
+  if (!app.hiddenCats.size || !app.search) return;
+  const myTag = app.searchTag;
+  const hiddenModes = CATS.filter(c => app.hiddenCats.has(c)).map(c => CAT_MODES[c]).join(",");
+  const t = app.searchTime;
+  const baseTime = t.kind === "custom" ? new Date(t.time)
+    : t.kind === "letzte" ? nextNightEnd()
+    : new Date();
+  const params = new URLSearchParams({
+    fromPlace: app.search.from.id,
+    toPlace: app.search.to.id,
+    time: baseTime.toISOString(),
+    numItineraries: "3",
+    transitModes: hiddenModes,
+    language: "de",
+  });
+  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
+  try {
+    const res = await fetch(`${API}/plan?${params}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (myTag !== app.searchTag) return; // Suche hat inzwischen gewechselt
+    // separat halten (nicht in app.itins), damit die parallele Hauptantwort
+    // nichts überschreibt — fließt nur in die Legenden-Anzeige ein
+    app.probeItins = (data.itineraries || []).filter(it => transitLegs(it).length);
+    if (app.probeItins.length) renderLegend();
+  } catch { /* Sondierung ist optional */ }
+}
+
 function renderLegend() {
   const present = new Set();
-  for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
+  for (const it of app.itins.concat(app.probeItins || [])) {
+    for (const l of transitLegs(it)) present.add(productClass(l.mode));
+  }
   const el = byId("tl-legend");
   el.innerHTML = "";
   for (const c of CATS) {
