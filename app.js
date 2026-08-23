@@ -376,6 +376,7 @@ function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
   app.autoLoads = 0;
+  app.filteredFillDone = false;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
   updateChips();
@@ -488,12 +489,7 @@ async function runPlan(direction = null, limit = 8) {
       return;
     }
     renderResults();
-    // Wenn nach dem Legenden-Filter weniger Treffer übrig sind als Spalten
-    // angezeigt werden: automatisch (gefiltert zählend) nachladen
-    if (visibleItins().length < neededVisible() && app.nextPageCursor && app.autoLoads < 4) {
-      app.autoLoads++;
-      await runPlan("later");
-    }
+    await ensureFilled();
   } catch (e) {
     if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
@@ -572,11 +568,64 @@ function neededVisible() {
   return app.viewMode === "graph" ? Math.min(5, Math.max(3, settings.cols || 3)) : 5;
 }
 
-function maybeAutoFill() {
-  if (visibleItins().length < neededVisible() && app.nextPageCursor && app.autoLoads < 4 && !app.paging) {
+// transitModes-Gruppen je Kategorie (für gezielt gefilterte Zusatzanfragen)
+const CAT_MODES = {
+  fern: "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL",
+  regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL,RAIL",
+  sbahn: "SUBURBAN,METRO",
+  utram: "SUBWAY,TRAM",
+  bus: "BUS,COACH,FERRY,ODM",
+};
+
+/* Sind nach dem Filtern weniger Treffer da als Spalten angezeigt werden,
+   wird nachgeladen: erst normal über den Cursor (gefiltert zählend), und
+   wenn das nicht reicht, EINE gezielte Anfrage, die serverseitig nur die
+   erlaubten Verkehrsmittel routet — die liefert garantiert Passendes. */
+async function ensureFilled() {
+  if (visibleItins().length >= neededVisible()) return;
+  if (app.nextPageCursor && app.autoLoads < 3) {
     app.autoLoads++;
-    loadMore("later");
+    await runPlan("later");
+    return;
   }
+  if (app.hiddenCats.size && !app.filteredFillDone) {
+    app.filteredFillDone = true;
+    await fetchFilteredFill();
+  }
+}
+
+function maybeAutoFill() {
+  if (!app.paging) ensureFilled();
+}
+
+async function fetchFilteredFill() {
+  const enabled = CATS.filter(c => !app.hiddenCats.has(c)).map(c => CAT_MODES[c]).join(",");
+  if (!enabled || !app.search) return;
+  const t = app.searchTime;
+  const baseTime = t.kind === "custom" ? new Date(t.time)
+    : t.kind === "letzte" ? nextNightEnd()
+    : new Date();
+  const params = new URLSearchParams({
+    fromPlace: app.search.from.id,
+    toPlace: app.search.to.id,
+    time: baseTime.toISOString(),
+    numItineraries: "8",
+    transitModes: enabled,
+    language: "de",
+  });
+  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
+  try {
+    const res = await fetch(`${API}/plan?${params}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const known = new Set(app.itins.map(itKey));
+    const add = (data.itineraries || []).filter(it => transitLegs(it).length && !known.has(itKey(it)));
+    if (!add.length) return;
+    // chronologisch einsortieren; die Cursor der ungefilterten Suche bleiben unberührt
+    app.itins = app.itins.concat(add).sort((a, b) =>
+      +new Date(transitLegs(a)[0].from.departure) - +new Date(transitLegs(b)[0].from.departure));
+    renderResults();
+  } catch { /* Zusatzanfrage ist optional */ }
 }
 
 function renderLegend() {
@@ -597,6 +646,7 @@ function renderLegend() {
       if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
       else app.hiddenCats.add(c);
       app.autoLoads = 0;
+      app.filteredFillDone = false;
       renderResults();
       maybeAutoFill(); // Filter kann die Trefferzahl unter die Spaltenzahl drücken
     });
