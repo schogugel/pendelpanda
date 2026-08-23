@@ -162,6 +162,24 @@ function renderTimeline(itins, focus = "start") {
   tl.lastAlignLeft = scroller.scrollLeft;
 }
 
+/* Vertikales Einrast-Ziel für eine Spalte: normalerweise die Abfahrt des
+   Balkens leicht unter der Kopf-Kachel — ist die Spalte aber die NÄCHSTE
+   noch erreichbare Verbindung (die direkt nach der Jetzt-Linie), dockt die
+   Ansicht stattdessen an der aktuellen Uhrzeit an, wie die Default-Ansicht. */
+function tlAlignTopFor(bar) {
+  const clear = tlHeadClear();
+  if (app.searchTime.kind === "now") {
+    const now = Date.now();
+    const dep = b => +new Date(transitLegs(b.itin)[0].from.departure);
+    const idx = tl.bars.indexOf(bar);
+    const isNextReachable = now >= tl.t0 && now <= tl.t1 &&
+      dep(bar) >= now - 30000 &&
+      (idx <= 0 || dep(tl.bars[idx - 1]) < now - 30000);
+    if (isNextReachable) return Math.max(0, tlY(now) - clear);
+  }
+  return Math.max(0, bar.top - clear);
+}
+
 // Tatsächlicher Platzbedarf der sticky Kopf-Kacheln: die höchste der ersten
 // Spalten zählt (Umbrüche/„Fällt aus“ machen einzelne Kacheln höher)
 function tlHeadClear() {
@@ -404,7 +422,8 @@ function tlInitInteractions() {
     let targetTop = Math.min(maxTop, Math.max(0, sc.scrollTop));
 
     // Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
-    // sichtbaren Balken leicht unter die Kopf-Kachel legen
+    // sichtbaren Balken leicht unter die Kopf-Kachel legen — bzw. bei der
+    // nächsten erreichbaren Verbindung an der Jetzt-Linie andocken
     const clear = tlHeadClear();
     const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
     const visible = tl.bars.filter(b => b.colLeft + tl.colW > vx0 && b.colLeft < vx1);
@@ -412,7 +431,7 @@ function tlInitInteractions() {
       const horizChanged = Math.abs(targetLeft - (tl.lastAlignLeft ?? targetLeft)) > 2;
       const anyInView = visible.some(b =>
         b.top < targetTop + sc.clientHeight - 20 && b.top + b.height > targetTop + clear + 20);
-      if (horizChanged || !anyInView) targetTop = Math.max(0, visible[0].top - clear);
+      if (horizChanged || !anyInView) targetTop = tlAlignTopFor(visible[0]);
     }
 
     tl.autoScrolling = true;
@@ -511,7 +530,7 @@ function tlAlign(sc) {
   if (!visible.length) { tl.lastAlignLeft = targetLeft; return; }
   const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
-  const targetTop = Math.max(0, visible[0].top - tlHeadClear());
+  const targetTop = tlAlignTopFor(visible[0]);
   const needV = (horizMoved || !anyInView) && Math.abs(sc.scrollTop - targetTop) > 8;
 
   if (needH || needV) {
