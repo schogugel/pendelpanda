@@ -36,6 +36,24 @@ function legCancelled(l) {
     (l.intermediateStops || []).some(s => s.cancelled));
 }
 
+/* Welche VERKEHRSMITTEL-Abschnitte einer Verbindung sind vom Ausfall betroffen?
+   Wichtig: Die Daten hängen das Flag teils an den Umsteige-FUSSWEG statt ans
+   Verkehrsmittel — dann gilt der Anschluss dahinter als betroffen (sonst der
+   Abschnitt davor). */
+function cancelledTransitLegs(it) {
+  const legs = it.legs;
+  const flagged = new Set();
+  legs.forEach((l, i) => {
+    if (!legCancelled(l)) return;
+    if (l.mode !== "WALK") { flagged.add(l); return; }
+    let target = null;
+    for (let j = i + 1; j < legs.length && !target; j++) if (legs[j].mode !== "WALK") target = legs[j];
+    for (let j = i - 1; j >= 0 && !target; j--) if (legs[j].mode !== "WALK") target = legs[j];
+    if (target) flagged.add(target);
+  });
+  return flagged;
+}
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
@@ -94,6 +112,17 @@ function renderTimeline(itins, focus = "start") {
   }
 
   tlBuild(scroller);
+
+  // Selbstkorrektur: reicht der Platz über der Jetzt-Linie nicht für die
+  // real gemessene Kopf-Kachel, Zeitfläche exakt erweitern und neu bauen
+  if (!keepScroll && focus === "start" && app.searchTime.kind === "now") {
+    const nowMs = Date.now();
+    const needed = tlHeadClear() + 8;
+    if (nowMs <= tl.t1 && tlY(nowMs) < needed) {
+      tl.t0 -= ((needed - tlY(nowMs)) / tl.ppm) * 60000;
+      tlBuild(scroller);
+    }
+  }
 
   if (keepScroll) {
     // Wurden frühere Verbindungen vorangestellt, sind die Spalten nach rechts gerückt
@@ -269,7 +298,8 @@ function tlNowLine(canvas, w) {
 function tlColumn(it, left) {
   const legs = transitLegs(it);
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
-  const cancelled = it.legs.some(legCancelled);
+  const flagged = cancelledTransitLegs(it);
+  const cancelled = flagged.size > 0;
   const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
   const top = tlY(+new Date(dep.departure));
   const height = Math.max(10, tlY(+new Date(arr.arrival)) - top);
@@ -311,12 +341,13 @@ function tlColumn(it, left) {
     const s1 = tlY(+new Date(l.to.arrival)) - top;
     const seg = document.createElement("span");
     const h = Math.max(6, s1 - s0);
-    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (legCancelled(l) ? " seg-cancelled" : "");
+    const isCancelled = flagged.has(l);
+    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (isCancelled ? " seg-cancelled" : "");
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
     const name = l.routeShortName || l.displayName || "";
     // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
-    if (legCancelled(l)) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
+    if (isCancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
     else seg.textContent = name;
     bar.appendChild(seg);
   }

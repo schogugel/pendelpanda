@@ -637,7 +637,7 @@ function renderItineraries(itineraries) {
     if (!legs.length) continue; // reine Fußwege ausblenden
     const first = legs[0], last = legs[legs.length - 1];
     const dep = first.from, arr = last.to;
-    const cancelled = it.legs.some(legCancelled);
+    const cancelled = cancelledTransitLegs(it).size > 0;
     const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
 
     const card = document.createElement("article");
@@ -673,6 +673,7 @@ function renderItineraries(itineraries) {
 }
 
 function fillDetails(container, it) {
+  const flagged = cancelledTransitLegs(it);
   for (const l of it.legs) {
     if (l.mode === "WALK") {
       const w = document.createElement("p");
@@ -689,7 +690,7 @@ function fillDetails(container, it) {
     const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
     div.innerHTML = `
       <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-      <span class="leg-line">${escapeHtml(l.routeShortName || l.displayName || "")} → ${escapeHtml(l.headsign || l.to.name)}${legCancelled(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
+      <span class="leg-line">${escapeHtml(l.routeShortName || l.displayName || "")} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
       <span class="leg-detail">ab ${escapeHtml(l.from.name)}${trackChanged ? ` · <span class="track-changed">Gl. ${l.from.track} (statt ${l.from.scheduledTrack})</span>` : escapeHtml(track)}</span>
       <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
       <span class="leg-detail" style="grid-column:2">an ${escapeHtml(l.to.name)}${arrDelay > 0 ? ` (${delayText(arrDelay)})` : ""}</span>`;
