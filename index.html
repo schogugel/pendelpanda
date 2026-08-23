@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PendelPanda</title>
+<meta name="description" content="Deine Pendelverbindung in 2 Taps – mit Echtzeit-Verspätungen.">
+<meta name="theme-color" content="#1b5e20" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1512" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <img src="icons/icon-192.png" alt="" class="topbar-logo">
+  <h1>PendelPanda</h1>
+</header>
+
+<!-- ANSICHT: BUTTON-GRID -->
+<main id="view-grid" class="view">
+  <div class="gridtools">
+    <p class="hint" id="grid-hint">Tippe auf <strong>Start</strong>, dann auf <strong>Ziel</strong>.</p>
+    <button id="btn-editmode" class="linklike">✎ Bearbeiten</button>
+  </div>
+  <div id="buttongrid" class="buttongrid" aria-label="Gespeicherte Bahnhöfe"></div>
+  <footer class="footlinks">
+    <button class="linklike" id="btn-help">Hilfe</button>
+    <span>·</span>
+    <button class="linklike" id="btn-share-config">Buttons übertragen</button>
+  </footer>
+</main>
+
+<!-- ANSICHT: STATION ANLEGEN / BEARBEITEN -->
+<main id="view-edit" class="view" hidden>
+  <div class="viewhead">
+    <button class="backbtn" data-back aria-label="Zurück">←</button>
+    <h2 id="edit-title">Station wählen</h2>
+  </div>
+  <input type="search" id="stationinput" placeholder="Bahnhofsnamen eingeben …"
+         autocomplete="off" autocapitalize="words" enterkeyhint="search">
+  <div id="suggestions" class="suggestions" role="listbox"></div>
+  <button id="btn-clear-slot" class="dangerbtn" hidden>Diesen Button leeren</button>
+</main>
+
+<!-- ANSICHT: ERGEBNISSE -->
+<main id="view-results" class="view" hidden>
+  <div class="viewhead">
+    <button class="backbtn" data-back aria-label="Zurück">←</button>
+    <h2 id="results-title" class="results-title"></h2>
+    <button id="btn-viewmode" class="iconbtn" title="Listen-/Grafikansicht">☰</button>
+    <button id="btn-swap" class="iconbtn" title="Richtung tauschen">⇄</button>
+  </div>
+  <div class="timechips" id="timechips">
+    <button data-offset="0" class="chip active">Jetzt</button>
+    <button data-offset="5" class="chip">+5 min</button>
+    <button data-offset="10" class="chip">+10 min</button>
+    <button data-offset="20" class="chip">+20 min</button>
+  </div>
+  <div id="results-list" class="results-list" aria-live="polite"></div>
+  <div id="timeline-wrap" class="timeline-wrap" hidden>
+    <div id="timeline" class="timeline" aria-label="Grafischer Fahrplan"></div>
+    <div class="tl-zoomctl">
+      <button id="tl-zoom-in" aria-label="Vergrößern">＋</button>
+      <button id="tl-zoom-out" aria-label="Verkleinern">－</button>
+    </div>
+    <p class="tl-legend" id="tl-legend"></p>
+  </div>
+  <button id="btn-later" class="widebtn" hidden>Spätere Verbindungen ↓</button>
+</main>
+
+<!-- VERBINDUNGSDETAILS (Grafikansicht) -->
+<dialog id="trip-dialog">
+  <div class="viewhead">
+    <h2 id="trip-dialog-title"></h2>
+    <form method="dialog"><button class="iconbtn" aria-label="Schließen">✕</button></form>
+  </div>
+  <div id="trip-dialog-body" class="trip-details"></div>
+</dialog>
+
+<!-- BUTTONS ÜBERTRAGEN -->
+<dialog id="share-dialog">
+  <h2>Buttons übertragen</h2>
+  <ol class="steps">
+    <li>Diesen Link kopieren oder teilen (z.&nbsp;B. per Messenger an dich selbst schicken).</li>
+    <li>Den Link auf dem anderen Gerät im Browser öffnen.</li>
+    <li>Dort die Frage „Buttons übernehmen?“ bestätigen – fertig.</li>
+  </ol>
+  <input id="share-url" readonly aria-label="Übertragungslink">
+  <button id="share-copy" class="widebtn">Link kopieren</button>
+  <button id="share-native" class="widebtn" hidden>Teilen …</button>
+  <form method="dialog"><button class="linklike">Schließen</button></form>
+</dialog>
+
+<!-- HILFE -->
+<dialog id="help-dialog">
+  <h2>Hilfe</h2>
+  <ul>
+    <li>Unbelegte Buttons zeigen ein „+“ – antippen und Bahnhof suchen.</li>
+    <li><strong>Ändern oder löschen:</strong> „✎ Bearbeiten“ antippen, dann den gewünschten Button wählen („Diesen Button leeren“ entfernt ihn). Abkürzung: Button lange gedrückt halten.</li>
+    <li>Zwei belegte Buttons antippen: der erste wird <strong>Start</strong> (markiert), der zweite <strong>Ziel</strong> – die Verbindungen ab jetzt erscheinen sofort, inklusive Verspätungen und Gleis.</li>
+    <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
+    <li><strong>Grafikansicht:</strong> Jede Verbindung ist ein Balken von Abfahrt (oben) bis Ankunft (unten). Scrollen in alle Richtungen; Zoom mit zwei Fingern, Strg+Mausrad oder ＋/−. Tippen auf einen Balken zeigt die Details, ☰/▦ wechselt zwischen Liste und Grafik.</li>
+    <li>„Bei der DB öffnen“ führt zur Buchung, Wagenreihung &amp; Co. auf bahn.de.</li>
+    <li><strong>„Buttons übertragen“:</strong> erzeugt einen Link mit deiner Belegung. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandern die Buttons mit.</li>
+  </ul>
+  <p class="finequote">Fahrplandaten: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> (DELFI/GTFS, Echtzeit).</p>
+  <form method="dialog"><button class="widebtn">Alles klar</button></form>
+</dialog>
+
+<script src="app.js"></script>
+<script src="timeline.js"></script>
+</body>
+</html>
