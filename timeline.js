@@ -267,7 +267,7 @@ function tlColumn(it, left) {
   col.appendChild(head);
 
   const bar = document.createElement("button");
-  bar.className = "tl-bar" + (cancelled ? " cancelled" : "");
+  bar.className = "tl-bar";
   bar.style.top = top + "px";
   bar.style.height = height + "px";
   bar.setAttribute("aria-label", `${fmtTime(dep.departure)} bis ${fmtTime(arr.arrival)}`);
@@ -281,7 +281,10 @@ function tlColumn(it, left) {
     seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (l.cancelled ? " seg-cancelled" : "");
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
-    seg.textContent = l.routeShortName || l.displayName || "";
+    const name = l.routeShortName || l.displayName || "";
+    // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
+    if (l.cancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
+    else seg.textContent = name;
     bar.appendChild(seg);
   }
 

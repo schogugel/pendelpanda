@@ -304,7 +304,6 @@ body {
     transparent calc(50% - 1px), var(--border) calc(50% - 1px),
     var(--border) calc(50% + 1px), transparent calc(50% + 1px));
 }
-.tl-bar.cancelled { outline: 2px dashed var(--bad); outline-offset: 2px; }
 .tl-seg {
   position: absolute; left: 0; width: 100%;
   display: flex; align-items: center; justify-content: center;
@@ -315,8 +314,16 @@ body {
   box-shadow: 0 0 0 2px var(--card); /* 2px Flächen-Abstand zwischen Segmenten */
 }
 .tl-seg.nolabel { font-size: 0; }
-.tl-seg.seg-cancelled { opacity: .55; text-decoration: line-through; }
-.seg-fern  { background: var(--seg-fern);  color: #fff; }
+/* Ausgefallenes Teilstück: schwarz-rot schräg gestreift, Kategorie-Farbe egal */
+.tl-seg.seg-cancelled {
+  background: repeating-linear-gradient(135deg, #161616 0 7px, #b02525 7px 14px);
+}
+.seg-cancelled .seg-label {
+  background: #111; color: #fff;
+  padding: 0 5px; border-radius: 4px; line-height: 1.35;
+}
+.tl-seg.nolabel .seg-label { display: none; }
+.seg-fern  { background: var(--seg-fern);  color: #131313; }
 .seg-regio { background: var(--seg-regio); color: #131313; }
 .seg-sbahn { background: var(--seg-sbahn); color: #131313; }
 .seg-utram { background: var(--seg-utram); color: #131313; }
