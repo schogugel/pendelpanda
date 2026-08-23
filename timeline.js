@@ -100,10 +100,15 @@ function renderTimeline(itins, focus = "start") {
   tl.lastAlignLeft = scroller.scrollLeft;
 }
 
-// Tatsächlicher Platzbedarf der sticky Kopf-Kachel (gemessen, nicht geschätzt)
+// Tatsächlicher Platzbedarf der sticky Kopf-Kacheln: die höchste der ersten
+// Spalten zählt (Umbrüche/„Fällt aus“ machen einzelne Kacheln höher)
 function tlHeadClear() {
-  const h = tl.bars[0]?.head?.offsetHeight || TL.HEAD_H;
-  return h + 6 + 10; // sticky-Offset + Luft
+  let h = 40;
+  for (const b of tl.bars.slice(0, 12)) {
+    if (b.head && b.head.offsetHeight > h) h = b.head.offsetHeight;
+  }
+  if (!tl.bars.length) h = TL.HEAD_H;
+  return h + 6 + 16; // sticky-Offset + Luft
 }
 
 function tlBuild(scroller) {
@@ -321,20 +326,16 @@ function tlInitInteractions() {
   }, { passive: false });
 
   /* Freies Touch-Panning (kein Achsen-Threshold: diagonal ab dem ersten Pixel).
-     Beim Loslassen gleitet die Ansicht SOFORT zum Zielzustand: der Schwung wird
-     auf einen Endpunkt projiziert, dann auf die Spaltengrenze gerastet und die
-     Y-Regel angewandt — kein Nachrollen, kein Delay. */
-  let panLast = null, panVel = { x: 0, y: 0 }, panMoved = 0;
+     Beim Loslassen rastet die Ansicht DIREKT von der aktuellen Position ein:
+     Spaltengrenze auf der X-Achse, Y-Regel — ohne Schwung-Nachlauf. */
+  let panLast = null, panMoved = 0;
 
   function releaseGlide() {
-    const PROJ = 260; // ms: wie weit der Schwung noch trägt
     const step = tl.colW + TL.GAP;
     const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
     const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-    const projLeft = sc.scrollLeft - panVel.x * PROJ;
-    const projTop = sc.scrollTop - panVel.y * PROJ;
-    const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(projLeft / step) * step));
-    let targetTop = Math.min(maxTop, Math.max(0, projTop));
+    const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+    let targetTop = Math.min(maxTop, Math.max(0, sc.scrollTop));
 
     // Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
     // sichtbaren Balken leicht unter die Kopf-Kachel legen
@@ -363,7 +364,7 @@ function tlInitInteractions() {
       panLast = null;
     } else if (tl.pointers.size === 1 && e.pointerType === "touch") {
       panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
-      panMoved = 0; panVel = { x: 0, y: 0 };
+      panMoved = 0;
       try { e.target.setPointerCapture(e.pointerId); } catch { /* egal */ }
     }
   });
@@ -379,10 +380,9 @@ function tlInitInteractions() {
     }
     if (panLast && e.pointerType === "touch" && tl.pointers.size === 1) {
       const dx = e.clientX - panLast.x, dy = e.clientY - panLast.y;
-      const dt = Math.max(1, performance.now() - panLast.t);
       sc.scrollLeft -= dx;
       sc.scrollTop -= dy;
-      panVel = { x: dx / dt, y: dy / dt };
+
       panMoved += Math.abs(dx) + Math.abs(dy);
       panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
     }
