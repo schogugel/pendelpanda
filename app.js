@@ -376,7 +376,6 @@ function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
   app.autoLoads = 0;
-  app.filteredFillDone = false;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.name} → ${to.name}`;
   updateChips();
@@ -457,6 +456,7 @@ async function runPlan(direction = null, limit = 8) {
     language: "de",
   });
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
+  if (enabledModes()) params.set("transitModes", enabledModes());
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
@@ -577,61 +577,35 @@ function neededVisible() {
 // transitModes-Gruppen je Kategorie (für gezielt gefilterte Zusatzanfragen)
 const CAT_MODES = {
   fern: "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL",
-  regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL,RAIL",
+  // Achtung: RAIL ist serverseitig die Oberklasse ALLER Züge (inkl. ICE)
+  // und darf hier nicht auftauchen, sonst kippt der Filter
+  regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL",
   sbahn: "SUBURBAN,METRO",
   utram: "SUBWAY,TRAM",
   bus: "BUS,COACH,FERRY,ODM",
 };
 
-/* Sind nach dem Filtern weniger Treffer da als Spalten angezeigt werden,
-   wird nachgeladen: erst normal über den Cursor (gefiltert zählend), und
-   wenn das nicht reicht, EINE gezielte Anfrage, die serverseitig nur die
-   erlaubten Verkehrsmittel routet — die liefert garantiert Passendes. */
+/* Die Hauptanfrage routet serverseitig nur mit den aktiven Kategorien —
+   jede Antwort ist damit voll verwertbar. Sind alle Kategorien aktiv,
+   wird ungefiltert angefragt. */
+function enabledModes() {
+  const enabled = CATS.filter(c => !app.hiddenCats.has(c));
+  if (enabled.length === CATS.length) return null;
+  return enabled.map(c => CAT_MODES[c]).join(",");
+}
+
+// Reicht es noch nicht für die Spaltenzahl, höchstens zwei Cursor-Seiten
+// nachlegen (die liefern dank Server-Filter garantiert Passendes)
 async function ensureFilled() {
   if (visibleItins().length >= neededVisible()) return;
-  if (app.nextPageCursor && app.autoLoads < 3) {
+  if (app.nextPageCursor && app.autoLoads < 2) {
     app.autoLoads++;
     await runPlan("later");
-    return;
-  }
-  if (app.hiddenCats.size && !app.filteredFillDone) {
-    app.filteredFillDone = true;
-    await fetchFilteredFill();
   }
 }
 
 function maybeAutoFill() {
   if (!app.paging) ensureFilled();
-}
-
-async function fetchFilteredFill() {
-  const enabled = CATS.filter(c => !app.hiddenCats.has(c)).map(c => CAT_MODES[c]).join(",");
-  if (!enabled || !app.search) return;
-  const t = app.searchTime;
-  const baseTime = t.kind === "custom" ? new Date(t.time)
-    : t.kind === "letzte" ? nextNightEnd()
-    : new Date();
-  const params = new URLSearchParams({
-    fromPlace: app.search.from.id,
-    toPlace: app.search.to.id,
-    time: baseTime.toISOString(),
-    numItineraries: "8",
-    transitModes: enabled,
-    language: "de",
-  });
-  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
-  try {
-    const res = await fetch(`${API}/plan?${params}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    const known = new Set(app.itins.map(itKey));
-    const add = (data.itineraries || []).filter(it => transitLegs(it).length && !known.has(itKey(it)));
-    if (!add.length) return;
-    // chronologisch einsortieren; die Cursor der ungefilterten Suche bleiben unberührt
-    app.itins = app.itins.concat(add).sort((a, b) =>
-      +new Date(transitLegs(a)[0].from.departure) - +new Date(transitLegs(b)[0].from.departure));
-    renderResults();
-  } catch { /* Zusatzanfrage ist optional */ }
 }
 
 function renderLegend() {
@@ -649,12 +623,19 @@ function renderLegend() {
       ? `Verbindungen mit ${CAT_LABEL[c]} wieder einblenden`
       : `Verbindungen mit ${CAT_LABEL[c]} ausblenden`;
     b.addEventListener("click", () => {
-      if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
+      const wasHidden = app.hiddenCats.has(c);
+      if (wasHidden) app.hiddenCats.delete(c);
       else app.hiddenCats.add(c);
-      app.autoLoads = 0;
-      app.filteredFillDone = false;
-      renderResults();
-      maybeAutoFill(); // Filter kann die Trefferzahl unter die Spaltenzahl drücken
+      if (wasHidden) {
+        // Kategorie neu aktiviert: dafür liegen keine Daten vor → eine
+        // frische, serverseitig passend gefilterte Anfrage
+        startSearch(app.search.from, app.search.to);
+      } else {
+        // Ausblenden ist kostenlos (Daten sind Obermenge); ggf. auffüllen
+        app.autoLoads = 0;
+        renderResults();
+        maybeAutoFill();
+      }
     });
     el.appendChild(b);
   }
