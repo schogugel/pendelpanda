@@ -405,6 +405,7 @@ async function loadMore(direction) {
   const cursor = direction === "earlier" ? app.prevPageCursor : app.nextPageCursor;
   if (!cursor) return;
   app.paging = true;
+  app.autoLoads = 0; // manuelle Aktion gibt dem Auto-Nachladen frisches Budget
   const edge = byId(direction === "earlier" ? "tl-load-left" : "tl-load-right");
   const btn = byId(direction === "earlier" ? "list-earlier" : "list-later");
   edge.hidden = false;
@@ -567,9 +568,10 @@ function visibleItins() {
 }
 
 // So viele Verbindungen sollten nach dem Filtern mindestens da sein:
-// in der Grafik die eingestellte Spaltenzahl, in der Liste fünf
+// Spaltenzahl + 2, damit die Grafik überläuft und seitwärts scrollbar
+// bleibt (sonst kann das Rand-Nachladen nie greifen); Liste: sechs
 function neededVisible() {
-  return app.viewMode === "graph" ? Math.min(5, Math.max(3, settings.cols || 3)) : 5;
+  return app.viewMode === "graph" ? Math.min(5, Math.max(3, settings.cols || 3)) + 2 : 6;
 }
 
 // transitModes-Gruppen je Kategorie (für gezielt gefilterte Zusatzanfragen)

@@ -466,6 +466,7 @@ function tlInitInteractions() {
     } else if (tl.pointers.size === 1 && e.pointerType === "touch") {
       panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
       panMoved = 0;
+      tl.pullLeft = 0; tl.pullRight = 0;
       try { e.target.setPointerCapture(e.pointerId); } catch { /* egal */ }
     }
   });
@@ -483,6 +484,21 @@ function tlInitInteractions() {
       const dx = e.clientX - panLast.x, dy = e.clientY - panLast.y;
       sc.scrollLeft -= dx;
       sc.scrollTop -= dy;
+
+      // Am Rand weiterziehen lädt nach — funktioniert auch, wenn die Fläche
+      // schmaler als der Bildschirm ist und gar kein Scrollen möglich wäre
+      const atRight = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;
+      const atLeft = sc.scrollLeft <= 2;
+      tl.pullRight = (dx < 0 && atRight) ? (tl.pullRight || 0) - dx : 0;
+      tl.pullLeft = (dx > 0 && atLeft) ? (tl.pullLeft || 0) + dx : 0;
+      const cool = Date.now() - (tl.lastEdgeLoad || 0) > 1500 && typeof loadMore === "function";
+      if (tl.pullRight > 70 && cool) {
+        tl.pullRight = 0; tl.lastEdgeLoad = Date.now();
+        loadMore("later");
+      } else if (tl.pullLeft > 70 && cool) {
+        tl.pullLeft = 0; tl.lastEdgeLoad = Date.now();
+        loadMore("earlier");
+      }
 
       panMoved += Math.abs(dx) + Math.abs(dy);
       panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
