@@ -30,6 +30,12 @@ const tl = {
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
 
+// Ausfall kann am Abschnitt, an den Halten oder an Zwischenhalten hängen
+function legCancelled(l) {
+  return !!(l.cancelled || l.from?.cancelled || l.to?.cancelled ||
+    (l.intermediateStops || []).some(s => s.cancelled));
+}
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
@@ -49,9 +55,23 @@ function renderTimeline(itins, focus = "start") {
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
 
-  // Fünf Spalten nebeneinander (auf großen Screens gedeckelte Breite)
+  // Spalten nebeneinander aus der Einstellung (3/4/5, Default 3),
+  // Breite auf großen Screens gedeckelt
+  const nCols = Math.min(5, Math.max(3, settings.cols || 3));
   const usableW = Math.max(140, scroller.clientWidth - TL.AXIS_W);
-  tl.colW = Math.min(140, Math.max(44, Math.round(usableW / 5) - TL.GAP));
+  tl.colW = Math.min(170, Math.max(44, Math.round(usableW / nCols) - TL.GAP));
+
+  // Zoom-Untergrenze: so weit rauszoomen, dass Beschriftungen verschwinden,
+  // geht nicht — das Gros der Abschnitte (25%-Quantil der Fahrzeiten) muss
+  // seine Label-Mindesthöhe von 20px behalten
+  const legMins = [];
+  for (const it of tl.itins) for (const l of transitLegs(it)) {
+    legMins.push((+new Date(l.to.arrival) - +new Date(l.from.departure)) / 60000);
+  }
+  legMins.sort((a, b) => a - b);
+  const p25 = legMins[Math.floor(legMins.length * 0.25)] || 10;
+  tl.minPpm = Math.min(8, Math.max(TL.MIN_PPM, 20 / Math.max(2, p25)));
+  tl.ppm = Math.max(tl.ppm, tl.minPpm);
 
   let min = Infinity, max = -Infinity;
   for (const it of tl.itins) {
@@ -173,14 +193,13 @@ function tlAutoZoom(sc) {
     }
     return (end - dep0) / 60000;
   };
-  const R = Math.min(5, Math.max(3, settings.rows || 3));
   let num = 0, den = 0;
-  for (const [k, w] of [[R, 1], [R + 1, 0.55], [R + 2, 0.3]]) {
+  for (const [k, w] of [[3, 1], [4, 0.55], [5, 0.3]]) {
     const s = spanMin(k);
     if (s > 0) { num += w * (usable / s); den += w; }
   }
   const ppm = den ? num / den : 4;
-  return Math.min(TL.MAX_PPM, Math.max(TL.MIN_PPM, ppm));
+  return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
 function tlGrid(h, w) {
@@ -236,7 +255,7 @@ function tlNowLine(canvas, w) {
 function tlColumn(it, left) {
   const legs = transitLegs(it);
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
-  const cancelled = it.legs.some(l => l.cancelled);
+  const cancelled = it.legs.some(legCancelled);
   const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
   const top = tlY(+new Date(dep.departure));
   const height = Math.max(10, tlY(+new Date(arr.arrival)) - top);
@@ -278,12 +297,12 @@ function tlColumn(it, left) {
     const s1 = tlY(+new Date(l.to.arrival)) - top;
     const seg = document.createElement("span");
     const h = Math.max(6, s1 - s0);
-    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (l.cancelled ? " seg-cancelled" : "");
+    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (legCancelled(l) ? " seg-cancelled" : "");
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
     const name = l.routeShortName || l.displayName || "";
     // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
-    if (l.cancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
+    if (legCancelled(l)) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
     else seg.textContent = name;
     bar.appendChild(seg);
   }
@@ -303,7 +322,7 @@ function tlColumn(it, left) {
 
 function tlSetZoom(newPpm, anchorClientY) {
   const sc = byId("timeline");
-  newPpm = Math.min(TL.MAX_PPM, Math.max(TL.MIN_PPM, newPpm));
+  newPpm = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, newPpm));
   if (Math.abs(newPpm - tl.ppm) < 0.01) return;
   const rect = sc.getBoundingClientRect();
   const y = (anchorClientY ?? rect.top + rect.height / 2) - rect.top;

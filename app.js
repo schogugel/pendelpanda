@@ -37,12 +37,13 @@ function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
     show: { fern: false, regio: true, sbahn: true, utram: true, bus: true },
-    rows: 3, // Verbindungen, die vertikal komplett ins Bild passen sollen (3/4/5)
+    cols: 3, // Verbindungen nebeneinander in der Grafik (3/4/5)
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
     if (s && s.show) for (const c of CATS) if (typeof s.show[c] === "boolean") def.show[c] = s.show[c];
-    if (s && Number.isFinite(s.rows)) def.rows = Math.min(5, Math.max(3, Math.round(s.rows)));
+    const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
+    if (Number.isFinite(n)) def.cols = Math.min(5, Math.max(3, Math.round(n)));
   } catch { /* Default behalten */ }
   return def;
 }
@@ -630,7 +631,7 @@ function renderItineraries(itineraries) {
     if (!legs.length) continue; // reine Fußwege ausblenden
     const first = legs[0], last = legs[legs.length - 1];
     const dep = first.from, arr = last.to;
-    const cancelled = it.legs.some(l => l.cancelled);
+    const cancelled = it.legs.some(legCancelled);
     const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
 
     const card = document.createElement("article");
@@ -682,7 +683,7 @@ function fillDetails(container, it) {
     const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
     div.innerHTML = `
       <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-      <span class="leg-line">${escapeHtml(l.routeShortName || l.displayName || "")} → ${escapeHtml(l.headsign || l.to.name)}${l.cancelled ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
+      <span class="leg-line">${escapeHtml(l.routeShortName || l.displayName || "")} → ${escapeHtml(l.headsign || l.to.name)}${legCancelled(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
       <span class="leg-detail">ab ${escapeHtml(l.from.name)}${trackChanged ? ` · <span class="track-changed">Gl. ${l.from.track} (statt ${l.from.scheduledTrack})</span>` : escapeHtml(track)}</span>
       <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
       <span class="leg-detail" style="grid-column:2">an ${escapeHtml(l.to.name)}${arrDelay > 0 ? ` (${delayText(arrDelay)})` : ""}</span>`;
@@ -728,7 +729,7 @@ function dbLink(fromName, toName, depIso, arrIso) {
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show, rows: settings.rows };
+  const payload = { v: 2, slots, show: settings.show, cols: settings.cols };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
@@ -762,7 +763,8 @@ function maybeImportConfig() {
       saveSlots();
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
-        if (Number.isFinite(imported.rows)) settings.rows = Math.min(5, Math.max(3, Math.round(imported.rows)));
+        const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
+        if (Number.isFinite(n)) settings.cols = Math.min(5, Math.max(3, Math.round(n)));
         saveSettings();
       }
       alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
@@ -805,26 +807,26 @@ byId("btn-settings").addEventListener("click", () => {
     cb.checked = settings.show[cb.dataset.cat];
   });
   byId("set-count").value = slots.length;
-  renderRowsControl();
+  renderColsControl();
   byId("settings-dialog").showModal();
 });
 
 let gridSettingsDirty = false;
 
-function renderRowsControl() {
-  const idx = [3, 4, 5].indexOf(settings.rows);
-  byId("set-rows").dataset.idx = idx >= 0 ? idx : 0;
-  document.querySelectorAll("#set-rows button").forEach(b =>
-    b.classList.toggle("active", Number(b.dataset.rows) === settings.rows));
+function renderColsControl() {
+  const idx = [3, 4, 5].indexOf(settings.cols);
+  byId("set-cols").dataset.idx = idx >= 0 ? idx : 0;
+  document.querySelectorAll("#set-cols button").forEach(b =>
+    b.classList.toggle("active", Number(b.dataset.cols) === settings.cols));
 }
 
-byId("set-rows").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-rows]");
+byId("set-cols").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-cols]");
   if (!b) return;
-  settings.rows = Number(b.dataset.rows);
+  settings.cols = Number(b.dataset.cols);
   saveSettings();
   gridSettingsDirty = true;
-  renderRowsControl();
+  renderColsControl();
 });
 byId("settings-dialog").addEventListener("close", () => {
   if (gridSettingsDirty && app.search && app.itins.length) {
