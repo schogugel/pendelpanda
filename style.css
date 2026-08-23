@@ -269,9 +269,9 @@ body {
   background: var(--card); color: var(--text); font: inherit; font-size: .8rem;
   box-shadow: var(--shadow); cursor: pointer; text-align: left;
 }
-.tl-hl { display: flex; align-items: baseline; gap: .3rem; }
-.tl-head strong { font-size: .92rem; }
-.tl-head small { color: var(--muted); font-size: .68rem; line-height: 1.25; }
+.tl-hl { display: flex; align-items: baseline; gap: .3rem; flex-wrap: wrap; }
+.tl-head strong { font-size: .95rem; }
+.tl-head small { color: var(--muted); font-size: .72rem; line-height: 1.25; }
 .tl-head .delay { font-size: .8rem; }
 .tl-head.cancelled { border-color: var(--bad); }
 .tl-bar {
@@ -287,7 +287,7 @@ body {
   position: absolute; left: 0; width: 100%;
   display: flex; align-items: center; justify-content: center;
   border-radius: 7px; overflow: hidden;
-  font-size: .68rem; font-weight: 700; line-height: 1.15;
+  font-size: .72rem; font-weight: 700; line-height: 1.15;
   text-align: center; padding: 0 2px;
   overflow-wrap: normal; /* Zuglabels brechen am Leerzeichen um */
   box-shadow: 0 0 0 2px var(--card); /* 2px Flächen-Abstand zwischen Segmenten */

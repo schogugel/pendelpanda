@@ -35,10 +35,16 @@ const CAT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", 
 
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
-  const def = { show: { fern: false, regio: true, sbahn: true, utram: true, bus: true } };
+  const def = {
+    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true },
+    cols: 3, // Spalten nebeneinander in der Grafik (3–10)
+    rows: 3, // Verbindungen, die vertikal komplett ins Bild passen sollen (3–6)
+  };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
     if (s && s.show) for (const c of CATS) if (typeof s.show[c] === "boolean") def.show[c] = s.show[c];
+    if (s && Number.isFinite(s.cols)) def.cols = Math.min(10, Math.max(3, Math.round(s.cols)));
+    if (s && Number.isFinite(s.rows)) def.rows = Math.min(6, Math.max(3, Math.round(s.rows)));
   } catch { /* Default behalten */ }
   return def;
 }
@@ -724,7 +730,7 @@ function dbLink(fromName, toName, depIso, arrIso) {
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show };
+  const payload = { v: 2, slots, show: settings.show, cols: settings.cols, rows: settings.rows };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
@@ -758,6 +764,8 @@ function maybeImportConfig() {
       saveSlots();
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
+        if (Number.isFinite(imported.cols)) settings.cols = Math.min(10, Math.max(3, Math.round(imported.cols)));
+        if (Number.isFinite(imported.rows)) settings.rows = Math.min(6, Math.max(3, Math.round(imported.rows)));
         saveSettings();
       }
       alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
@@ -800,7 +808,30 @@ byId("btn-settings").addEventListener("click", () => {
     cb.checked = settings.show[cb.dataset.cat];
   });
   byId("set-count").value = slots.length;
+  byId("set-cols").value = settings.cols;
+  byId("set-rows").value = settings.rows;
   byId("settings-dialog").showModal();
+});
+
+let gridSettingsDirty = false;
+byId("set-cols").addEventListener("change", () => {
+  settings.cols = Math.min(10, Math.max(3, Math.round(Number(byId("set-cols").value)) || 3));
+  byId("set-cols").value = settings.cols;
+  saveSettings();
+  gridSettingsDirty = true;
+});
+byId("set-rows").addEventListener("change", () => {
+  settings.rows = Math.min(6, Math.max(3, Math.round(Number(byId("set-rows").value)) || 3));
+  byId("set-rows").value = settings.rows;
+  saveSettings();
+  gridSettingsDirty = true;
+});
+byId("settings-dialog").addEventListener("close", () => {
+  if (gridSettingsDirty && app.search && app.itins.length) {
+    app.searchTag++; // frisches Layout mit neuem Auto-Zoom/Spaltenbreite
+    renderResults();
+  }
+  gridSettingsDirty = false;
 });
 
 // Kachel-Anzahl ändern – Verkleinern kann nie belegte Kacheln löschen

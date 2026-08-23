@@ -49,6 +49,11 @@ function renderTimeline(itins, focus = "start") {
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
 
+  // Spaltenbreite aus der Einstellung „Spalten nebeneinander“ (3–10)
+  const nCols = Math.min(10, Math.max(3, settings.cols || 3));
+  const usableW = Math.max(140, scroller.clientWidth - TL.AXIS_W);
+  tl.colW = Math.max(44, Math.round(usableW / nCols) - TL.GAP);
+
   let min = Infinity, max = -Infinity;
   for (const it of tl.itins) {
     const legs = transitLegs(it);
@@ -67,7 +72,7 @@ function renderTimeline(itins, focus = "start") {
   if (keepScroll) {
     // Wurden frühere Verbindungen vorangestellt, sind die Spalten nach rechts gerückt
     const shift = prevFirstKey ? Math.max(0, tl.itins.findIndex(it => itKey(it) === prevFirstKey)) : 0;
-    scroller.scrollLeft = prev.left + shift * (TL.COL_W + TL.GAP);
+    scroller.scrollLeft = prev.left + shift * (tl.colW + TL.GAP);
     scroller.scrollTop = prev.top + tlY(prevT0);
   } else if (focus === "end") {
     // ans Ende scrollen
@@ -104,7 +109,7 @@ function tlHeadClear() {
 function tlBuild(scroller) {
   tl.bars = [];
   const heightPx = tlY(tl.t1);
-  const widthPx = TL.AXIS_W + tl.itins.length * (TL.COL_W + TL.GAP) + TL.GAP;
+  const widthPx = TL.AXIS_W + tl.itins.length * (tl.colW + TL.GAP) + TL.GAP;
 
   const canvas = document.createElement("div");
   canvas.className = "tl-canvas";
@@ -116,7 +121,7 @@ function tlBuild(scroller) {
   tlNowLine(canvas, widthPx);
 
   tl.itins.forEach((it, i) => {
-    const left = TL.AXIS_W + TL.GAP + i * (TL.COL_W + TL.GAP);
+    const left = TL.AXIS_W + TL.GAP + i * (tl.colW + TL.GAP);
     canvas.appendChild(tlColumn(it, left));
   });
 
@@ -149,9 +154,10 @@ function tlEdgeCheck(sc) {
   }
 }
 
-/* Default-Zoom: für k = 2/3/4 komplett sichtbare Verbindungen den idealen
-   Zoom berechnen und mit abnehmenden Gewichten mitteln — ein einzelner
-   Langläufer (Nachtzug) drückt den Zoom so nur gedämpft. */
+/* Default-Zoom: Ziel ist, dass die ersten R Verbindungen (Einstellung
+   „Verbindungen komplett im Bild“, 3–6) vertikal komplett sichtbar sind.
+   Für k = R/R+1/R+2 wird der ideale Zoom berechnet und mit abnehmenden
+   Gewichten gemittelt — ein Langläufer (Nachtzug) drückt nur gedämpft. */
 function tlAutoZoom(sc) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
   const dep0 = +new Date(transitLegs(tl.itins[0])[0].from.departure);
@@ -163,8 +169,9 @@ function tlAutoZoom(sc) {
     }
     return (end - dep0) / 60000;
   };
+  const R = Math.min(6, Math.max(3, settings.rows || 3));
   let num = 0, den = 0;
-  for (const [k, w] of [[2, 1], [3, 0.55], [4, 0.3]]) {
+  for (const [k, w] of [[R, 1], [R + 1, 0.55], [R + 2, 0.3]]) {
     const s = spanMin(k);
     if (s > 0) { num += w * (usable / s); den += w; }
   }
@@ -233,7 +240,7 @@ function tlColumn(it, left) {
   const col = document.createElement("div");
   col.className = "tl-col";
   col.style.left = left + "px";
-  col.style.width = TL.COL_W + "px";
+  col.style.width = tl.colW + "px";
 
   // Kopf bleibt beim Scrollen sichtbar; Tipp darauf holt den Balken ins Bild
   const head = document.createElement("button");
@@ -313,29 +320,43 @@ function tlInitInteractions() {
     tlSetZoom(tl.ppm * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientY);
   }, { passive: false });
 
-  /* Freies Touch-Panning (kein Achsen-Threshold: diagonal ab dem ersten Pixel)
-     mit eigener Trägheit, plus Pinch-Zoom mit zwei Fingern. */
+  /* Freies Touch-Panning (kein Achsen-Threshold: diagonal ab dem ersten Pixel).
+     Beim Loslassen gleitet die Ansicht SOFORT zum Zielzustand: der Schwung wird
+     auf einen Endpunkt projiziert, dann auf die Spaltengrenze gerastet und die
+     Y-Regel angewandt — kein Nachrollen, kein Delay. */
   let panLast = null, panVel = { x: 0, y: 0 }, panMoved = 0;
 
-  const stopInertia = () => { if (tl.inertiaRAF) cancelAnimationFrame(tl.inertiaRAF); tl.inertiaRAF = null; };
+  function releaseGlide() {
+    const PROJ = 260; // ms: wie weit der Schwung noch trägt
+    const step = tl.colW + TL.GAP;
+    const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
+    const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+    const projLeft = sc.scrollLeft - panVel.x * PROJ;
+    const projTop = sc.scrollTop - panVel.y * PROJ;
+    const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(projLeft / step) * step));
+    let targetTop = Math.min(maxTop, Math.max(0, projTop));
 
-  function startInertia() {
-    let vx = panVel.x, vy = panVel.y, last = performance.now();
-    const step = (now) => {
-      const dt = Math.min(50, now - last); last = now;
-      const decay = Math.pow(0.94, dt / 16);
-      vx *= decay; vy *= decay;
-      if (Math.abs(vx) < 0.03 && Math.abs(vy) < 0.03) { tl.inertiaRAF = null; return; }
-      sc.scrollLeft -= vx * dt;
-      sc.scrollTop -= vy * dt;
-      tl.inertiaRAF = requestAnimationFrame(step);
-    };
-    tl.inertiaRAF = requestAnimationFrame(step);
+    // Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
+    // sichtbaren Balken leicht unter die Kopf-Kachel legen
+    const clear = tlHeadClear();
+    const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
+    const visible = tl.bars.filter(b => b.colLeft + tl.colW > vx0 && b.colLeft < vx1);
+    if (visible.length) {
+      const horizChanged = Math.abs(targetLeft - (tl.lastAlignLeft ?? targetLeft)) > 2;
+      const anyInView = visible.some(b =>
+        b.top < targetTop + sc.clientHeight - 20 && b.top + b.height > targetTop + clear + 20);
+      if (horizChanged || !anyInView) targetTop = Math.max(0, visible[0].top - clear);
+    }
+
+    tl.autoScrolling = true;
+    sc.scrollTo({ left: targetLeft, top: targetTop, behavior: "smooth" });
+    setTimeout(() => { tl.autoScrolling = false; tlEdgeCheck(sc); }, 450);
+    tl.lastAlignLeft = targetLeft;
   }
 
   sc.addEventListener("pointerdown", (e) => {
     tl.pointers.set(e.pointerId, e);
-    stopInertia();
+    tl.autoScrolling = false; // laufendes Gleiten übernehmen
     if (tl.pointers.size === 2) {
       const [a, b] = [...tl.pointers.values()];
       tl.pinchBase = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), ppm: tl.ppm };
@@ -371,7 +392,7 @@ function tlInitInteractions() {
     tl.pointers.delete(e.pointerId);
     if (tl.pointers.size < 2) tl.pinchBase = null;
     if (e.pointerType === "touch" && tl.pointers.size === 0 && panLast) {
-      if (panMoved > 10) { tl.suppressClick = true; startInertia(); }
+      if (panMoved > 10) { tl.suppressClick = true; releaseGlide(); }
       panLast = null;
     }
   };
@@ -384,10 +405,12 @@ function tlInitInteractions() {
   }, true);
 
   sc.addEventListener("scroll", () => {
+    tlEdgeCheck(sc); // auch beim Gleiten an den Rand → Nachladen
     if (tl.autoScrolling) return;
-    tlEdgeCheck(sc);
     clearTimeout(tl.followTimer);
-    tl.followTimer = setTimeout(() => tlAlign(sc), 260);
+    // kurzer Debounce nur noch für Maus-/Trackpad-Scrollen; Touch rastet
+    // direkt beim Loslassen ein (releaseGlide)
+    tl.followTimer = setTimeout(() => tlAlign(sc), 120);
   });
 }
 
@@ -399,15 +422,15 @@ function tlInitInteractions() {
      sichtbare Balken leicht unter der Kopf-Kachel beginnt; reines
      Hoch-/Runterscrollen bleibt unangetastet, außer kein Balken ist im Bild */
 function tlAlign(sc) {
-  if (!tl.bars.length || tl.autoScrolling || tl.pointers.size || tl.inertiaRAF) return;
-  const step = TL.COL_W + TL.GAP;
+  if (!tl.bars.length || tl.autoScrolling || tl.pointers.size) return;
+  const step = tl.colW + TL.GAP;
   const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
   const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
   const needH = Math.abs(sc.scrollLeft - targetLeft) > 2;
 
   const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
   const vy0 = sc.scrollTop + tlHeadClear(), vy1 = sc.scrollTop + sc.clientHeight;
-  const visible = tl.bars.filter(b => b.colLeft + TL.COL_W > vx0 && b.colLeft < vx1);
+  const visible = tl.bars.filter(b => b.colLeft + tl.colW > vx0 && b.colLeft < vx1);
   if (!visible.length) { tl.lastAlignLeft = targetLeft; return; }
   const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
