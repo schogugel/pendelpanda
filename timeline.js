@@ -342,7 +342,7 @@ function tlColumn(it, left, isDominated = false) {
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
   head.innerHTML =
     `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}</span>` +
-    `<small>${Math.round(it.duration / 60)} min</small>` +
+    `<small>${fmtDur(it.duration)}</small>` +
     `<small>${it.transfers} Umst.</small>` +
     (warn ? `<small class="warn-label">⚠ Umstieg prüfen</small>` : "");
   head.addEventListener("click", () => {

@@ -694,7 +694,7 @@ byId("btn-viewmode").addEventListener("click", () => {
 function openTripDialog(it) {
   const legs = transitLegs(it);
   byId("trip-dialog-title").textContent =
-    `${fmtTime(legs[0].from.departure)} – ${fmtTime(legs[legs.length - 1].to.arrival)} · ${Math.round(it.duration / 60)} min`;
+    `${fmtTime(legs[0].from.departure)} – ${fmtTime(legs[legs.length - 1].to.arrival)} · ${fmtDur(it.duration)}`;
   const body = byId("trip-dialog-body");
   body.innerHTML = "";
   fillDetails(body, it);
@@ -716,7 +716,7 @@ function renderItineraries(itineraries) {
     card.className = "trip" + (cancelled ? " cancelled" : "");
 
     const lines = legs.map(l => l.routeShortName || l.displayName || l.mode).join(" › ");
-    const durMin = Math.round(it.duration / 60);
+    const dur = fmtDur(it.duration);
     const trackInfo = dep.track ? `Gl. ${dep.track}` : "";
     const trackChanged = dep.track && dep.scheduledTrack && dep.track !== dep.scheduledTrack;
 
@@ -726,7 +726,7 @@ function renderItineraries(itineraries) {
       <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
       <span class="trip-meta">
         <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${durMin} min · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-label">⚠ Umstieg</span>` : ""}</span>
+        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-label">⚠ Umstieg</span>` : ""}</span>
       </span>
       ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
 
@@ -750,7 +750,7 @@ function fillDetails(container, it) {
     if (l.mode === "WALK") {
       const w = document.createElement("p");
       w.className = "walkleg";
-      w.textContent = `🚶 ${Math.round(l.duration / 60)} min Fußweg`;
+      w.textContent = `🚶 ${fmtDur(l.duration)} Fußweg`;
       if (legCancelled(l)) {
         w.innerHTML += ` · <span class="warn-label">⚠ Meldung am Umstiegshalt – Anschluss vor Ort prüfen</span>`;
       }
@@ -859,6 +859,13 @@ function maybeImportConfig() {
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+// Fahrdauer als Stunden+Minuten (unter einer Stunde nur Minuten)
+function fmtDur(seconds) {
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), rest = m % 60;
+  return rest ? `${h} h ${rest} min` : `${h} h`;
 }
 function diffMin(scheduledIso, actualIso) {
   if (!scheduledIso || !actualIso) return 0;
