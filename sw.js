@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE = "pendelpanda-v48";
+const CACHE = "pendelpanda-v49";
 const SHELL = [
   "./",
   "./index.html",
@@ -8,8 +8,8 @@ const SHELL = [
   "./app.js",
   "./timeline.js",
   "./manifest.webmanifest",
-  "./icons/icon-192.png?v=2",
-  "./icons/icon-512.png?v=2",
+  "./icons/app-192.png",
+  "./icons/app-512.png",
 ];
 
 self.addEventListener("install", (e) => {
