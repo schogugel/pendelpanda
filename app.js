@@ -83,6 +83,9 @@ const views = { grid: byId("view-grid"), edit: byId("view-edit"), results: byId(
 function byId(id) { return document.getElementById(id); }
 
 function showView(name) {
+  // Bearbeitung beim Verlassen übernehmen (Zurück-Knopf, Android-Geste):
+  // eine getroffene Bahnhofswahl darf nicht verloren gehen.
+  if (document.body.dataset.view === "edit" && name !== "edit") commitEdit();
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
   document.body.dataset.view = name; // steuert u. a. die Kopfzeile per CSS
   if (name === "grid") {
@@ -354,7 +357,10 @@ function openEdit(i) {
   setTimeout(() => (slot ? byId("labelinput") : stationInput).focus(), 60);
 }
 
-byId("btn-save-slot").addEventListener("click", () => {
+/* Übernimmt die Bearbeitung. Wird sowohl von „Speichern“ als auch beim
+   Verlassen der Ansicht aufgerufen — eine bereits getroffene Bahnhofswahl
+   (oder eine getippte Beschriftung) geht so auch über „Zurück“ nicht verloren. */
+function commitEdit() {
   const i = app.editSlot;
   if (i === null) return;
   const station = app.pendingStation || slots[i];
@@ -365,7 +371,12 @@ byId("btn-save-slot").addEventListener("click", () => {
     ...(Number.isFinite(station.lat) ? { lat: station.lat, lon: station.lon } : {}),
     ...(v && v !== station.name ? { label: v } : {}),
   };
+  app.pendingStation = null;
   saveSlots();
+}
+
+byId("btn-save-slot").addEventListener("click", () => {
+  commitEdit();
   navigate("grid");
 });
 byId("labelinput").addEventListener("keydown", (e) => {
@@ -424,6 +435,8 @@ function renderSuggestions(stops) {
 
 clearSlotBtn.addEventListener("click", () => {
   slots[app.editSlot] = null;
+  app.pendingStation = null;
+  app.editSlot = null; // verhindert, dass das Verlassen die Kachel neu anlegt
   saveSlots();
   navigate("grid");
 });
