@@ -95,11 +95,45 @@ function trackChip(place, what = "Halt") {
     : `<span class="${cls}" title="${title}">${inner}</span>`;
 }
 
-// Symbol je Verkehrsmittel-Kategorie (Detailansicht, vor der Liniennummer)
-const MODE_ICON = {
-  fern: "🚄", regio: "🚆", sbahn: "🚈", utram: "🚇",
-  bus: "🚌", fernbus: "🚌", sonstige: "⛴",
+/* Verkehrsmittel-Symbole als schlichte weiße Linienzeichnungen (currentColor),
+   passend zur Chip-Farbe der Kategorie. U-Bahn und S-Bahn tragen ihr
+   klassisches Buchstaben-Signet, alles andere ein Fahrzeug-Piktogramm. */
+const svgIcon = (inner) =>
+  `<svg class="mi" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" ` +
+  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+
+const letterBadge = (ch) => svgIcon(
+  `<rect x="2.6" y="2.6" width="10.8" height="10.8" rx="3"/>` +
+  `<text x="8" y="11.4" text-anchor="middle" font-size="8.5" font-weight="700" ` +
+  `fill="currentColor" stroke="none" font-family="system-ui,sans-serif">${ch}</text>`);
+
+const ICON = {
+  ice: svgIcon(`<path d="M4.6 12.6V6.9C4.6 4.8 6.1 3.1 8 3.1s3.4 1.7 3.4 3.8v5.7z"/>` +
+    `<path d="M4.6 8.5h6.8"/><path d="M6.3 10.7h.01"/><path d="M9.7 10.7h.01"/><path d="M3.2 14.9h9.6"/>`),
+  regio: svgIcon(`<rect x="4.4" y="3.1" width="7.2" height="9.5" rx="1.6"/>` +
+    `<path d="M4.4 8.3h7.2"/><path d="M6.3 10.6h.01"/><path d="M9.7 10.6h.01"/><path d="M3.2 14.9h9.6"/>`),
+  tram: svgIcon(`<rect x="4.4" y="3.6" width="7.2" height="9" rx="1.6"/>` +
+    `<path d="M4.4 8.6h7.2"/><path d="M6.3 10.8h.01"/><path d="M9.7 10.8h.01"/>` +
+    `<path d="M8 3.6V1.4"/><path d="M6.4 1.4h3.2"/><path d="M3.2 14.9h9.6"/>`),
+  bus: svgIcon(`<rect x="3.2" y="3.2" width="9.6" height="8.2" rx="1.7"/>` +
+    `<path d="M3.2 7.4h9.6"/><circle cx="5.5" cy="12.7" r="1.1"/><circle cx="10.5" cy="12.7" r="1.1"/>`),
+  ferry: svgIcon(`<path d="M3.2 9.4h9.6l-1.5 3.1H4.7z"/><path d="M8 9.4V4.3"/>` +
+    `<path d="M8 4.6h3.1L8 6.7"/><path d="M2.4 14.2c1.3.9 2.7.9 4 0s2.7-.9 4 0"/>`),
+  walk: svgIcon(`<circle cx="9.3" cy="2.9" r="1.5"/><path d="M9.3 5.3 7.7 8.4l1.3 1.5.8 3.9"/>` +
+    `<path d="M7.7 8.4 5.5 10"/><path d="M9 9.9 7 13.7"/><path d="M9.9 6.5l2 1.3"/>`),
 };
+
+// Symbol passend zum konkreten Verkehrsmittel des Abschnitts
+function modeIcon(l) {
+  const m = l.mode;
+  if (m === "SUBWAY") return letterBadge("U");
+  if (m === "SUBURBAN" || m === "METRO") return letterBadge("S");
+  if (m === "TRAM") return ICON.tram;
+  if (m === "BUS" || m === "COACH") return ICON.bus;
+  if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(m)) return ICON.ice;
+  if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(m)) return ICON.regio;
+  return ICON.ferry;
+}
 
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";

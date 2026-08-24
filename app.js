@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.4.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -982,8 +982,8 @@ function fillDetails(container, it) {
     return `<div class="jrn-stop" data-ts="${+new Date(t || ts)}">` +
       `<span class="jrn-time">${timeWithDelay(ts, t)}</span>` +
       `<span class="jrn-dot"></span>` +
-      `<span class="jrn-name">${escapeHtml(p.name)}</span>` +
-      `<span class="jrn-track">${trackChip(p, kind === "dep" ? "Abfahrtsort" : "Ankunftsort")}</span></div>`;
+      `<span class="jrn-name">${escapeHtml(p.name)}` +
+      `<span class="jrn-track">${trackChip(p, kind === "dep" ? "Abfahrtsort" : "Ankunftsort")}</span></span></div>`;
   };
 
   const segBlock = (l) => {
@@ -1005,7 +1005,7 @@ function fillDetails(container, it) {
       `<span class="jrn-dur">${fmtDur(l.duration)}</span>` +
       `<div class="jrn-body">` +
         `<span class="linechip seg-${cls}${sev ? " chip-sev" : ""}">` +
-          `<span class="lc-icon">${MODE_ICON[cls] || "🚏"}</span><span class="lc-name">${escapeHtml(lp.main)}</span>` +
+          `<span class="lc-icon">${modeIcon(l)}</span><span class="lc-name">${escapeHtml(lp.main)}</span>` +
         `</span>` +
         `${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""}` +
         `${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}` +
@@ -1030,7 +1030,7 @@ function fillDetails(container, it) {
     const warn = walk.some(legCancelled);
     return `<div class="jrn-transfer">` +
       `<span class="jrn-dur">${fmtDur(Math.max(0, ms / 1000))}</span>` +
-      `<div class="jrn-body">${walkMin > 60 ? `🚶 Umstieg mit ${fmtDur(walkMin)} Fußweg` : "🚶 Umstieg"}` +
+      `<div class="jrn-body"><span class="wi">${ICON.walk}</span>${walkMin > 60 ? `Umstieg mit ${fmtDur(walkMin)} Fußweg` : "Umstieg"}` +
         `${warn ? ` <span class="warn-tri" title="Meldung am Umstiegshalt">⚠</span>` : ""}</div></div>`;
   };
 
@@ -1039,7 +1039,7 @@ function fillDetails(container, it) {
     if (!l || l.duration < 60) return "";
     const name = where === "pre" ? l.to.name : l.from.name;
     return `<div class="jrn-transfer edge"><span class="jrn-dur">${fmtDur(l.duration)}</span>` +
-      `<div class="jrn-body">🚶 Fußweg ${where === "pre" ? "zum" : "vom"} Halt ${escapeHtml(name)} ` +
+      `<div class="jrn-body"><span class="wi">${ICON.walk}</span>Fußweg ${where === "pre" ? "zum" : "vom"} Halt ${escapeHtml(name)} ` +
       `${mapsPin(where === "pre" ? l.to : l.from)}</div></div>`;
   };
 
