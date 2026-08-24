@@ -312,33 +312,40 @@ const clearSlotBtn = byId("btn-clear-slot");
 let searchDebounce = null;
 let geocodeAbort = null;
 
+/* Kachel bearbeiten: nur Beschriftung + Löschen (Station wechseln = löschen
+   und neu anlegen). Neuanlage: Bahnhof suchen → Auswahl → optionale
+   Beschriftung → Speichern (leer = automatischer Name). */
 function openEdit(i) {
   app.editSlot = i;
+  app.pendingStation = null;
   const slot = slots[i];
-  byId("edit-title").textContent = slot ? "Station ändern" : "Station wählen";
-  byId("edit-current").hidden = !slot;
-  if (slot) byId("edit-current").textContent = `Aktuell: ${slot.name}`;
-  byId("label-row").hidden = !slot;
-  byId("labelinput").value = slot ? (slot.label || "") : "";
+  byId("edit-title").textContent = slot ? "Kachel bearbeiten" : "Station wählen";
+  stationInput.hidden = !!slot;
   stationInput.value = "";
   suggestionsEl.innerHTML = "";
+  byId("edit-current").hidden = !slot;
+  if (slot) byId("edit-current").textContent = slot.name;
+  byId("label-row").hidden = !slot;
+  byId("labelinput").value = slot ? (slot.label || "") : "";
+  byId("btn-save-slot").hidden = !slot;
   clearSlotBtn.hidden = !slot;
   navigate("edit");
-  if (!slot) setTimeout(() => stationInput.focus(), 50);
+  setTimeout(() => (slot ? byId("labelinput") : stationInput).focus(), 60);
 }
 
-// Eigene Beschriftung: Anzeige-Name der Kachel; der offizielle Bahnhofsname
-// bleibt erhalten (den braucht u. a. der DB-Link). Reist im Übertragungs-Link mit.
-function saveLabelInput() {
+byId("btn-save-slot").addEventListener("click", () => {
   const i = app.editSlot;
-  if (i === null || !slots[i]) return;
+  if (i === null) return;
+  const station = app.pendingStation || slots[i];
+  if (!station) return;
   const v = byId("labelinput").value.trim();
-  if (v && v !== slots[i].name) slots[i].label = v;
-  else delete slots[i].label;
+  slots[i] = { name: station.name, id: station.id, ...(v && v !== station.name ? { label: v } : {}) };
   saveSlots();
-}
-byId("labelinput").addEventListener("change", () => { saveLabelInput(); renderGrid(); });
-byId("labelinput").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+  navigate("grid");
+});
+byId("labelinput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") byId("btn-save-slot").click();
+});
 
 stationInput.addEventListener("input", () => {
   clearTimeout(searchDebounce);
@@ -374,11 +381,16 @@ function renderSuggestions(stops) {
     b.className = "suggestion";
     b.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(area ? area.name : "")}</small>`;
     b.addEventListener("click", () => {
-      saveLabelInput(); // evtl. gerade getippte Beschriftung nicht verlieren
-      const keepLabel = slots[app.editSlot]?.label;
-      slots[app.editSlot] = { name: s.name, id: s.id, ...(keepLabel ? { label: keepLabel } : {}) };
-      saveSlots();
-      navigate("grid");
+      // Auswahl gemerkt — gespeichert wird erst mit „Speichern“
+      app.pendingStation = { name: s.name, id: s.id };
+      stationInput.hidden = true;
+      suggestionsEl.innerHTML = "";
+      byId("edit-current").hidden = false;
+      byId("edit-current").textContent = s.name;
+      byId("label-row").hidden = false;
+      byId("labelinput").value = "";
+      byId("btn-save-slot").hidden = false;
+      setTimeout(() => byId("labelinput").focus(), 50);
     });
     suggestionsEl.appendChild(b);
   }
@@ -814,7 +826,7 @@ function fillDetails(container, it) {
     const stopRow = s => {
       const t = s.arrival || s.departure, ts = s.scheduledArrival || s.scheduledDeparture;
       return `<li class="leg-row" data-ts="${+new Date(t || ts)}">` +
-        `<span class="leg-time">${timeWithDelay(ts, t)}</span><span class="leg-dot mini"></span>` +
+        `<span class="leg-dot mini"></span><span class="leg-time">${timeWithDelay(ts, t)}</span>` +
         `<span class="leg-text${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
         `${s.track ? ` · Gl. ${escapeHtml(String(s.track))}` : ""}${s.cancelled ? " · entfällt" : ""}</span></li>`;
     };
@@ -833,12 +845,12 @@ function fillDetails(container, it) {
         <div class="leg-track"></div>
         <div class="leg-progress" hidden></div>
         <div class="leg-row" data-ts="${+new Date(l.from.departure)}">
-          <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span><span class="leg-dot"></span>
+          <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
           <span class="leg-text">ab ${escapeHtml(l.from.name)}${trackPart}</span>
         </div>
         ${infoBlock}
         <div class="leg-row" data-ts="${+new Date(l.to.arrival)}">
-          <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span><span class="leg-dot"></span>
+          <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
           <span class="leg-text">an ${escapeHtml(l.to.name)}</span>
         </div>
       </div>`;

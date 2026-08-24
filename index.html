@@ -40,15 +40,16 @@
     <button class="backbtn" data-back aria-label="Zurück">←</button>
     <h2 id="edit-title">Station wählen</h2>
   </div>
-  <p class="hint" id="edit-current" hidden></p>
+  <input type="search" id="stationinput" placeholder="Bahnhofsnamen eingeben …"
+         autocomplete="off" autocapitalize="words" enterkeyhint="search">
+  <div id="suggestions" class="suggestions" role="listbox"></div>
+  <p class="edit-station" id="edit-current" hidden></p>
   <label class="labelrow" id="label-row" hidden>Eigene Beschriftung (optional)
     <input type="text" id="labelinput" autocomplete="off" enterkeyhint="done"
            placeholder="z. B. Zuhause, Arbeit …">
   </label>
-  <input type="search" id="stationinput" placeholder="Bahnhofsnamen eingeben …"
-         autocomplete="off" autocapitalize="words" enterkeyhint="search">
-  <div id="suggestions" class="suggestions" role="listbox"></div>
-  <button id="btn-clear-slot" class="dangerbtn" hidden>Diesen Button leeren</button>
+  <button id="btn-save-slot" class="widebtn" hidden>Speichern</button>
+  <button id="btn-clear-slot" class="dangerbtn" hidden>Diesen Button löschen</button>
 </main>
 
 <!-- ANSICHT: ERGEBNISSE -->
@@ -140,7 +141,7 @@
   <h2>Hilfe</h2>
   <ul>
     <li>Unbelegte Buttons zeigen ein „+“ – antippen und Bahnhof suchen. Beim Bearbeiten kannst du der Kachel eine <strong>eigene Beschriftung</strong> geben (z. B. „Zuhause“) – gesucht wird weiter mit dem echten Bahnhof.</li>
-    <li><strong>Ändern, löschen, verschieben:</strong> „✎ Bearbeiten“ antippen – dann öffnet Antippen die Stationswahl („Diesen Button leeren“ entfernt sie) und <strong>Ziehen tauscht die Position</strong> zweier Kacheln. Abkürzung fürs Ändern: Button lange gedrückt halten. Die Anzahl der Kacheln stellst du im ⚙-Menü ein.</li>
+    <li><strong>Bearbeiten, löschen, verschieben:</strong> „✎ Bearbeiten“ antippen – Antippen einer Kachel ändert ihre Beschriftung oder löscht sie („Diesen Button löschen“; einen anderen Bahnhof bekommst du über Löschen + Neuanlegen). <strong>Ziehen tauscht die Position</strong> zweier Kacheln. Abkürzung: Kachel lange gedrückt halten. Die Anzahl der Kacheln stellst du im ⚙-Menü ein.</li>
     <li>Zwei belegte Buttons antippen: der erste wird <strong>Start</strong> (markiert), der zweite <strong>Ziel</strong> – die Verbindungen ab jetzt erscheinen sofort, inklusive Verspätungen und Gleis.</li>
     <li>Oder <strong>wischen</strong>: Finger auf den Start-Button legen und eine Linie zum Ziel-Button ziehen – beim Loslassen startet die Suche.</li>
     <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
