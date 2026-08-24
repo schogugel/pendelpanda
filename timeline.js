@@ -408,13 +408,14 @@ function tlColumn(it, left, isDominated = false) {
 
 /* ---------- Zoom ---------- */
 
-function tlSetZoom(newPpm, anchorClientY) {
+// Zoom-Anker ist die OBERKANTE der Ansicht: die dort eingerastete
+// Verbindung/Zeitmarke bleibt beim Zoomen stehen, die Skala streckt
+// bzw. staucht sich nur nach unten.
+function tlSetZoom(newPpm) {
   const sc = byId("timeline");
   newPpm = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, newPpm));
   if (Math.abs(newPpm - tl.ppm) < 0.01) return;
-  const rect = sc.getBoundingClientRect();
-  const y = (anchorClientY ?? rect.top + rect.height / 2) - rect.top;
-  const anchorTime = tl.t0 + (sc.scrollTop + y) / tl.ppm * 60000;
+  const anchorTime = tl.t0 + (sc.scrollTop / tl.ppm) * 60000;
   const left = sc.scrollLeft;
   tl.ppm = newPpm;
   tlBuild(sc);
@@ -426,7 +427,7 @@ function tlSetZoom(newPpm, anchorClientY) {
     tlBuild(sc);
   }
   sc.scrollLeft = left;
-  sc.scrollTop = Math.max(0, tlY(anchorTime) - y);
+  sc.scrollTop = Math.max(0, tlY(anchorTime));
 }
 
 function tlInitInteractions() {
