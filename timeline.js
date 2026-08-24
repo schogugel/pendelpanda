@@ -48,6 +48,13 @@ function transferWarning(it) {
   return it.legs.some(l => l.mode === "WALK" && legCancelled(l));
 }
 
+// „RB51 (84185)“ → Hauptkennung „RB51“ + Zusatznummer „84185“
+function lineParts(l) {
+  const full = (l.routeShortName || l.displayName || "").trim();
+  const m = full.match(/^(.+?)\s*\(([^)]+)\)$/);
+  return m ? { main: m[1], extra: m[2] } : { main: full, extra: null };
+}
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
@@ -334,10 +341,9 @@ function tlColumn(it, left, isDominated = false) {
   const head = document.createElement("button");
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
   head.innerHTML =
-    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}</span>` +
+    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${warn ? ` <span class="warn-tri">⚠</span>` : ""}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
-    `<small>${it.transfers} Umst.</small>` +
-    (warn ? `<small class="warn-label">⚠ Umstieg prüfen</small>` : "");
+    `<small>${it.transfers} Umst.</small>`;
   head.addEventListener("click", () => {
     const sc = byId("timeline");
     const viewTop = sc.scrollTop + tlHeadClear(), viewBot = sc.scrollTop + sc.clientHeight;
@@ -367,7 +373,7 @@ function tlColumn(it, left, isDominated = false) {
     seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (isCancelled ? " seg-cancelled" : "");
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
-    const name = l.routeShortName || l.displayName || "";
+    const name = lineParts(l).main; // Zusatznummer nur in der Detailansicht
     // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
     if (isCancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
     else seg.textContent = name;

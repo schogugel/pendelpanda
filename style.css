@@ -342,6 +342,15 @@ body {
 .tl-edgeload-r { left: auto; right: 10px; }
 .tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
 .warn-label { color: var(--warn); font-weight: 700; }
+.warn-tri { color: var(--warn); font-weight: 700; }
+/* Linien-Chip in Verkehrsmittel-Farbe (Detailansicht) */
+.linechip { display: inline-block; padding: 0 .4em; border-radius: 5px; font-weight: 700; }
+.linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
+/* Aufklappbare Umstiegs-Meldung */
+.walkmeld { font-size: .85rem; color: var(--muted); }
+.walkmeld summary { cursor: pointer; }
+.walkmeld p { margin: .3rem 0 0 1.15rem; }
+.walkmeld .finequote { margin-top: .4rem; }
 /* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut */
 .tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; }
 .tl-col.dominated .tl-head { opacity: .6; }

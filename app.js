@@ -735,7 +735,7 @@ function renderItineraries(itineraries) {
     const card = document.createElement("article");
     card.className = "trip" + (cancelled ? " cancelled" : "");
 
-    const lines = legs.map(l => l.routeShortName || l.displayName || l.mode).join(" › ");
+    const lines = legs.map(l => lineParts(l).main || l.mode).join(" › ");
     const dur = fmtDur(it.duration);
     const trackInfo = dep.track ? `Gl. ${dep.track}` : "";
     const trackChanged = dep.track && dep.scheduledTrack && dep.track !== dep.scheduledTrack;
@@ -746,7 +746,7 @@ function renderItineraries(itineraries) {
       <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
       <span class="trip-meta">
         <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-label">⚠ Umstieg</span>` : ""}</span>
+        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-tri">⚠</span>` : ""}</span>
       </span>
       ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
 
@@ -768,13 +768,23 @@ function fillDetails(container, it) {
   const flagged = cancelledTransitLegs(it);
   for (const l of it.legs) {
     if (l.mode === "WALK") {
-      const w = document.createElement("p");
-      w.className = "walkleg";
-      w.textContent = `🚶 ${fmtDur(l.duration)} Fußweg`;
       if (legCancelled(l)) {
-        w.innerHTML += ` · <span class="warn-label">⚠ Meldung am Umstiegshalt – Anschluss vor Ort prüfen</span>`;
+        // Meldung als aufklappbares Element mit allem, was die Daten hergeben
+        const det = document.createElement("details");
+        det.className = "walkmeld";
+        const stops = [l.from, l.to].filter(s => s && s.cancelled);
+        det.innerHTML =
+          `<summary>🚶 ${fmtDur(l.duration)} Fußweg · <span class="warn-tri">⚠</span> Meldung am Umstieg</summary>` +
+          stops.map(s =>
+            `<p>Halt „${escapeHtml(s.name)}“${s.description ? ` (${escapeHtml(s.description)})` : ""}: laut Echtzeitdaten als entfallen markiert.</p>`).join("") +
+          `<p class="finequote">Die Datenquelle liefert dazu keinen Meldungstext. Häufig steckt eine Haltestellen- oder Steigänderung dahinter – der Anschluss fährt meist trotzdem. Vor Ort prüfen.</p>`;
+        container.appendChild(det);
+      } else {
+        const w = document.createElement("p");
+        w.className = "walkleg";
+        w.textContent = `🚶 ${fmtDur(l.duration)} Fußweg`;
+        container.appendChild(w);
       }
-      container.appendChild(w);
       continue;
     }
     const div = document.createElement("div");
@@ -783,9 +793,10 @@ function fillDetails(container, it) {
     const arrDelay = diffMin(l.to.scheduledArrival, l.to.arrival);
     const track = l.from.track ? ` · Gl. ${l.from.track}` : "";
     const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
+    const lp = lineParts(l);
     div.innerHTML = `
       <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-      <span class="leg-line">${escapeHtml(l.routeShortName || l.displayName || "")} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
+      <span class="leg-line"><span class="linechip seg-${productClass(l.mode)}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
       <span class="leg-detail">ab ${escapeHtml(l.from.name)}${trackChanged ? ` · <span class="track-changed">Gl. ${l.from.track} (statt ${l.from.scheduledTrack})</span>` : escapeHtml(track)}</span>
       <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
       <span class="leg-detail" style="grid-column:2">an ${escapeHtml(l.to.name)}${arrDelay > 0 ? ` (${delayText(arrDelay)})` : ""}</span>`;
