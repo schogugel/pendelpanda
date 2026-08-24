@@ -136,12 +136,15 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
   vertikaler Geste wird dx auf 20 % gedämpft), **kein Schwung-Nachlauf** — `releaseGlide`
   rastet direkt ein. Klick-Unterdrückung über Zeitfenster `tl.panEndAt` (300 ms), NIE
   über ein Flag (Browser feuert nach Wischgesten oft keinen Klick → Flag frisst den nächsten).
-- „Letzte“-Heuristik: Nachtflaute = letzter Abfahrtsabstand ≥ max(90 min, 2,5×Median-Takt)
-  (`nightGapIndex`); „anständig“ = max. Umstiegswartezeit ≤45 min (Gesamtdauer bewusst
-  KEIN Kriterium). `loadBackToNightGap()` lädt gezielt rückwärts, bis die Pause im
-  Fenster liegt — EINE Seite reicht oft nicht, sonst landet der Fokus am Nachmittag.
-  Drei Abbruchkriterien gegen Endlos-Warten: Pause gefunden / Vorabend abgedeckt
-  (Anker−7 h) / Pool spannt ≥4 h lückenlos (= durchfahrende Strecke), max. 3 Runden.
+- **„Letzte“ = Ankunftssuche, keine Eigenheuristik:** `arriveBy=true` mit
+  `time = nextServiceEnd()` (nächste 04:00 lokal). Der Router liefert damit direkt die
+  spätesten Verbindungen, die vor Betriebsschluss ankommen — EINE Anfrage, kein
+  Rückwärtsblättern, deterministisch. Verifiziert: Strecke mit Nachtpause → letzte
+  Abfahrt 00:33 (identisch zur früheren Lückensuche), durchfahrende Strecke → 02:46.
+  Die frühere Konstruktion (Suche ab Morgen + rückwärts blättern + Lücken-Heuristik)
+  war langsam und traf oft die falsche Verbindung — **nicht wieder einführen.**
+  `findLastDecent()` wählt daraus nur noch die FOKUS-Spalte: späteste mit
+  Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
 
 ## Kategorien & Legende

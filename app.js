@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.1.1";
+const APP_VERSION = "1.2.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -520,10 +520,10 @@ byId("btn-swap").addEventListener("click", () => {
   if (app.search) startSearch(app.search.to, app.search.from);
 });
 
-// Nächstes Betriebsende der Nacht (~03:30) für „Letzte Verbindungen“
-function nextNightEnd() {
+// Nächstes Betriebstag-Ende (~04:00 lokal) als Grenze für „Letzte“
+function nextServiceEnd() {
   const d = new Date();
-  d.setHours(3, 30, 0, 0);
+  d.setHours(4, 0, 0, 0);
   if (d <= new Date()) d.setDate(d.getDate() + 1);
   return d;
 }
@@ -545,8 +545,12 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
 async function fetchPage(direction, limit = 10) {
   const { from, to } = app.search;
   const t = app.searchTime;
+  /* „Letzte“ nutzt die ANKUNFTSSUCHE bis Betriebsschluss: Der Router liefert
+     damit von sich aus die spätesten Verbindungen, die vor der Grenze ankommen
+     — eine Anfrage, kein Rückwärtsblättern, keine eigene Lücken-Heuristik. */
+  const arriveBy = t.kind === "letzte" || (t.kind === "custom" && t.arriveBy);
   const baseTime = t.kind === "custom" ? new Date(t.time)
-    : t.kind === "letzte" ? nextNightEnd()
+    : t.kind === "letzte" ? nextServiceEnd()
     : new Date();
   const params = new URLSearchParams({
     fromPlace: from.id,
@@ -566,7 +570,7 @@ async function fetchPage(direction, limit = 10) {
     params.set("maxPreTransitTime", "1800");
     params.set("maxPostTransitTime", "1800");
   }
-  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
+  if (arriveBy) params.set("arriveBy", "true");
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
@@ -625,9 +629,7 @@ async function runPlan(direction = null, limit = 10) {
     const { params } = await fetchPage(direction, limit);
     if (!direction) {
       const t = app.searchTime;
-      if (t.kind === "letzte") {
-        await loadBackToNightGap();
-      } else if (t.kind === "now" && app.itins.length && app.prevPageCursor) {
+      if (t.kind === "now" && app.itins.length && app.prevPageCursor) {
         // zwei gerade verpasste Verbindungen als Kontext links
         await fetchPage("earlier", 2);
       }
@@ -658,23 +660,6 @@ async function runPlan(direction = null, limit = 10) {
   }
 }
 
-/* „Letzte“: so weit rückwärts laden, bis die Betriebspause der Nacht wirklich
-   im geladenen Fenster liegt. Vorher war es genau EINE Seite — reichte die
-   nicht bis zur Lücke, landete der Fokus irgendwo am Nachmittag. */
-async function loadBackToNightGap() {
-  const coverUntil = +nextNightEnd() - 7 * 3600e3; // bis ~20:30 des Vorabends
-  for (let i = 0; i < 3; i++) {
-    const list = gapList(app.itins);
-    if (nightGapIndex(list) >= 0) return;                 // Flaute gefunden
-    if (list.length && list[0].dep <= coverUntil) return; // Abend abgedeckt
-    // Deckt der Pool schon ≥4 h ohne Pause ab, fährt die Strecke durch —
-    // weiteres Rückwärtsladen wäre reine Wartezeit
-    if (list.length > 2 && list[list.length - 1].dep - list[0].dep >= 4 * 3600e3) return;
-    if (!app.prevPageCursor) return;
-    const { added } = await fetchPage("earlier", 10);
-    if (!added) return; // nichts Neues mehr — Abbruch statt Endlosschleife
-  }
-}
 
 /* Umkreis-Suche als Rückfallebene — der Fall „Schienenersatzverkehr“:
    Ist eine Strecke gesperrt, hat der Bahnhof selbst keine Fahrten mehr; der
@@ -756,11 +741,12 @@ async function diagnoseEmpty() {
 }
 
 /* --- „Letzte anständige Verbindung“ ---
-   1) Nachtflaute erkennen: Median-Takt der Abfahrten; der letzte Abstand
-      >= max(90 min, 2,5 × Takt) ist die Betriebspause.
-   2) Anständig = kein Stranden: längste Umstiegs-Wartezeit <= 45 min
-      (Gesamtdauer ist bewusst KEIN Kriterium – durchfahrende Nachtzüge sind ok).
-   Gefiltert wird nichts; die Verbindung wird nur fokussiert. */
+   Welche Verbindungen überhaupt die letzten sind, beantwortet die
+   Ankunftssuche bis Betriebsschluss (siehe fetchPage) — hier wird daraus nur
+   noch die FOKUS-Spalte gewählt: die späteste, bei der man unterwegs nicht
+   strandet (längste Umstiegs-Wartezeit ≤ 45 min; die Gesamtdauer ist bewusst
+   kein Kriterium, ein durchfahrender Nachtzug bleibt „anständig“).
+   Gefiltert wird nichts — die Verbindung wird nur angesteuert. */
 // Verbindungen als sortierte Kennzahlen-Liste (Abfahrt + längste Umstiegswartezeit)
 function gapList(itins) {
   return itins.map(it => {
@@ -774,37 +760,14 @@ function gapList(itins) {
   }).filter(Boolean).sort((a, b) => a.dep - b.dep);
 }
 
-// Index der letzten Betriebspause („Nachtflaute“) in der Liste, sonst -1
-function nightGapIndex(list) {
-  if (list.length < 3) return -1;
-  const deltas = list.slice(1).map((c, i) => c.dep - list[i].dep);
-  const sorted = [...deltas].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-  const gapThresh = Math.max(90 * 60000, 2.5 * median);
-  let gapIdx = -1;
-  deltas.forEach((d, i) => { if (d >= gapThresh) gapIdx = i; });
-  return gapIdx;
-}
-
-function findLastDecent(itins, anchorMs) {
+function findLastDecent(itins) {
   const list = gapList(itins);
   if (!list.length) return null;
-  if (list.length < 3) return list[list.length - 1].key;
-  const gapIdx = nightGapIndex(list);
-
-  // Keine Flaute gefunden (Strecke fährt durch): letzte Verbindung vor dem
-  // Morgen-Anker nehmen statt willkürlich der letzten geladenen
-  let beforeGap;
-  if (gapIdx >= 0) beforeGap = list.slice(0, gapIdx + 1);
-  else {
-    beforeGap = anchorMs ? list.filter(c => c.dep < anchorMs) : list;
-    if (!beforeGap.length) beforeGap = list;
+  const DECENT_WAIT = 45 * 60000; // kein Stranden am Umstieg
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].maxGap <= DECENT_WAIT) return list[i].key;
   }
-  const DECENT_WAIT = 45 * 60000;
-  for (let i = beforeGap.length - 1; i >= 0; i--) {
-    if (beforeGap[i].maxGap <= DECENT_WAIT) return beforeGap[i].key;
-  }
-  return beforeGap[beforeGap.length - 1].key;
+  return list[list.length - 1].key;
 }
 
 /* --- Datum/Uhrzeit-Dialog --- */
@@ -936,7 +899,7 @@ function renderResults() {
     return;
   }
   if (graph) {
-    const focus = app.searchTime.kind === "letzte" ? (findLastDecent(visible, +nextNightEnd()) || "end") : "start";
+    const focus = app.searchTime.kind === "letzte" ? (findLastDecent(visible) || "end") : "start";
     renderTimeline(visible, focus);
   } else {
     resultsList.innerHTML = "";
