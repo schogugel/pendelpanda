@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1001,7 +1001,7 @@ function fillDetails(container, it) {
         `<span class="jrn-name${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
         `${s.cancelled ? " · entfällt" : ""}</span></li>`;
     };
-    return `<div class="jrn-seg">` +
+    const seg = `<div class="jrn-seg">` +
       `<span class="jrn-dur">${fmtDur(l.duration)}</span>` +
       `<div class="jrn-body">` +
         `<span class="linechip seg-${cls}${sev ? " chip-sev" : ""}">` +
@@ -1012,12 +1012,16 @@ function fillDetails(container, it) {
         `${sev ? ` <span class="sev-badge">Ersatzverkehr</span>` : ""}` +
         `<p class="jrn-dir">nach ${escapeHtml(l.headsign || l.to.name)}</p>` +
         `${sev ? `<p class="sev-hint">Fährt als Bus ab einer Ersatzhaltestelle.</p>` : ""}` +
-        (stops.length || facts.length
-          ? `<details class="leginfo"><summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}</summary>` +
-            (stops.length ? `<ul class="stoplist">${stops.map(stopLi).join("")}</ul>` : "") +
-            (facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : "") + `</details>`
-          : "") +
       `</div></div>`;
+    /* Zwischenhalte bewusst als GESCHWISTER des Fahrtblocks, nicht darin
+       verschachtelt: nur so liegen ihre Punkte auf demselben Raster (und
+       damit auf der Linie) wie die Hauptzeilen. */
+    const info = (stops.length || facts.length)
+      ? `<details class="leginfo"><summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}</summary>` +
+        (stops.length ? `<ul class="stoplist">${stops.map(stopLi).join("")}</ul>` : "") +
+        (facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : "") + `</details>`
+      : "";
+    return seg + info;
   };
 
   // Umstieg zwischen zwei Fahrten: Fußweg und/oder Wartezeit
@@ -1094,18 +1098,24 @@ function updateJourneyLine(jrn) {
 
   const prog = jrn.querySelector(".jrn-progress");
   const now = Date.now();
-  const first = Number(rows[0].dataset.ts), last = Number(rows[rows.length - 1].dataset.ts);
+  const stamps = rows.map(r => Number(r.dataset.ts)).filter(Number.isFinite);
+  if (stamps.length < 2) { prog.hidden = true; return; }
+  const first = stamps[0], last = stamps[stamps.length - 1];
   rows.forEach(r => r.classList.toggle("passed", now > Number(r.dataset.ts)));
   if (!(now >= first && now <= last)) { prog.hidden = true; return; }
   let y = y0;
   for (let i = 0; i < rows.length - 1; i++) {
     const t0 = Number(rows[i].dataset.ts), t1 = Number(rows[i + 1].dataset.ts);
+    if (!Number.isFinite(t0) || !Number.isFinite(t1)) continue;
     if (now > t1) { y = center(rows[i + 1]); continue; }
     if (now >= t0) {
       y = center(rows[i]) + (t1 > t0 ? (now - t0) / (t1 - t0) : 0) * (center(rows[i + 1]) - center(rows[i]));
     }
     break;
   }
+  // hart auf die Linie begrenzen — sie darf nie über den letzten Halt
+  // hinauslaufen (sonst ragt sie aus der Ansicht heraus)
+  y = Math.min(Math.max(y, y0), y1);
   prog.style.top = y0 + "px";
   prog.style.height = Math.max(0, y - y0) + "px";
   prog.hidden = false;

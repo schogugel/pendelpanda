@@ -498,14 +498,13 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .jrn-transfer { padding: .3rem 0; color: var(--muted); font-size: .85rem; }
 .jrn-transfer .jrn-body { grid-column: 3; }
 .jrn-transfer.edge .jrn-body { color: var(--text); }
-/* Zwischenhalte */
-.leginfo { grid-column: 3; font-size: .84rem; color: var(--muted); margin-top: .35rem; }
-.leginfo summary { cursor: pointer; }
-/* Zwischenhalte auf dasselbe Raster wie die Hauptzeilen zurückziehen
-   (Inhaltsspalte beginnt bei 3.6rem + .55rem + 10px + .55rem) */
-.stoplist { list-style: none; margin: .35rem 0 0 calc(-4.15rem - 10px); display: flex; flex-direction: column; gap: .28rem; }
+/* Zwischenhalte — Geschwister des Fahrtblocks, damit die Punkte auf dem
+   gleichen Raster (und damit auf der Linie) sitzen */
+.leginfo { font-size: .84rem; color: var(--muted); margin: -.15rem 0 .35rem; }
+.leginfo summary { cursor: pointer; margin-left: calc(4.15rem + 10px); }
+.stoplist { list-style: none; margin: .35rem 0 0; display: flex; flex-direction: column; gap: .28rem; }
 .stoplist .jrn-time { font-weight: 400; font-size: .95em; }
-.leg-facts { margin: .35rem 0 0; }
+.leg-facts { margin: .35rem 0 0 calc(4.15rem + 10px); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
 
 /* ---------- Dialoge: Details & Übertragen ---------- */
