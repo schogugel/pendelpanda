@@ -115,22 +115,24 @@ function renderTimeline(itins, focus = "start") {
     tl.lastZoomIdx = startIdx;
   }
 
-  // Im „Jetzt“-Modus garantiert genug Kopffreiheit über der Jetzt-Linie,
-  // damit sie unter der Kopf-Kachel positioniert werden kann
-  if (app.searchTime.kind === "now") {
-    const needMs = (90 / tl.ppm + 4) * 60000;
-    tl.t0 = Math.min(tl.t0, Date.now() - needMs);
-  }
+  // Kopffreiheit: über dem FRÜHESTEN geladenen Balken (und im „Jetzt“-Modus
+  // zusätzlich über der Jetzt-Linie) muss immer Platz für die Kopf-Kachel
+  // sein — egal, in welcher Spalte man steht
+  const headroomMs = ((tlHeadClear() + 10) / tl.ppm) * 60000;
+  tl.t0 = Math.min(tl.t0, min - headroomMs);
+  if (app.searchTime.kind === "now") tl.t0 = Math.min(tl.t0, Date.now() - headroomMs);
 
   tlBuild(scroller);
 
-  // Selbstkorrektur: reicht der Platz über der Jetzt-Linie nicht für die
-  // real gemessene Kopf-Kachel, Zeitfläche exakt erweitern und neu bauen
-  if (!keepScroll && focus === "start" && app.searchTime.kind === "now") {
-    const nowMs = Date.now();
-    const needed = tlHeadClear() + 8;
-    if (nowMs <= tl.t1 && tlY(nowMs) < needed) {
-      tl.t0 -= ((needed - tlY(nowMs)) / tl.ppm) * 60000;
+  // Exakte Nachkorrektur mit der real gemessenen Kachelhöhe (eine Runde genügt)
+  {
+    const clear = tlHeadClear() + 8;
+    let deficit = clear - tl.bars[0].top;
+    if (app.searchTime.kind === "now" && Date.now() <= tl.t1) {
+      deficit = Math.max(deficit, clear - tlY(Date.now()));
+    }
+    if (deficit > 0) {
+      tl.t0 -= (deficit / tl.ppm) * 60000;
       tlBuild(scroller);
     }
   }
@@ -404,6 +406,13 @@ function tlSetZoom(newPpm, anchorClientY) {
   const left = sc.scrollLeft;
   tl.ppm = newPpm;
   tlBuild(sc);
+  // Kopffreiheit auch nach Zoom-Änderung sicherstellen (Rauszoomen
+  // schrumpft den Pixel-Puffer über dem frühesten Balken)
+  const clear = tlHeadClear() + 8;
+  if (tl.bars.length && tl.bars[0].top < clear) {
+    tl.t0 -= ((clear - tl.bars[0].top) / tl.ppm) * 60000;
+    tlBuild(sc);
+  }
   sc.scrollLeft = left;
   sc.scrollTop = Math.max(0, tlY(anchorTime) - y);
 }
