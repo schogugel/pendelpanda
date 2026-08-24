@@ -443,101 +443,68 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .walkmeld summary { cursor: pointer; }
 .walkmeld p { margin: .3rem 0 0 1.15rem; }
 .walkmeld .finequote { margin-top: .4rem; }
-/* Abschnitt als Perlenkette: Zeiten links, Punkte auf der Linie */
-.leg2 { display: flex; flex-direction: column; gap: .25rem; font-size: .92rem; }
-.leg-head { font-weight: 600; }
-/* Kennungs-Chip sitzt über der Perlenketten-Linie: einstellige Kennungen
-   mittig darüber, längere füllen von dort nach rechts auf */
-.leg-head .linechip { min-width: 1.7rem; text-align: center; margin-left: -8px; }
-.leg-body { position: relative; display: flex; flex-direction: column; gap: .35rem; }
-.leg-row { display: flex; align-items: center; gap: .55rem; }
-.leg-row .leg-time {
-  display: flex; flex-direction: column; align-items: flex-start;
-  min-width: 3.1rem; flex: none;
-  font-variant-numeric: tabular-nums; font-weight: 600; line-height: 1.15;
+/* Verbindungs-Detailansicht: durchgehende Linie, Zeitspalte links.
+   Reihenfolge wie bei der Bahn: Halt zuerst, darunter die Fahrt dorthin. */
+.jrn { position: relative; font-size: .92rem; }
+.jrn-line, .jrn-progress {
+  position: absolute; left: calc(3.6rem + 4px); width: 2px; border-radius: 1px;
 }
-.leg-row .old-time { display: block; }
-.t-real.ok { color: var(--ok); }
-.t-real.warn { color: var(--warn); }
-.t-real.bad { color: var(--bad); }
-.leg-dot {
-  width: 9px; height: 9px; border-radius: 50%; flex: none;
-  background: var(--text); box-shadow: 0 0 0 2px var(--card); z-index: 1;
+.jrn-line { background: var(--border); }
+.jrn-progress { background: var(--accent); z-index: 1; }
+.jrn-progress::after {
+  content: ""; position: absolute; bottom: -5px; left: -4px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px var(--card);
 }
-.leg-dot.mini { width: 6px; height: 6px; margin: 0 1.5px; }
-.leg-text { min-width: 0; }
-/* die verbindende Linie ganz links — alle Zeiten stehen rechts davon */
-.leg-track, .leg-progress {
-  position: absolute; width: 2px;
-  left: 3.5px;
+/* gemeinsames Raster: Zeit | Punkt | Inhalt */
+.jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub {
+  display: grid; grid-template-columns: 3.6rem 10px 1fr; align-items: start; gap: .55rem;
 }
-.leg-track { background: var(--text); opacity: .55; }
-.leg-progress { background: var(--ok); z-index: 1; }
-.leg-progress::after {
-  content: ""; position: absolute; bottom: -4px; left: -3px;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ok); box-shadow: 0 0 0 2px var(--card);
+.jrn-stop { padding: .25rem 0; align-items: center; }
+.jrn-time, .jrn-dur {
+  display: flex; flex-direction: column; align-items: flex-end; text-align: right;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
 }
-.leg-row.passed .leg-text, .leg-row.passed .leg-time { opacity: .55; }
-/* Aufklappbare Zwischenhalte sitzen ZWISCHEN ab- und an-Zeile */
-.leginfo { font-size: .82rem; color: var(--muted); }
-.leginfo summary { cursor: pointer; margin-left: calc(9px + .55rem); }
-.stoplist { list-style: none; margin: .35rem 0 0; display: flex; flex-direction: column; gap: .3rem; }
-.stoplist .leg-time { font-weight: 400; font-size: .95em; }
-.leg-facts { margin: .35rem 0 0 calc(9px + .55rem); }
+.jrn-time { font-weight: 700; }
+.jrn-dur { color: var(--muted); font-size: .8rem; padding-top: .15rem; }
+.jrn-dot {
+  width: 10px; height: 10px; border-radius: 50%; margin-top: .1rem;
+  background: var(--card); border: 2.5px solid var(--text); z-index: 2;
+}
+.jrn-sub .jrn-dot { width: 8px; height: 8px; margin-left: 1px; border-width: 2px; border-color: var(--muted); }
+.jrn-stop.passed .jrn-dot, .jrn-sub.passed .jrn-dot { border-color: var(--accent); background: var(--accent); }
+.jrn-stop.passed .jrn-name, .jrn-stop.passed .jrn-time,
+.jrn-sub.passed .jrn-name, .jrn-sub.passed .jrn-time { opacity: .55; }
+.jrn-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.jrn-sub .jrn-name { font-weight: 400; }
+.jrn-track { grid-column: 3; justify-self: start; }
+.jrn-stop { grid-template-areas: "time dot name" ". . track"; }
+.jrn-stop .jrn-time { grid-area: time; }
+.jrn-stop .jrn-dot { grid-area: dot; }
+.jrn-stop .jrn-name { grid-area: name; }
+.jrn-stop .jrn-track { grid-area: track; margin-top: .1rem; }
+/* Fahrt-Abschnitt */
+.jrn-seg { padding: .1rem 0 .45rem; }
+.jrn-seg .jrn-body { grid-column: 3; min-width: 0; }
+.jrn-dir { color: var(--muted); font-size: .85rem; margin-top: .2rem; }
+.linechip {
+  display: inline-flex; align-items: center; gap: .4em;
+  padding: .12em .5em; border-radius: 5px; font-weight: 700;
+}
+.linechip .lc-icon { font-size: .95em; }
+.linechip .lc-name { border-left: 1px solid rgba(0,0,0,.28); padding-left: .45em; }
+.linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
+/* Umstieg / Fußweg */
+.jrn-transfer { padding: .3rem 0; color: var(--muted); font-size: .85rem; }
+.jrn-transfer .jrn-body { grid-column: 3; }
+.jrn-transfer.edge .jrn-body { color: var(--text); }
+/* Zwischenhalte */
+.leginfo { grid-column: 3; font-size: .84rem; color: var(--muted); margin-top: .35rem; }
+.leginfo summary { cursor: pointer; }
+.stoplist { list-style: none; margin: .35rem 0 0 -4.15rem; display: flex; flex-direction: column; gap: .28rem; }
+.stoplist .jrn-time { font-weight: 400; font-size: .95em; }
+.leg-facts { margin: .35rem 0 0; }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
-/* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut,
-   Beschriftung weiß für Lesbarkeit auf dem Grau */
-.tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; color: #fff; }
-.tl-col.dominated .tl-head { opacity: .6; }
-.tl-col.dominated .tl-arr { opacity: .5; }
-.around-note {
-  background: var(--accent-soft); color: var(--text);
-  border-left: 3px solid var(--accent); border-radius: 4px;
-  padding: .55rem .7rem; margin-bottom: .7rem; font-size: .85rem;
-}
-.loadbtn {
-  width: 100%; margin: .2rem 0 .6rem; padding: .55rem; font: inherit; font-size: .9rem;
-  border: 1.5px dashed var(--border); border-radius: 10px;
-  background: none; color: var(--accent); cursor: pointer;
-}
-
-.tl-zoomctl { position: absolute; right: 10px; bottom: 44px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
-.tl-zoomctl button {
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 1.5px solid var(--border); background: var(--card); color: var(--text);
-  font-size: 1.15rem; cursor: pointer; box-shadow: var(--shadow);
-}
-/* Feste Legende mit drei Zuständen:
-   on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·
-   nodata = alles ausgegraut + durchgestrichen (keine solchen Verbindungen) */
-.tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
-.tl-key {
-  display: inline-flex; align-items: center; gap: .4rem;
-  border: none; background: none; color: var(--text);
-  font: inherit; font-size: .8rem; padding: .2rem 0; cursor: pointer;
-}
-.tl-key i, .catdot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
-.tl-key.off i.dot { background: transparent; border: 1.5px solid var(--muted); }
-.tl-key.nodata { opacity: .38; text-decoration: line-through; cursor: default; }
-.tl-key.nodata i.dot { background: var(--muted); border: none; }
-
-/* ---------- Zeit-Dialog & Einstellungen ---------- */
-.segmented { display: flex; gap: .5rem; margin: .6rem 0; }
-.segmented label {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
-  border: 1.5px solid var(--border); border-radius: 10px; padding: .55rem;
-  font-size: .92rem; cursor: pointer;
-}
-.segmented label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-#time-input {
-  width: 100%; font: inherit; font-size: 1rem; padding: .6rem .7rem; margin: .4rem 0 .8rem;
-  border: 1.5px solid var(--border); border-radius: 10px;
-  background: var(--card); color: var(--text); color-scheme: light dark;
-}
-.checklist { display: flex; flex-direction: column; gap: .55rem; margin: .7rem 0; }
-.checklist label { display: flex; align-items: center; gap: .55rem; font-size: .95rem; cursor: pointer; }
-.checklist input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
 
 /* ---------- Dialoge: Details & Übertragen ---------- */
 #trip-dialog { width: min(520px, calc(100vw - 2rem)); }

@@ -95,6 +95,12 @@ function trackChip(place, what = "Halt") {
     : `<span class="${cls}" title="${title}">${inner}</span>`;
 }
 
+// Symbol je Verkehrsmittel-Kategorie (Detailansicht, vor der Liniennummer)
+const MODE_ICON = {
+  fern: "🚄", regio: "🚆", sbahn: "🚈", utram: "🚇",
+  bus: "🚌", fernbus: "🚌", sonstige: "⛴",
+};
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";

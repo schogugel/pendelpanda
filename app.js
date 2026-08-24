@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.3.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -968,111 +968,135 @@ function renderItineraries(itineraries) {
 
 function fillDetails(container, it) {
   const flagged = cancelledTransitLegs(it);
-  for (const l of it.legs) {
-    if (l.mode === "WALK") {
-      if (legCancelled(l)) {
-        // Meldung als aufklappbares Element mit allem, was die Daten hergeben
-        const det = document.createElement("details");
-        det.className = "walkmeld";
-        const stops = [l.from, l.to].filter(s => s && s.cancelled);
-        det.innerHTML =
-          `<summary>🚶 ${fmtDur(l.duration)} Fußweg · <span class="warn-tri">⚠</span> Meldung am Umstieg</summary>` +
-          stops.map(s =>
-            `<p>Halt „${escapeHtml(s.name)}“${s.description ? ` (${escapeHtml(s.description)})` : ""}: laut Echtzeitdaten als entfallen markiert.</p>`).join("") +
-          `<p class="finequote">Die Datenquelle liefert dazu keinen Meldungstext. Häufig steckt eine Haltestellen- oder Steigänderung dahinter – der Anschluss fährt meist trotzdem. Vor Ort prüfen.</p>`;
-        container.appendChild(det);
-      } else {
-        // Fußwege benennen — bei Ersatzverkehr ist das der Weg zur Ersatzhaltestelle
-        const endName = p => p.name === "START" ? (app.search.from.label || app.search.from.name)
-          : p.name === "END" ? (app.search.to.label || app.search.to.name) : p.name;
-        const a = endName(l.from), b = endName(l.to);
-        const w = document.createElement("p");
-        w.className = "walkleg";
-        w.innerHTML = `🚶 ${fmtDur(l.duration)} Fußweg` +
-          (a && b && a !== b ? `: ${escapeHtml(a)} → ${escapeHtml(b)} ${mapsPin(l.to, "Ziel des Fußwegs in Google Maps öffnen")}` : "");
-        container.appendChild(w);
-      }
-      continue;
-    }
+  const T = transitLegs(it);
+  if (!T.length) return;
+  const legs = it.legs;
+
+  const jrn = document.createElement("div");
+  jrn.className = "jrn";
+  const parts = [`<div class="jrn-line"></div><div class="jrn-progress" hidden></div>`];
+
+  const stopRow = (p, kind) => {
+    const t = kind === "dep" ? p.departure : p.arrival;
+    const ts = kind === "dep" ? p.scheduledDeparture : p.scheduledArrival;
+    return `<div class="jrn-stop" data-ts="${+new Date(t || ts)}">` +
+      `<span class="jrn-time">${timeWithDelay(ts, t)}</span>` +
+      `<span class="jrn-dot"></span>` +
+      `<span class="jrn-name">${escapeHtml(p.name)}</span>` +
+      `<span class="jrn-track">${trackChip(p, kind === "dep" ? "Abfahrtsort" : "Ankunftsort")}</span></div>`;
+  };
+
+  const segBlock = (l) => {
     const lp = lineParts(l);
+    const cls = productClass(l.mode);
+    const sev = !flagged.has(l) && isReplacementService(l);
     const stops = l.intermediateStops || [];
     const facts = [];
     if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
     if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
-
-    const stopRow = s => {
+    const stopLi = s => {
       const t = s.arrival || s.departure, ts = s.scheduledArrival || s.scheduledDeparture;
-      return `<li class="leg-row" data-ts="${+new Date(t || ts)}">` +
-        `<span class="leg-dot mini"></span><span class="leg-time">${timeWithDelay(ts, t)}</span>` +
-        `<span class="leg-text${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
+      return `<li class="jrn-sub" data-ts="${+new Date(t || ts)}">` +
+        `<span class="jrn-time">${timeWithDelay(ts, t)}</span><span class="jrn-dot mini"></span>` +
+        `<span class="jrn-name${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
         `${s.cancelled ? " · entfällt" : ""}</span></li>`;
     };
-    const infoBlock = (stops.length || facts.length) ? `
-      <details class="leginfo">
-        <summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"} & Infos` : "Infos zur Fahrt"}</summary>
-        ${stops.length ? `<ul class="stoplist">${stops.map(stopRow).join("")}</ul>` : ""}
-        ${facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : ""}
-      </details>` : "";
+    return `<div class="jrn-seg">` +
+      `<span class="jrn-dur">${fmtDur(l.duration)}</span>` +
+      `<div class="jrn-body">` +
+        `<span class="linechip seg-${cls}${sev ? " chip-sev" : ""}">` +
+          `<span class="lc-icon">${MODE_ICON[cls] || "🚏"}</span><span class="lc-name">${escapeHtml(lp.main)}</span>` +
+        `</span>` +
+        `${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""}` +
+        `${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}` +
+        `${sev ? ` <span class="sev-badge">Ersatzverkehr</span>` : ""}` +
+        `<p class="jrn-dir">nach ${escapeHtml(l.headsign || l.to.name)}</p>` +
+        `${sev ? `<p class="sev-hint">Fährt als Bus ab einer Ersatzhaltestelle.</p>` : ""}` +
+        (stops.length || facts.length
+          ? `<details class="leginfo"><summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}</summary>` +
+            (stops.length ? `<ul class="stoplist">${stops.map(stopLi).join("")}</ul>` : "") +
+            (facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : "") + `</details>`
+          : "") +
+      `</div></div>`;
+  };
 
-    const wrap = document.createElement("div");
-    wrap.className = "leg2";
-    const sev = !flagged.has(l) && isReplacementService(l);
-    wrap.innerHTML = `
-      <div class="leg-head"><span class="linechip seg-${productClass(l.mode)}${sev ? " chip-sev" : ""}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}${sev ? ` <span class="sev-badge">Ersatzverkehr</span>` : ""}</div>
-      ${sev ? `<p class="sev-hint">Fährt als Bus ab einer Ersatzhaltestelle – Abfahrtsort unten prüfen.</p>` : ""}
-      <div class="leg-body">
-        <div class="leg-track"></div>
-        <div class="leg-progress" hidden></div>
-        <div class="leg-row" data-ts="${+new Date(l.from.departure)}">
-          <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-          <span class="leg-text">ab ${escapeHtml(l.from.name)} ${trackChip(l.from, "Abfahrtsort")}</span>
-        </div>
-        ${infoBlock}
-        <div class="leg-row" data-ts="${+new Date(l.to.arrival)}">
-          <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
-          <span class="leg-text">an ${escapeHtml(l.to.name)} ${trackChip(l.to, "Ankunftsort")}</span>
-        </div>
-      </div>`;
-    const det = wrap.querySelector("details.leginfo");
-    const relayout = () => updateLegLine(wrap, l, det);
-    if (det) det.addEventListener("toggle", relayout);
-    requestAnimationFrame(relayout);
-    container.appendChild(wrap);
-  }
-  const legs = transitLegs(it);
+  // Umstieg zwischen zwei Fahrten: Fußweg und/oder Wartezeit
+  const transferBlock = (prev, next) => {
+    const ms = +new Date(next.from.departure) - +new Date(prev.to.arrival);
+    const walk = legs.filter(l => l.mode === "WALK" &&
+      +new Date(l.startTime) >= +new Date(prev.to.arrival) &&
+      +new Date(l.endTime) <= +new Date(next.from.departure));
+    const walkMin = walk.reduce((a, l) => a + l.duration, 0);
+    const warn = walk.some(legCancelled);
+    return `<div class="jrn-transfer">` +
+      `<span class="jrn-dur">${fmtDur(Math.max(0, ms / 1000))}</span>` +
+      `<div class="jrn-body">${walkMin > 60 ? `🚶 Umstieg mit ${fmtDur(walkMin)} Fußweg` : "🚶 Umstieg"}` +
+        `${warn ? ` <span class="warn-tri" title="Meldung am Umstiegshalt">⚠</span>` : ""}</div></div>`;
+  };
+
+  // führender / abschließender Fußweg (Umkreis-Suche, Ersatzhaltestellen)
+  const edgeWalk = (l, where) => {
+    if (!l || l.duration < 60) return "";
+    const name = where === "pre" ? l.to.name : l.from.name;
+    return `<div class="jrn-transfer edge"><span class="jrn-dur">${fmtDur(l.duration)}</span>` +
+      `<div class="jrn-body">🚶 Fußweg ${where === "pre" ? "zum" : "vom"} Halt ${escapeHtml(name)} ` +
+      `${mapsPin(where === "pre" ? l.to : l.from)}</div></div>`;
+  };
+
+  const firstIdx = legs.indexOf(T[0]), lastIdx = legs.indexOf(T[T.length - 1]);
+  const preWalk = legs.slice(0, firstIdx).find(l => l.mode === "WALK");
+  const postWalk = legs.slice(lastIdx + 1).find(l => l.mode === "WALK");
+  if (preWalk) parts.push(edgeWalk(preWalk, "pre"));
+  T.forEach((l, i) => {
+    parts.push(stopRow(l.from, "dep"));
+    parts.push(segBlock(l));
+    parts.push(stopRow(l.to, "arr"));
+    if (i < T.length - 1) parts.push(transferBlock(l, T[i + 1]));
+  });
+  if (postWalk) parts.push(edgeWalk(postWalk, "post"));
+
+  jrn.innerHTML = parts.join("");
+  const relayout = () => updateJourneyLine(jrn);
+  jrn.querySelectorAll("details.leginfo").forEach(d => d.addEventListener("toggle", relayout));
+  requestAnimationFrame(relayout);
+  container.appendChild(jrn);
+
   const a = document.createElement("a");
   a.className = "dblink";
   a.target = "_blank";
   a.rel = "noopener";
   a.href = dbLink(
     app.search.from.name, app.search.to.name,
-    legs[0].from.scheduledDeparture, legs[legs.length - 1].to.scheduledArrival
+    T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival
   );
   a.textContent = "Bei der DB öffnen (Wagenreihung, Tickets …)";
   container.appendChild(a);
 }
 
-/* Linien-Geometrie eines Abschnitts: die vertikale Linie verbindet Abfahrts-
-   und Ankunftszeit (bzw. alle Zwischenhalte, wenn aufgeklappt). Läuft die
-   Fahrt gerade UND ist aufgeklappt, zeigt eine gefüllte Teil-Linie mit
-   Positionspunkt, wo der Zug ist; vergangene Halte werden gedimmt. */
-function updateLegLine(wrap, l, det) {
-  const body = wrap.querySelector(".leg-body");
-  if (!body) return;
-  const open = !!(det && det.open);
-  const rows = [...body.querySelectorAll(".leg-row")].filter(r => open || !r.closest("details"));
+/* Durchgehende Linie über die GESAMTE Verbindung: Sie verbindet alle Halte,
+   und der farbige Teil zeigt, wie weit die Reise fortgeschritten ist — man
+   sieht also auf einen Blick, in welchem Abschnitt man gerade sitzt und wo
+   der aktuelle Zug zwischen zwei Halten steht. Bereits passierte Halte
+   werden gedimmt. Läuft die Reise nicht (noch nicht los / schon vorbei),
+   bleibt die Linie neutral. */
+function updateJourneyLine(jrn) {
+  const rows = [...jrn.querySelectorAll(".jrn-stop, .jrn-sub")]
+    .filter(r => r.offsetParent !== null);
   if (rows.length < 2) return;
-  const center = r => r.offsetTop + r.offsetHeight / 2;
+  const center = r => {
+    const dot = r.querySelector(".jrn-dot");
+    return dot ? dot.offsetTop + dot.offsetHeight / 2 : r.offsetTop + r.offsetHeight / 2;
+  };
   const y0 = center(rows[0]), y1 = center(rows[rows.length - 1]);
-  const track = body.querySelector(".leg-track");
-  track.style.top = y0 + "px";
-  track.style.height = Math.max(0, y1 - y0) + "px";
+  const line = jrn.querySelector(".jrn-line");
+  line.style.top = y0 + "px";
+  line.style.height = Math.max(0, y1 - y0) + "px";
 
-  const prog = body.querySelector(".leg-progress");
+  const prog = jrn.querySelector(".jrn-progress");
   const now = Date.now();
-  const dep = +new Date(l.from.departure), arr = +new Date(l.to.arrival);
-  rows.forEach(r => r.classList.toggle("passed", open && now > Number(r.dataset.ts)));
-  if (!open || now < dep || now > arr) { prog.hidden = true; return; }
+  const first = Number(rows[0].dataset.ts), last = Number(rows[rows.length - 1].dataset.ts);
+  rows.forEach(r => r.classList.toggle("passed", now > Number(r.dataset.ts)));
+  if (!(now >= first && now <= last)) { prog.hidden = true; return; }
   let y = y0;
   for (let i = 0; i < rows.length - 1; i++) {
     const t0 = Number(rows[i].dataset.ts), t1 = Number(rows[i + 1].dataset.ts);

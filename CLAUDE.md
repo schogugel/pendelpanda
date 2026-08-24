@@ -147,6 +147,22 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
   Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
 
+## Verbindungs-Detailansicht (`fillDetails` + `updateJourneyLine`)
+
+Aufbau wie bei der Bahn (Referenz in `../design-refs/`): **Halt zuerst, darunter die
+Fahrt**, die dort abfährt — nicht umgekehrt. Reihenfolge je Abschnitt:
+Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
+
+- Raster `Zeit | Punkt | Inhalt`; **eine durchgehende Linie über die GANZE Verbindung**
+  (nicht pro Abschnitt), absolut positioniert an der Punktspalte.
+- `updateJourneyLine` misst die Punkte und färbt die Linie bis zur aktuellen Position
+  (zeitinterpoliert über alle Halte inkl. aufgeklappter Zwischenhalte); passierte Halte
+  werden gedimmt. So sieht man, in welchem Abschnitt man gerade sitzt. Bei jedem
+  `toggle` eines Zwischenhalte-Dropdowns neu vermessen.
+- Linien-Chip: Verkehrsmittel-Symbol (`MODE_ICON`) + Trennstrich + Liniennummer,
+  eingefärbt nach Kategorie; darunter „nach <Ziel>“.
+- Gleis nur an Ein-/Ausstieg (`trackChip`), nie an Zwischenhalten.
+
 ## Kategorien & Legende
 
 - 7 Kategorien fix: fern, regio, sbahn, utram, bus, sonstige (Fähre/Rufbus/Rest), fernbus.
