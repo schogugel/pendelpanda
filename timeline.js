@@ -258,9 +258,10 @@ function tlEdgeCheck(sc) {
   }
 }
 
-/* Dynamischer Y-Zoom: der Anzeigebereich wird exakt auf die Verbindung der
-   Zielspalte (startIdx) skaliert — sie füllt die Sichtfläche und ist damit
-   immer vollständig zu sehen. */
+/* Dynamischer Y-Zoom: die Verbindung der Zielspalte (startIdx) belegt die
+   oberen 70 % der Sichtfläche unter den Kopf-Kacheln — die unteren 30 %
+   bleiben frei, damit man mehr von den nachfolgenden, weiter unten
+   startenden Verbindungen sieht. */
 function tlAutoZoom(sc, startIdx = 0) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
   const it = tl.itins[Math.min(tl.itins.length - 1, Math.max(0, startIdx))];
@@ -268,7 +269,7 @@ function tlAutoZoom(sc, startIdx = 0) {
   const legs = transitLegs(it);
   const durMin = Math.max(1,
     (+new Date(legs[legs.length - 1].to.arrival) - +new Date(legs[0].from.departure)) / 60000);
-  const ppm = usable / durMin;
+  const ppm = (usable * 0.7) / durMin;
   return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
