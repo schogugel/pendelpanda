@@ -17,6 +17,7 @@
   --seg-utram: #eda100;
   --seg-bus: #e87ba4;
   --seg-fernbus: #008300;
+  --seg-sonstige: #4a3aa7;
   --tl-line: rgba(0,0,0,.06);
   --tl-line-strong: rgba(0,0,0,.14);
 }
@@ -40,6 +41,7 @@
     --seg-utram: #c98500;
     --seg-bus: #d55181;
     --seg-fernbus: #008300;
+    --seg-sonstige: #9085e9;
     --tl-line: rgba(255,255,255,.07);
     --tl-line-strong: rgba(255,255,255,.16);
   }
@@ -345,6 +347,8 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .seg-utram { background: var(--seg-utram); color: #131313; }
 .seg-bus   { background: var(--seg-bus);   color: #131313; }
 .seg-fernbus { background: var(--seg-fernbus); color: #fff; }
+.seg-sonstige { background: var(--seg-sonstige); color: #fff; }
+@media (prefers-color-scheme: dark) { .seg-sonstige { color: #131313; } }
 .tl-arr {
   position: absolute; left: 0; width: 100%;
   text-align: center; font-size: .72rem; color: var(--muted);
@@ -428,18 +432,20 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   font-size: 1.15rem; cursor: pointer; box-shadow: var(--shadow);
 }
-/* Interaktive Legende: Antippen blendet Verbindungen mit der Kategorie aus/ein */
-.tl-legend { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .55rem; }
+/* Feste Legende mit drei Zuständen:
+   on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·
+   nodata = alles ausgegraut + durchgestrichen (keine solchen Verbindungen) */
+.tl-legend { display: flex; gap: .45rem .55rem; flex-wrap: wrap; margin-top: .55rem; }
 .tl-key {
   display: inline-flex; align-items: center; gap: .35rem;
   border: 1.5px solid var(--border); border-radius: 999px;
-  background: var(--card); color: var(--muted);
-  font: inherit; font-size: .78rem; padding: .3rem .65rem; cursor: pointer;
+  background: var(--card); color: var(--text);
+  font: inherit; font-size: .78rem; padding: .3rem .6rem; cursor: pointer;
 }
 .tl-key i, .catdot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
-.tl-key.off { opacity: .42; }
-.tl-key.off i { background: var(--muted); }
-.tl-key.off { text-decoration: line-through; }
+.tl-key.off i.dot { background: transparent; border: 1.5px solid var(--muted); }
+.tl-key.nodata { opacity: .38; text-decoration: line-through; cursor: default; }
+.tl-key.nodata i.dot { background: var(--muted); border: none; }
 
 /* ---------- Zeit-Dialog & Einstellungen ---------- */
 .segmented { display: flex; gap: .5rem; margin: .6rem 0; }

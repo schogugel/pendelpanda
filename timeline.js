@@ -61,7 +61,8 @@ function productClass(mode) {
   if (["SUBURBAN", "METRO"].includes(mode)) return "sbahn";
   if (["SUBWAY", "TRAM"].includes(mode)) return "utram";
   if (mode === "COACH") return "fernbus";
-  return "bus"; // BUS, Fähren, Rufbusse/On-Demand, Rest
+  if (mode === "BUS") return "bus";
+  return "sonstige"; // Fähren, Rufbusse/On-Demand, Rest
 }
 function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");

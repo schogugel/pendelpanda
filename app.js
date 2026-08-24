@@ -30,19 +30,23 @@ const app = {
 
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
-const CATS = ["fern", "regio", "sbahn", "utram", "bus", "fernbus"];
-const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige", fernbus: "Fernbus" };
+const CATS = ["fern", "regio", "sbahn", "utram", "bus", "sonstige", "fernbus"];
+const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus", sonstige: "Sonstige", fernbus: "Fernbus" };
 
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
-    // D-Ticket-Sicht: Fernverkehr UND Fernbus standardmäßig aus
-    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true, fernbus: false },
+    // D-Ticket-Sicht: Fernzug UND Fernbus standardmäßig aus
+    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true, sonstige: true, fernbus: false },
     cols: 3, // Verbindungen nebeneinander in der Grafik (3/4/5)
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
     if (s && s.show) for (const c of CATS) if (typeof s.show[c] === "boolean") def.show[c] = s.show[c];
+    // Altbestand: „Bus & Sonstige“ war eine Kategorie — Wert auf sonstige übernehmen
+    if (s && s.show && typeof s.show.sonstige !== "boolean" && typeof s.show.bus === "boolean") {
+      def.show.sonstige = s.show.bus;
+    }
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(5, Math.max(3, Math.round(n)));
   } catch { /* Default behalten */ }
@@ -409,7 +413,6 @@ const resultsList = byId("results-list");
 function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
-  app.probeItins = [];
   app.autoLoads = 0;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
@@ -492,36 +495,26 @@ async function runPlan(direction = null, limit = 8) {
     withScheduledSkippedStops: "true", // auch übersprungene Halte mitnehmen
   });
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
-  if (enabledModes()) params.set("transitModes", enabledModes());
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
-  // Parallel: ungefilterte Sondierung desselben Zeitfensters für die Legende —
-  // erkennt auch GEMISCHTE Verbindungen (z. B. ICE + Bus), die eine reine
-  // „nur ausgeblendete Modi“-Anfrage nie finden würde
-  const myTag = app.searchTag;
-  if (app.hiddenCats.size) {
+  // Hauptanfrage IMMER ungefiltert (alle Verkehrsmittel — speist Anzeige-Pool
+  // und Legenden-Zustände). Sind Kategorien ausgeblendet, läuft parallel eine
+  // Hilfsanfrage nur mit den aktiven Modi, damit die gefilterte Ansicht
+  // sofort genug Treffer hat. Ein-/Ausblenden ist danach rein clientseitig.
+  let helper = null;
+  if (app.hiddenCats.size && enabledModes()) {
     const p2 = new URLSearchParams(params);
-    p2.delete("transitModes");
-    p2.set("numItineraries", "5");
-    fetch(`${API}/plan?${p2}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => {
-        if (!d || myTag !== app.searchTag) return;
-        const known = new Set((app.probeItins || []).concat(app.itins).map(itKey));
-        const add = (d.itineraries || []).filter(x => transitLegs(x).length && !known.has(itKey(x)));
-        if (!add.length) return;
-        app.probeItins = (app.probeItins || []).concat(add).slice(-40);
-        renderLegend();
-      })
-      .catch(() => { /* Sondierung ist optional */ });
+    p2.set("transitModes", enabledModes());
+    helper = fetch(`${API}/plan?${p2}`).then(r => (r.ok ? r.json() : null)).catch(() => null);
   }
 
   try {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
-    const fresh = data.itineraries || [];
+    const helperData = helper ? await helper : null;
+    const fresh = (data.itineraries || []).concat(helperData?.itineraries || []);
     const known = new Set(app.itins.map(itKey));
     const add = fresh.filter(it => !known.has(itKey(it)));
     if (direction === "earlier") {
@@ -639,7 +632,8 @@ const CAT_MODES = {
   regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL",
   sbahn: "SUBURBAN,METRO",
   utram: "SUBWAY,TRAM",
-  bus: "BUS,FERRY,ODM",
+  bus: "BUS",
+  sonstige: "FERRY,ODM",
   fernbus: "COACH",
 };
 
@@ -667,39 +661,39 @@ function maybeAutoFill() {
 }
 
 
+/* Feste Legende: alle Kategorien immer sichtbar, in fester Reihenfolge.
+   Drei Zustände je Chip:
+   - on:     farbiger Punkt, normaler Text  → Daten da, eingeblendet
+   - off:    hohler Punkt,   normaler Text  → Daten da, ausgeblendet (antippen!)
+   - nodata: alles ausgegraut + durchgestrichen → keine solchen Verbindungen */
 function renderLegend() {
-  const present = new Set();
-  for (const it of app.itins.concat(app.probeItins || [])) {
-    for (const l of transitLegs(it)) present.add(productClass(l.mode));
-  }
   const el = byId("tl-legend");
-  el.innerHTML = "";
-  for (const c of CATS) {
-    if (!present.has(c) && !app.hiddenCats.has(c)) continue;
-    if (!present.has(c)) continue; // ausgeblendet UND nicht vorhanden → weglassen
-    const b = document.createElement("button");
-    b.className = "tl-key" + (app.hiddenCats.has(c) ? " off" : "");
-    b.innerHTML = `<i class="seg-${c}"></i>${CAT_LABEL[c]}`;
-    b.title = app.hiddenCats.has(c)
-      ? `Verbindungen mit ${CAT_LABEL[c]} wieder einblenden`
-      : `Verbindungen mit ${CAT_LABEL[c]} ausblenden`;
-    b.addEventListener("click", () => {
-      const wasHidden = app.hiddenCats.has(c);
-      if (wasHidden) app.hiddenCats.delete(c);
+  if (!el.dataset.built) {
+    el.innerHTML = CATS.map(c =>
+      `<button class="tl-key" data-cat="${c}"><i class="dot seg-${c}"></i>${CAT_LABEL[c]}</button>`).join("");
+    el.dataset.built = "1";
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest(".tl-key");
+      if (!b || b.classList.contains("nodata")) return;
+      const c = b.dataset.cat;
+      if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
       else app.hiddenCats.add(c);
-      if (wasHidden) {
-        // Kategorie neu aktiviert: dafür liegen keine Daten vor → eine
-        // frische, serverseitig passend gefilterte Anfrage
-        startSearch(app.search.from, app.search.to);
-      } else {
-        // Ausblenden ist kostenlos (Daten sind Obermenge); ggf. auffüllen
-        app.autoLoads = 0;
-        renderResults();
-        maybeAutoFill();
-      }
+      app.autoLoads = 0;
+      renderResults();
+      maybeAutoFill();
     });
-    el.appendChild(b);
   }
+  const present = new Set();
+  for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
+  el.querySelectorAll(".tl-key").forEach(b => {
+    const c = b.dataset.cat;
+    const has = present.has(c);
+    b.classList.toggle("nodata", !has);
+    b.classList.toggle("off", has && app.hiddenCats.has(c));
+    b.classList.toggle("on", has && !app.hiddenCats.has(c));
+    b.title = !has ? `Keine ${CAT_LABEL[c]}-Verbindungen im Zeitraum`
+      : app.hiddenCats.has(c) ? `${CAT_LABEL[c]} einblenden` : `${CAT_LABEL[c]} ausblenden`;
+  });
 }
 
 function renderResults() {
