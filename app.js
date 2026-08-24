@@ -496,7 +496,10 @@ function nextNightEnd() {
 
 function itKey(it) {
   const legs = transitLegs(it);
-  return legs.map(l => `${l.tripId}@${l.from.scheduledDeparture}`).join("|") || it.startTime;
+  // fahrplanbasiert statt Trip-IDs — stabil über verschiedene Antworten hinweg
+  return legs.map(l =>
+    `${l.routeShortName || l.mode}@${l.from.scheduledDeparture}@${l.to.scheduledArrival}`
+  ).join("|") || it.startTime;
 }
 
 // direction: null = neue Suche, "later" / "earlier" = blättern per Cursor
@@ -540,8 +543,16 @@ async function runPlan(direction = null, limit = 8) {
     const data = await res.json();
     const helperData = helper ? await helper : null;
     const fresh = (data.itineraries || []).concat(helperData?.itineraries || []);
+    // Dubletten sowohl gegen den Pool ALS AUCH innerhalb der frischen
+    // Antworten aussieben (Haupt- und Hilfsanfrage überlappen sich stark)
     const known = new Set(app.itins.map(itKey));
-    const add = fresh.filter(it => !known.has(itKey(it)));
+    const add = [];
+    for (const it of fresh) {
+      const k = itKey(it);
+      if (known.has(k)) continue;
+      known.add(k);
+      add.push(it);
+    }
     if (direction === "earlier") {
       app.itins = add.concat(app.itins);
       app.prevPageCursor = data.previousPageCursor || null;
