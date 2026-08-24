@@ -360,7 +360,11 @@ byId("btn-save-slot").addEventListener("click", () => {
   const station = app.pendingStation || slots[i];
   if (!station) return;
   const v = byId("labelinput").value.trim();
-  slots[i] = { name: station.name, id: station.id, ...(v && v !== station.name ? { label: v } : {}) };
+  slots[i] = {
+    name: station.name, id: station.id,
+    ...(Number.isFinite(station.lat) ? { lat: station.lat, lon: station.lon } : {}),
+    ...(v && v !== station.name ? { label: v } : {}),
+  };
   saveSlots();
   navigate("grid");
 });
@@ -403,7 +407,8 @@ function renderSuggestions(stops) {
     b.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(area ? area.name : "")}</small>`;
     b.addEventListener("click", () => {
       // Auswahl gemerkt — gespeichert wird erst mit „Speichern“
-      app.pendingStation = { name: s.name, id: s.id };
+      // (lat/lon für die Umkreis-Suche bei Ersatzverkehr, s. planAround)
+      app.pendingStation = { name: s.name, id: s.id, lat: s.lat, lon: s.lon };
       stationInput.hidden = true;
       suggestionsEl.innerHTML = "";
       byId("edit-current").hidden = false;
@@ -433,6 +438,8 @@ function startSearch(from, to) {
   app.autoLoads = 0;
   app.emptyReason = null;
   app.diagnosing = false;
+  app.aroundTried = false;
+  app.aroundUsed = false;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
@@ -576,15 +583,30 @@ async function runPlan(direction = null, limit = 10) {
     const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(tls[0].from.departure) : Infinity; };
     app.itins.sort((a, b) => depOf(a) - depOf(b));
     // „Letzte“: erst die Nacht-Verbindungen VOR dem Morgen dazuladen, dann rendern
-    if (!direction && t.kind === "letzte" && app.prevPageCursor) {
+    if (!direction && t.kind === "letzte" && app.prevPageCursor && app.itins.length) {
       await runPlan("earlier");
       return;
     }
     // „Jetzt“: zwei gerade verpasste Verbindungen mitladen — Inhalt über der
     // Jetzt-Linie und Scrollraum nach links
-    if (!direction && t.kind === "now" && app.prevPageCursor) {
+    if (!direction && t.kind === "now" && app.prevPageCursor && app.itins.length) {
       await runPlan("earlier", 2);
       return;
+    }
+    // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
+    // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
+    if (!direction && !app.itins.length && !app.aroundTried) {
+      app.aroundTried = true;
+      const around = await planAround(params);
+      const fresh2 = (around?.itineraries || []).filter(it => transitLegs(it).length);
+      if (fresh2.length) {
+        const seen = new Set();
+        app.itins = fresh2.filter(it => !seen.has(itKey(it)) && seen.add(itKey(it)))
+          .sort((a, b) => depOf(a) - depOf(b));
+        app.aroundUsed = true;
+        app.prevPageCursor = around.previousPageCursor || null;
+        app.nextPageCursor = around.nextPageCursor || null;
+      }
     }
     renderResults();
     maybeAutoFill();
@@ -595,6 +617,48 @@ async function runPlan(direction = null, limit = 10) {
       byId("timeline").innerHTML = msg;
     }
   }
+}
+
+/* Umkreis-Suche als Rückfallebene — der Fall „Schienenersatzverkehr“:
+   Ist eine Strecke gesperrt, hat der Bahnhof selbst keine Fahrten mehr; der
+   Ersatzverkehr fährt ab einem NEBENAN liegenden Halt (Ersatzhaltestelle,
+   Rathaus, Busbahnhof). Eine Suche Haltestelle→Haltestelle findet das nie.
+   Deshalb: bei leerem Ergebnis mit Koordinaten statt Stop-IDs erneut suchen
+   und großzügige Fußwege erlauben — dann tauchen Ersatzhalte auf.
+   Gilt genauso für kurzfristige Verlegungen und getrennte Bus-/Bahn-Halte. */
+const geoCache = new Map();
+
+async function coordsOf(stop) {
+  if (Number.isFinite(stop.lat) && Number.isFinite(stop.lon)) return `${stop.lat},${stop.lon}`;
+  if (geoCache.has(stop.id)) return geoCache.get(stop.id);
+  try {
+    const res = await fetch(`${API}/geocode?text=${encodeURIComponent(stop.name)}&language=de`);
+    if (!res.ok) return null;
+    const list = await res.json();
+    const hit = list.find(x => x.type === "STOP" && x.id === stop.id)
+      || list.find(x => x.type === "STOP" && x.name === stop.name);
+    const val = hit && Number.isFinite(hit.lat) ? `${hit.lat},${hit.lon}` : null;
+    geoCache.set(stop.id, val);
+    if (val) { stop.lat = hit.lat; stop.lon = hit.lon; saveSlots(); } // einmalig nachrüsten
+    return val;
+  } catch { return null; }
+}
+
+async function planAround(baseParams) {
+  const { from, to } = app.search;
+  const [a, b] = await Promise.all([coordsOf(from), coordsOf(to)]);
+  if (!a || !b) return null;
+  const p = new URLSearchParams(baseParams);
+  p.set("fromPlace", a);
+  p.set("toPlace", b);
+  // großzügige Fußwege an beiden Enden, damit Ersatzhalte in Reichweite sind
+  p.set("maxPreTransitTime", "1800");
+  p.set("maxPostTransitTime", "1800");
+  try {
+    const res = await fetch(`${API}/plan?${p}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
 }
 
 /* Leeres Ergebnis erklären statt schweigen: Für beide Halte prüfen, ob dort
@@ -629,7 +693,7 @@ async function diagnoseEmpty() {
   }
   app.emptyReason = parts.length
     ? parts.join(" ") + " Deshalb findet die Suche hier nichts – das ist eine Lücke in den offenen Fahrplandaten, keine fehlende Verbindung."
-    : "Keine Verbindungen im gewählten Zeitraum. Über 📅 einen anderen Zeitpunkt wählen oder in der Legende weitere Verkehrsmittel einblenden.";
+    : "Keine Verbindungen im gewählten Zeitraum – auch nicht über Halte in der Nähe. Über 📅 einen anderen Zeitpunkt wählen oder in der Legende weitere Verkehrsmittel einblenden.";
   renderResults();
 }
 
@@ -787,6 +851,8 @@ function renderResults() {
   toggle.textContent = graph ? "☰" : "▦";
   toggle.title = graph ? "Als Liste anzeigen" : "Als Grafik anzeigen";
   renderLegend();
+  // Hinweis, wenn nur die Umkreis-Suche etwas fand (Ersatzverkehr o. Ä.)
+  byId("around-note").hidden = !app.aroundUsed;
   const visible = visibleItins();
   // Warum ist nichts da? Einmal pro Suche klären (Guard gegen Re-Entry).
   if (!app.itins.length && app.search && !app.emptyReason && !app.diagnosing) diagnoseEmpty();

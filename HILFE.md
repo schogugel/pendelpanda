@@ -145,7 +145,11 @@ schließen und neu öffnen.
 **Altes App-Icon** → installierte App entfernen, Seite öffnen, neu zum Startbildschirm
 hinzufügen.
 **Keine Verbindungen** → Legende prüfen (alles ausgeblendet?), Internet prüfen; bei sehr
-seltenen Strecken hilft „Frühere/Spätere“ bzw. weiter wischen.
+seltenen Strecken hilft „Frühere/Spätere“ bzw. weiter wischen. Findet die App am Halt
+selbst nichts, sucht sie automatisch im **Umkreis** weiter — so tauchen
+Schienenersatzverkehr und verlegte Haltestellen auf (erkennbar am Hinweisbanner über
+den Ergebnissen; der Fußweg steht in den Details). Bleibt es leer, nennt die App den
+Grund — etwa wenn für einen Halt erst ab einem späteren Datum Fahrplandaten vorliegen.
 **Verspätungen wirken alt** → Ansicht neu laden; Echtzeitdaten hängen am jeweiligen
 Verkehrsunternehmen und fehlen manchmal ganz.
 **Gespeicherte Kacheln weg** → sie liegen im Browser-Speicher dieser Seite; Löschen der

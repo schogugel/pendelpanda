@@ -469,6 +469,11 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; color: #fff; }
 .tl-col.dominated .tl-head { opacity: .6; }
 .tl-col.dominated .tl-arr { opacity: .5; }
+.around-note {
+  background: var(--accent-soft); color: var(--text);
+  border-left: 3px solid var(--accent); border-radius: 4px;
+  padding: .55rem .7rem; margin-bottom: .7rem; font-size: .85rem;
+}
 .loadbtn {
   width: 100%; margin: .2rem 0 .6rem; padding: .55rem; font: inherit; font-size: .9rem;
   border: 1.5px dashed var(--border); border-radius: 10px;

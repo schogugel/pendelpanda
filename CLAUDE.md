@@ -61,6 +61,14 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
 - Tests per curl/node brauchen einen **eigenen User-Agent** — generische werden geblockt
   (Browser-PWA unbetroffen, Origin identifiziert die App).
 - API-Reihenfolge der itineraries ist teils Ranking, nicht Zeit → immer selbst sortieren.
+- **Schienenersatzverkehr steht an einem ANDEREN Halt.** Ist eine Strecke gesperrt,
+  hat der Bahnhof gar keine Fahrten mehr; der Ersatz fährt als Bus ab einem Nachbarhalt
+  (Beispiel Vorra: Bahnhof leer, aber „Vorra a.d. Pegnitz Rathaus“ hat RB30-**Busse**).
+  Eine Suche Stop-ID → Stop-ID findet das prinzipiell nie. Deshalb `planAround`:
+  bei leerem Ergebnis einmalig mit **Koordinaten** statt IDs suchen, dazu
+  `maxPreTransitTime`/`maxPostTransitTime` auf 1800 — ohne diese Parameter liefert
+  auch die Koordinatensuche 0 (Default-Fußweg zu kurz). Ergebnis mit Hinweisbanner
+  kennzeichnen. Slots speichern `lat`/`lon`; Altbestand wird per Geocode nachgerüstet.
 - **Datenlücken sind real und sehen wie App-Fehler aus:** Ein Halt kann im Geocoder
   existieren und Abfahrten liefern, deren Fahrplan aber erst Wochen später beginnt
   (Beispiel Vorra (Pegnitz), 24.08.2026: 0 Verbindungen; ab 14.09.2026 fährt die RB30
