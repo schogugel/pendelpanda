@@ -31,7 +31,7 @@ const app = {
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
 const CATS = ["fern", "regio", "sbahn", "utram", "bus", "fernbus"];
-const CAT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige", fernbus: "Fernbus" };
+const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige", fernbus: "Fernbus" };
 
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
