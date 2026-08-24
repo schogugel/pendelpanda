@@ -1,5 +1,10 @@
 "use strict";
 
+/* App-Version — einzige Quelle der Wahrheit.
+   Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
+   MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
+const APP_VERSION = "1.0.0";
+
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
 // Optional: URL des deployten db-link-workers (siehe README, Ordner db-link-worker/).
@@ -1217,6 +1222,7 @@ function escapeHtml(s) {
 /* ---------------- Start ---------------- */
 
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
+byId("app-version").textContent = `v${APP_VERSION}`;
 
 /* --- Einstellungs-Dialog --- */
 

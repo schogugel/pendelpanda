@@ -5,15 +5,31 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
 (GitHub Pages, Branch `main`, Root). Dieses Verzeichnis (`app/`) ist das Repo —
 `../design-refs/` und `../wayback-recovered/` gehören bewusst NICHT hinein.
 
+## Versionierung (verbindlich)
+
+Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
+`APP_VERSION` in `app.js` (angezeigt unten im ⚙-Dialog).
+
+- **Bei JEDER Änderung erhöhen**, nach `MAJOR.MINOR.PATCH`:
+  - **PATCH** — Fehlerbehebung, Detail-/Textänderung, Feinschliff.
+  - **MINOR** — neue Funktion oder spürbar geändertes Verhalten.
+  - **MAJOR** — grundlegender Umbau (Architektur, Datenquelle, Bedienkonzept).
+- `CACHE` in `sw.js` **gleichlautend** mitziehen (`pendelpanda-v<Version>`), sonst
+  bekommen Nutzer die Änderung nicht ausgeliefert.
+- **Am Ende jeder Antwort die neue Versionsnummer nennen** — der Nutzer prüft damit
+  im ⚙-Dialog, ob sein Gerät den aktuellen Stand hat.
+
 ## Arbeitsritual (bei jeder Änderung)
 
 1. Code ändern → `node --check app.js timeline.js` (Syntax).
-2. **`sw.js`: Cache-Version bumpen** (`pendelpanda-vNN` → NN+1) — sonst sehen
-   Nutzer die Änderung nicht. Neue Shell-Dateien in `SHELL` eintragen.
-3. Commit deutsch, Was+Warum, Trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+2. **`APP_VERSION` erhöhen und `CACHE` in `sw.js` angleichen** (siehe oben).
+   Neue Shell-Dateien zusätzlich in `SHELL` eintragen.
+3. Commit deutsch, Was+Warum, Version in der ersten Zeile, Trailer
+   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 4. Push → Deploy verifizieren: `until curl -sL <pages-url>/app.js | grep -q "<neuer-code>"; do sleep 5; done`
    (Achtung: Groß-/Kleinschreibung des Grep-Strings exakt!).
-5. Nutzerhinweis: SW aktualisiert per „stale-while-revalidate“ → **zweimal neu laden**.
+5. Nutzerhinweis: SW aktualisiert per „stale-while-revalidate“ → **zweimal neu laden**;
+   danach steht die neue Nummer im ⚙-Dialog.
 
 ## Dateien
 

@@ -129,6 +129,9 @@ Gleis auf einer durchgehenden Linie.
 
 ## Einstellungen (⚙)
 
+Ganz unten im Dialog steht die **Versionsnummer** – damit lässt sich prüfen, ob das
+Gerät den aktuellen Stand hat (nach einem Update ggf. zweimal neu laden).
+
 - **Verkehrsmittel:** was standardmäßig angezeigt wird (Fernzug, Regionalzug, S-Bahn,
   U-Bahn/Tram, Bus, Sonstige = Fähre/Rufbus, Fernbus).
 - **Mehr als 14 Kacheln:** Standard sind 14 Kacheln, die ohne Scrollen auf den Schirm
