@@ -7,6 +7,10 @@ Neuauflage von pendelpanda.de: Deine Pendelverbindung in 2 Taps – mit Echtzeit
 - Buttons liegen im `localStorage`; Übertragung auf andere Geräte per Konfigurations-Link („Buttons übertragen“).
 - „Bei der DB öffnen“ verlinkt die Verbindung auf bahn.de (Wagenreihung, Tickets).
 
+**Weiterführend:** [HILFE.md](HILFE.md) — Bedienung für Nutzer ·
+[CLAUDE.md](CLAUDE.md) — Architektur-Invarianten, API-Gotchas und Style Guide für die
+Weiterentwicklung.
+
 ## Lokal testen
 
 ```bash
