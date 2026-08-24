@@ -371,6 +371,9 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 /* Abschnitt als Perlenkette: Zeiten links, Punkte auf der Linie */
 .leg2 { display: flex; flex-direction: column; gap: .25rem; font-size: .92rem; }
 .leg-head { font-weight: 600; }
+/* Kennungs-Chip sitzt über der Perlenketten-Linie: einstellige Kennungen
+   mittig darüber, längere füllen von dort nach rechts auf */
+.leg-head .linechip { min-width: 1.7rem; text-align: center; margin-left: -8px; }
 .leg-body { position: relative; display: flex; flex-direction: column; gap: .35rem; }
 .leg-row { display: flex; align-items: center; gap: .55rem; }
 .leg-row .leg-time {
