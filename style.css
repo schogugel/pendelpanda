@@ -501,7 +501,9 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 /* Zwischenhalte */
 .leginfo { grid-column: 3; font-size: .84rem; color: var(--muted); margin-top: .35rem; }
 .leginfo summary { cursor: pointer; }
-.stoplist { list-style: none; margin: .35rem 0 0 -4.15rem; display: flex; flex-direction: column; gap: .28rem; }
+/* Zwischenhalte auf dasselbe Raster wie die Hauptzeilen zurückziehen
+   (Inhaltsspalte beginnt bei 3.6rem + .55rem + 10px + .55rem) */
+.stoplist { list-style: none; margin: .35rem 0 0 calc(-4.15rem - 10px); display: flex; flex-direction: column; gap: .28rem; }
 .stoplist .jrn-time { font-weight: 400; font-size: .95em; }
 .leg-facts { margin: .35rem 0 0; }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
