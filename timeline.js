@@ -244,6 +244,16 @@ function tlBuild(scroller) {
    Scharf geschaltet wird eine Seite erst, sobald man NICHT am Rand ist —
    die Startposition am linken Rand löst also nichts aus. */
 function tlEdgeCheck(sc) {
+  // Vorausschauend: sind in Scrollrichtung nur noch <2 Spalten Restweg,
+  // wird schon nachgeladen — den Rand (und die Ladeanzeige) sieht man
+  // dadurch fast nie mehr
+  if (typeof loadMore === "function" && tl.bars.length) {
+    const step = tl.colW + TL.GAP;
+    const colsRight = (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) / step;
+    const colsLeft = sc.scrollLeft / step;
+    if (colsRight < 2) loadMore("later");
+    else if (colsLeft < 2) loadMore("earlier");
+  }
   if (sc.scrollWidth <= sc.clientWidth + 4) return;
   const atLeft = sc.scrollLeft <= 2;
   const atRight = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;

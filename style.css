@@ -354,13 +354,21 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   text-align: center; font-size: .72rem; color: var(--muted);
   font-variant-numeric: tabular-nums; pointer-events: none;
 }
-/* Nachlade-Anzeige am Rand + Fokus der „letzten anständigen“ Verbindung */
+/* Nachlade-Spinner am Rand (nur noch Fallback bei sehr schnellem Wischen) */
 .tl-edgeload {
   position: absolute; top: 50%; left: 10px; transform: translateY(-50%);
-  background: var(--accent); color: #fff; font-size: .78rem; font-weight: 600;
-  padding: .35rem .7rem; border-radius: 999px; z-index: 5; box-shadow: var(--shadow);
+  background: var(--card); border: 1.5px solid var(--border);
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5; box-shadow: var(--shadow);
 }
 .tl-edgeload-r { left: auto; right: 10px; }
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid var(--accent-soft); border-top-color: var(--accent);
+  animation: pp-spin .7s linear infinite;
+}
+@keyframes pp-spin { to { transform: rotate(360deg); } }
 .tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
 .warn-label { color: var(--warn); font-weight: 700; }
 .warn-tri { color: var(--warn); font-weight: 700; }

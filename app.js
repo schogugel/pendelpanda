@@ -445,7 +445,15 @@ async function loadMore(direction) {
   app.autoLoads = 0; // manuelle Aktion gibt dem Auto-Nachladen frisches Budget
   const edge = byId(direction === "earlier" ? "tl-load-left" : "tl-load-right");
   const btn = byId(direction === "earlier" ? "list-earlier" : "list-later");
-  edge.hidden = false;
+  // Spinner nur zeigen, wenn man wirklich AM Rand steht (Fallback bei sehr
+  // schnellem Wischen) — Prefetch im Hintergrund bleibt unsichtbar
+  const sc = byId("timeline");
+  const step = (tl.colW || 100) + TL.GAP;
+  const atEdge = app.viewMode !== "graph" ? false
+    : direction === "earlier"
+      ? sc.scrollLeft < step * 0.5
+      : (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) < step * 0.5;
+  if (atEdge) edge.hidden = false;
   btn.disabled = true;
   try { await runPlan(direction); }
   finally {
@@ -537,10 +545,10 @@ async function runPlan(direction = null, limit = 8) {
       await runPlan("earlier");
       return;
     }
-    // „Jetzt“: die EINE gerade verpasste Verbindung mitladen — so hat die Grafik
-    // oberhalb der Jetzt-Linie echten Inhalt und genug Scrollraum
+    // „Jetzt“: die letzten DREI Verbindungen vor jetzt mitladen — echter Inhalt
+    // über der Jetzt-Linie und sofort Scrollraum nach links (Prefetch-Basis)
     if (!direction && t.kind === "now" && app.prevPageCursor) {
-      await runPlan("earlier", 1);
+      await runPlan("earlier", 3);
       return;
     }
     renderResults();
