@@ -176,6 +176,15 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 }
 
 /* ---------- Stationssuche ---------- */
+.labelrow { display: block; font-size: .9rem; color: var(--muted); margin-bottom: .7rem; }
+.labelrow input {
+  display: block; width: 100%; margin-top: .3rem;
+  font: inherit; font-size: 1rem; padding: .6rem .8rem;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text);
+}
+.labelrow input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+#edit-current { margin-bottom: .5rem; }
 #stationinput {
   width: 100%; font: inherit; font-size: 1.05rem;
   padding: .8rem .9rem; border-radius: 12px;

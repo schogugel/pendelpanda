@@ -113,7 +113,7 @@ function renderGrid() {
   slots.forEach((slot, i) => {
     const btn = document.createElement("button");
     btn.className = "stationbtn" + (slot ? "" : " empty") + (app.selectedStart === i ? " selected" : "");
-    btn.textContent = slot ? slot.name : "+";
+    btn.textContent = slot ? (slot.label || slot.name) : "+";
     btn.dataset.slot = i;
     attachStationPointer(btn, i);
     gridEl.appendChild(btn);
@@ -279,7 +279,7 @@ function moveStart(btn, i) {
   if (navigator.vibrate) navigator.vibrate(30);
   moveGhost = document.createElement("div");
   moveGhost.className = "moveghost";
-  moveGhost.textContent = slots[i].name;
+  moveGhost.textContent = slots[i].label || slots[i].name;
   document.body.appendChild(moveGhost);
 }
 
@@ -314,13 +314,31 @@ let geocodeAbort = null;
 
 function openEdit(i) {
   app.editSlot = i;
-  byId("edit-title").textContent = slots[i] ? "Station ändern" : "Station wählen";
+  const slot = slots[i];
+  byId("edit-title").textContent = slot ? "Station ändern" : "Station wählen";
+  byId("edit-current").hidden = !slot;
+  if (slot) byId("edit-current").textContent = `Aktuell: ${slot.name}`;
+  byId("label-row").hidden = !slot;
+  byId("labelinput").value = slot ? (slot.label || "") : "";
   stationInput.value = "";
   suggestionsEl.innerHTML = "";
-  clearSlotBtn.hidden = !slots[i];
+  clearSlotBtn.hidden = !slot;
   navigate("edit");
-  setTimeout(() => stationInput.focus(), 50);
+  if (!slot) setTimeout(() => stationInput.focus(), 50);
 }
+
+// Eigene Beschriftung: Anzeige-Name der Kachel; der offizielle Bahnhofsname
+// bleibt erhalten (den braucht u. a. der DB-Link). Reist im Übertragungs-Link mit.
+function saveLabelInput() {
+  const i = app.editSlot;
+  if (i === null || !slots[i]) return;
+  const v = byId("labelinput").value.trim();
+  if (v && v !== slots[i].name) slots[i].label = v;
+  else delete slots[i].label;
+  saveSlots();
+}
+byId("labelinput").addEventListener("change", () => { saveLabelInput(); renderGrid(); });
+byId("labelinput").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
 
 stationInput.addEventListener("input", () => {
   clearTimeout(searchDebounce);
@@ -356,7 +374,9 @@ function renderSuggestions(stops) {
     b.className = "suggestion";
     b.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(area ? area.name : "")}</small>`;
     b.addEventListener("click", () => {
-      slots[app.editSlot] = { name: s.name, id: s.id };
+      saveLabelInput(); // evtl. gerade getippte Beschriftung nicht verlieren
+      const keepLabel = slots[app.editSlot]?.label;
+      slots[app.editSlot] = { name: s.name, id: s.id, ...(keepLabel ? { label: keepLabel } : {}) };
       saveSlots();
       navigate("grid");
     });
@@ -380,7 +400,7 @@ function startSearch(from, to) {
   app.probeItins = [];
   app.autoLoads = 0;
   app.searchTag = (app.searchTag || 0) + 1;
-  byId("results-title").textContent = `${from.name} → ${to.name}`;
+  byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
   navigate("results");
   runPlan();
