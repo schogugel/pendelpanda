@@ -467,6 +467,7 @@ function tlInitInteractions() {
       panLast = { x: e.clientX, y: e.clientY, t: performance.now() };
       panMoved = 0;
       tl.pullLeft = 0; tl.pullRight = 0;
+      tl.axisX = 0; tl.axisY = 0;
       try { e.target.setPointerCapture(e.pointerId); } catch { /* egal */ }
     }
   });
@@ -482,15 +483,23 @@ function tlInitInteractions() {
     }
     if (panLast && e.pointerType === "touch" && tl.pointers.size === 1) {
       const dx = e.clientX - panLast.x, dy = e.clientY - panLast.y;
-      sc.scrollLeft -= dx;
+
+      // Weiche Achsdämpfung: dominiert die Geste klar vertikal, wird das
+      // seitliche Finger-Zittern gedämpft; horizontale und diagonale Gesten
+      // bleiben völlig frei (gleitender Mittelwert löst sofort wieder)
+      tl.axisX = tl.axisX * 0.88 + Math.abs(dx);
+      tl.axisY = tl.axisY * 0.88 + Math.abs(dy);
+      const effDx = (tl.axisY > 2.5 * tl.axisX + 12) ? dx * 0.2 : dx;
+
+      sc.scrollLeft -= effDx;
       sc.scrollTop -= dy;
 
       // Am Rand weiterziehen lädt nach — funktioniert auch, wenn die Fläche
       // schmaler als der Bildschirm ist und gar kein Scrollen möglich wäre
       const atRight = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;
       const atLeft = sc.scrollLeft <= 2;
-      tl.pullRight = (dx < 0 && atRight) ? (tl.pullRight || 0) - dx : 0;
-      tl.pullLeft = (dx > 0 && atLeft) ? (tl.pullLeft || 0) + dx : 0;
+      tl.pullRight = (effDx < 0 && atRight) ? (tl.pullRight || 0) - effDx : 0;
+      tl.pullLeft = (effDx > 0 && atLeft) ? (tl.pullLeft || 0) + effDx : 0;
       const cool = Date.now() - (tl.lastEdgeLoad || 0) > 1500 && typeof loadMore === "function";
       if (tl.pullRight > 70 && cool) {
         tl.pullRight = 0; tl.lastEdgeLoad = Date.now();
