@@ -39,6 +39,10 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
   („was gäbe es sonst noch?“).
 - Verkehrsmittel-Filterung der **Anzeige** bleibt clientseitig (`hiddenCats` +
   `productClass`); die gefilterte Anfrage beschafft nur zusätzliche Kandidaten.
+- **Beschaffung und Darstellung sind getrennt:** `fetchPage()` holt und mischt nur
+  Daten, `runPlan()` orchestriert (inkl. Bootstrap/„Letzte“-Schleife) und rendert
+  **genau einmal**. Nie wieder rekursiv `runPlan` aus `runPlan` — das mehrfache
+  Rendern hat die Grafik jedes Mal neu positioniert (sichtbares Springen).
 - **Alle Blätter-Loads durch die Schleuse `loadMoreRaw`** (`app.paging`-Lock, danach
   `maybeAutoFill()`-Kette). NIE `runPlan("later"/"earlier")` parallel aufrufen —
   paralleles Laden mit gleichem Cursor war eine Dubletten-Quelle.
@@ -46,7 +50,10 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
   gegen Pool UND innerhalb des Batches. Pool immer chronologisch sortieren.
 - Cursor (`EARLIER|ts` / `LATER|ts`) sind Zeitstempel und filter-agnostisch.
 - `ensureFilled`: bis `neededVisible()` (= Spalten+2, Liste 6) sichtbar, max. 4 Seiten.
-- Prefetch in `tlEdgeCheck` bei <1 Restfenster; Rand-Spinner nur, wenn wirklich am Rand.
+- Prefetch in `tlEdgeCheck` bei <1 Restfenster — aber nur in die Richtung, in die
+  tatsächlich gescrollt wird, und erst nach echter Nutzer-Geste (`tl.userMoved`).
+  Sonst löst schon das Positionieren beim Öffnen ein Nachladen aus. Rand-Spinner nur,
+  wenn wirklich am Rand.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
 ## Transitous/MOTIS-Gotchas (teuer erarbeitet)
@@ -92,6 +99,10 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
   Neuberechnung nur bei neuer Suche + Spaltenwechsel (`tl.lastZoomIdx`-Guard schützt Pinch).
   **Zoom-Anker = Viewport-Oberkante** (oben bleibt stehen, unten atmet).
   `tl.minPpm`-Floor: p25 der Leg-Fahrzeiten behält ≥20 px (Labels nie wegzoombar).
+- Scroll-Anker beim Nachladen: Ankerspalte über den **Schlüssel** (neue Verbindungen
+  werden chronologisch auch MITTEN einsortiert — ein Index-Anker verschiebt dann alles)
+  plus Zeit-Anker für die Vertikale; `tl.lastZoomIdx` mitziehen, sonst zoomt das
+  Einrasten die Spalte neu. Die Ansicht darf sich durch Nachladen NIE bewegen.
 - Kopffreiheit: `tlHeadClear()` misst die HÖCHSTE Kopf-Kachel; t0 wird vorab + per
   Nachkorrektur (auch in `tlSetZoom`) so erweitert, dass der früheste Balken und die
   Jetzt-Linie nie hinter den Kacheln verschwinden.
@@ -102,8 +113,12 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
   vertikaler Geste wird dx auf 20 % gedämpft), **kein Schwung-Nachlauf** — `releaseGlide`
   rastet direkt ein. Klick-Unterdrückung über Zeitfenster `tl.panEndAt` (300 ms), NIE
   über ein Flag (Browser feuert nach Wischgesten oft keinen Klick → Flag frisst den nächsten).
-- „Letzte“-Heuristik: Nachtflaute = letzter Abfahrtsabstand ≥ max(90 min, 2,5×Median-Takt);
-  „anständig“ = max. Umstiegswartezeit ≤45 min (Gesamtdauer bewusst KEIN Kriterium).
+- „Letzte“-Heuristik: Nachtflaute = letzter Abfahrtsabstand ≥ max(90 min, 2,5×Median-Takt)
+  (`nightGapIndex`); „anständig“ = max. Umstiegswartezeit ≤45 min (Gesamtdauer bewusst
+  KEIN Kriterium). `loadBackToNightGap()` lädt gezielt rückwärts, bis die Pause im
+  Fenster liegt — EINE Seite reicht oft nicht, sonst landet der Fokus am Nachmittag.
+  Drei Abbruchkriterien gegen Endlos-Warten: Pause gefunden / Vorabend abgedeckt
+  (Anker−7 h) / Pool spannt ≥4 h lückenlos (= durchfahrende Strecke), max. 3 Runden.
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
 
 ## Kategorien & Legende
