@@ -776,22 +776,54 @@ function fillDetails(container, it) {
       }
       continue;
     }
-    const div = document.createElement("div");
-    div.className = "leg";
-    const depDelay = diffMin(l.from.scheduledDeparture, l.from.departure);
-    const arrDelay = diffMin(l.to.scheduledArrival, l.to.arrival);
-    const track = l.from.track ? ` · Gl. ${l.from.track}` : "";
-    const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
     const lp = lineParts(l);
-    div.innerHTML = `
-      <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-      <span class="leg-line"><span class="linechip seg-${productClass(l.mode)}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</span>
-      <span class="leg-detail">ab ${escapeHtml(l.from.name)}${trackChanged ? ` · <span class="track-changed">Gl. ${l.from.track} (statt ${l.from.scheduledTrack})</span>` : escapeHtml(track)}</span>
-      <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
-      <span class="leg-detail" style="grid-column:2">an ${escapeHtml(l.to.name)}${arrDelay > 0 ? ` (${delayText(arrDelay)})` : ""}</span>`;
-    void depDelay;
-    appendLegInfo(div, l);
-    container.appendChild(div);
+    const stops = l.intermediateStops || [];
+    const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
+    const trackPart = l.from.track
+      ? (trackChanged
+        ? ` · <span class="track-changed">Gl. ${escapeHtml(String(l.from.track))} (statt ${escapeHtml(String(l.from.scheduledTrack))})</span>`
+        : ` · Gl. ${escapeHtml(String(l.from.track))}`)
+      : "";
+    const facts = [];
+    if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
+    if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
+
+    const stopRow = s => {
+      const t = s.arrival || s.departure, ts = s.scheduledArrival || s.scheduledDeparture;
+      return `<li class="leg-row" data-ts="${+new Date(t || ts)}">` +
+        `<span class="leg-time">${timeWithDelay(ts, t)}</span><span class="leg-dot mini"></span>` +
+        `<span class="leg-text${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
+        `${s.track ? ` · Gl. ${escapeHtml(String(s.track))}` : ""}${s.cancelled ? " · entfällt" : ""}</span></li>`;
+    };
+    const infoBlock = (stops.length || facts.length) ? `
+      <details class="leginfo">
+        <summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"} & Infos` : "Infos zur Fahrt"}</summary>
+        ${stops.length ? `<ul class="stoplist">${stops.map(stopRow).join("")}</ul>` : ""}
+        ${facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : ""}
+      </details>` : "";
+
+    const wrap = document.createElement("div");
+    wrap.className = "leg2";
+    wrap.innerHTML = `
+      <div class="leg-head"><span class="linechip seg-${productClass(l.mode)}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</div>
+      <div class="leg-body">
+        <div class="leg-track"></div>
+        <div class="leg-progress" hidden></div>
+        <div class="leg-row" data-ts="${+new Date(l.from.departure)}">
+          <span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span><span class="leg-dot"></span>
+          <span class="leg-text">ab ${escapeHtml(l.from.name)}${trackPart}</span>
+        </div>
+        ${infoBlock}
+        <div class="leg-row" data-ts="${+new Date(l.to.arrival)}">
+          <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span><span class="leg-dot"></span>
+          <span class="leg-text">an ${escapeHtml(l.to.name)}</span>
+        </div>
+      </div>`;
+    const det = wrap.querySelector("details.leginfo");
+    const relayout = () => updateLegLine(wrap, l, det);
+    if (det) det.addEventListener("toggle", relayout);
+    requestAnimationFrame(relayout);
+    container.appendChild(wrap);
   }
   const legs = transitLegs(it);
   const a = document.createElement("a");
@@ -806,38 +838,39 @@ function fillDetails(container, it) {
   container.appendChild(a);
 }
 
-/* Aufklappbare Zusatzinfos je Verkehrsmittel-Abschnitt: alles, was das
-   Backend liefert — Betreiber, Fahrtnummer, Barrierefreiheit sowie die
-   Zwischenhalte mit Echtzeit, Gleis und Entfallen-Status. */
-function appendLegInfo(div, l) {
-  const stops = l.intermediateStops || [];
-  const facts = [];
-  if (l.agencyName) facts.push(`Betreiber: ${escapeHtml(l.agencyName)}`);
-  const lp = lineParts(l);
-  const tripNo = lp.extra || l.tripShortName;
-  if (tripNo) facts.push(`Fahrt-Nr. ${escapeHtml(String(tripNo))}`);
-  if (l.routeLongName && l.routeLongName !== l.routeShortName) facts.push(escapeHtml(l.routeLongName));
-  if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
-  if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
-  if (!facts.length && !stops.length) return;
+/* Linien-Geometrie eines Abschnitts: die vertikale Linie verbindet Abfahrts-
+   und Ankunftszeit (bzw. alle Zwischenhalte, wenn aufgeklappt). Läuft die
+   Fahrt gerade UND ist aufgeklappt, zeigt eine gefüllte Teil-Linie mit
+   Positionspunkt, wo der Zug ist; vergangene Halte werden gedimmt. */
+function updateLegLine(wrap, l, det) {
+  const body = wrap.querySelector(".leg-body");
+  if (!body) return;
+  const open = !!(det && det.open);
+  const rows = [...body.querySelectorAll(".leg-row")].filter(r => open || !r.closest("details"));
+  if (rows.length < 2) return;
+  const center = r => r.offsetTop + r.offsetHeight / 2;
+  const y0 = center(rows[0]), y1 = center(rows[rows.length - 1]);
+  const track = body.querySelector(".leg-track");
+  track.style.top = y0 + "px";
+  track.style.height = Math.max(0, y1 - y0) + "px";
 
-  const det = document.createElement("details");
-  det.className = "leginfo";
-  const label = stops.length
-    ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"} & Infos`
-    : "Infos zur Fahrt";
-  det.innerHTML =
-    `<summary>${label}</summary>` +
-    (facts.length ? `<p>${facts.join(" · ")}</p>` : "") +
-    (stops.length ? `<ul>` + stops.map(s => {
-      const gone = s.cancelled;
-      const track = s.track ? ` · Gl. ${escapeHtml(String(s.track))}` : "";
-      return `<li class="${gone ? "stop-cancelled" : ""}">` +
-        `<span class="leg-time">${timeWithDelay(s.scheduledArrival || s.scheduledDeparture, s.arrival || s.departure)}</span> ` +
-        `${escapeHtml(s.name)}${track}${gone ? " · entfällt" : ""}</li>`;
-    }).join("") + `</ul>` : "");
-  det.style.gridColumn = "2";
-  div.appendChild(det);
+  const prog = body.querySelector(".leg-progress");
+  const now = Date.now();
+  const dep = +new Date(l.from.departure), arr = +new Date(l.to.arrival);
+  rows.forEach(r => r.classList.toggle("passed", open && now > Number(r.dataset.ts)));
+  if (!open || now < dep || now > arr) { prog.hidden = true; return; }
+  let y = y0;
+  for (let i = 0; i < rows.length - 1; i++) {
+    const t0 = Number(rows[i].dataset.ts), t1 = Number(rows[i + 1].dataset.ts);
+    if (now > t1) { y = center(rows[i + 1]); continue; }
+    if (now >= t0) {
+      y = center(rows[i]) + (t1 > t0 ? (now - t0) / (t1 - t0) : 0) * (center(rows[i + 1]) - center(rows[i]));
+    }
+    break;
+  }
+  prog.style.top = y0 + "px";
+  prog.style.height = Math.max(0, y - y0) + "px";
+  prog.hidden = false;
 }
 
 /* ---------------- DB-Link ---------------- */
@@ -933,7 +966,8 @@ function delayBadge(min) {
 function timeWithDelay(scheduledIso, actualIso) {
   const d = diffMin(scheduledIso, actualIso);
   if (d === 0) return fmtTime(actualIso || scheduledIso);
-  return `<span class="old-time">${fmtTime(scheduledIso)}</span>${fmtTime(actualIso)}`;
+  const cls = d <= 0 ? "ok" : d < 6 ? "warn" : "bad";
+  return `<span class="old-time">${fmtTime(scheduledIso)}</span><span class="t-real ${cls}">${fmtTime(actualIso)}</span>`;
 }
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

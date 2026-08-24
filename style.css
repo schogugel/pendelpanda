@@ -351,12 +351,45 @@ body {
 .walkmeld summary { cursor: pointer; }
 .walkmeld p { margin: .3rem 0 0 1.15rem; }
 .walkmeld .finequote { margin-top: .4rem; }
-/* Aufklappbare Abschnitts-Infos (Zwischenhalte, Betreiber, …) */
-.leginfo { font-size: .82rem; color: var(--muted); margin-top: .1rem; }
-.leginfo summary { cursor: pointer; }
-.leginfo p { margin: .3rem 0 .2rem .5rem; }
-.leginfo ul { list-style: none; margin: .2rem 0 .2rem .5rem; display: flex; flex-direction: column; gap: .15rem; }
-.leginfo .leg-time { font-weight: 600; }
+/* Abschnitt als Perlenkette: Zeiten links, Punkte auf der Linie */
+.leg2 { display: flex; flex-direction: column; gap: .25rem; font-size: .92rem; }
+.leg-head { font-weight: 600; }
+.leg-body { position: relative; display: flex; flex-direction: column; gap: .35rem; }
+.leg-row { display: flex; align-items: center; gap: .5rem; }
+.leg-row .leg-time {
+  display: flex; flex-direction: column; align-items: flex-end;
+  min-width: 3.3rem; flex: none;
+  font-variant-numeric: tabular-nums; font-weight: 600; line-height: 1.15;
+}
+.leg-row .old-time { display: block; }
+.t-real.ok { color: var(--ok); }
+.t-real.warn { color: var(--warn); }
+.t-real.bad { color: var(--bad); }
+.leg-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex: none;
+  background: var(--text); box-shadow: 0 0 0 2px var(--card); z-index: 1;
+}
+.leg-dot.mini { width: 6px; height: 6px; margin: 0 1.5px; }
+.leg-text { min-width: 0; }
+/* die verbindende Linie (und der Fortschritt während der Fahrt) */
+.leg-track, .leg-progress {
+  position: absolute; width: 2px;
+  left: calc(3.3rem + .5rem + 3.5px);
+}
+.leg-track { background: var(--text); opacity: .55; }
+.leg-progress { background: var(--ok); z-index: 1; }
+.leg-progress::after {
+  content: ""; position: absolute; bottom: -4px; left: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 0 2px var(--card);
+}
+.leg-row.passed .leg-text, .leg-row.passed .leg-time { opacity: .55; }
+/* Aufklappbare Zwischenhalte sitzen ZWISCHEN ab- und an-Zeile */
+.leginfo { font-size: .82rem; color: var(--muted); }
+.leginfo summary { cursor: pointer; margin-left: calc(3.8rem + 16px); }
+.stoplist { list-style: none; margin: .35rem 0 0; display: flex; flex-direction: column; gap: .3rem; }
+.stoplist .leg-time { font-weight: 400; font-size: .95em; }
+.leg-facts { margin: .35rem 0 0 calc(3.8rem + 16px); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
 /* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut */
 .tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; }
