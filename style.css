@@ -447,7 +447,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
    Reihenfolge wie bei der Bahn: Halt zuerst, darunter die Fahrt dorthin. */
 .jrn { position: relative; font-size: .92rem; }
 .jrn-line, .jrn-progress {
-  position: absolute; left: calc(3.6rem + 4px); width: 2px; border-radius: 1px;
+  position: absolute; left: calc(3.6rem + .55rem + 4px); width: 2px; border-radius: 1px;
 }
 .jrn-line { background: var(--border); }
 .jrn-progress { background: var(--accent); z-index: 1; }
