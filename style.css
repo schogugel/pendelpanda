@@ -1,11 +1,11 @@
 :root {
-  --bg: #f3f6f3;
+  --bg: #f3f5f9;
   --card: #ffffff;
-  --text: #17251a;
-  --muted: #5c6f61;
-  --accent: #1b5e20;
-  --accent-soft: #e3efe4;
-  --border: #d6e0d7;
+  --text: #151c28;
+  --muted: #5b6b80;
+  --accent: #1e40af;
+  --accent-soft: #e3e9f8;
+  --border: #d6dde8;
   --ok: #1e7d32;
   --warn: #b26a00;
   --bad: #c62828;
@@ -22,13 +22,13 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e1512;
-    --card: #17201b;
-    --text: #e4ece5;
-    --muted: #93a698;
-    --accent: #7cc47f;
-    --accent-soft: #1d2c20;
-    --border: #2a382e;
+    --bg: #0e131f;
+    --card: #161d2b;
+    --text: #e6eaf2;
+    --muted: #93a0b4;
+    --accent: #6d9eff;
+    --accent-soft: #1a2440;
+    --border: #2a3547;
     --ok: #7cc47f;
     --warn: #ffb74d;
     --bad: #ef7070;
@@ -64,6 +64,9 @@ body {
 .topbar-logo { width: 34px; height: 34px; border-radius: 8px; }
 .topbar h1 { font-size: 1.25rem; letter-spacing: .01em; flex: 1; }
 #btn-settings { font-size: 1.3rem; }
+/* Ergebnisansicht: ohne App-Kopfzeile — die Grafik bekommt den Platz */
+body[data-view="results"] .topbar { display: none; }
+body[data-view="results"] #view-results { padding-top: .7rem; }
 
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }
 .hint { color: var(--muted); font-size: .9rem; margin: .2rem 0 .8rem; }
@@ -126,7 +129,7 @@ body {
   color: var(--muted); transition: color .18s ease;
 }
 .seg3 button.active { color: #fff; }
-@media (prefers-color-scheme: dark) { .seg3 button.active { color: #0e1512; } }
+@media (prefers-color-scheme: dark) { .seg3 button.active { color: var(--bg); } }
 @media (min-width: 480px) { .buttongrid { grid-template-columns: repeat(3, 1fr); } }
 
 .stationbtn {
@@ -197,7 +200,8 @@ body {
   border-radius: 999px; padding: .45rem .9rem; font: inherit; font-size: .9rem; cursor: pointer;
 }
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-@media (prefers-color-scheme: dark) { .chip.active { color: #0e1512; } }
+@media (prefers-color-scheme: dark) { .chip.active { color: var(--bg); } }
+.chip-right { margin-left: auto; }
 
 /* ---------- Ergebnisliste ---------- */
 .results-list { display: flex; flex-direction: column; gap: .7rem; }
@@ -256,7 +260,7 @@ body {
 /* ---------- Grafische Fahrplan-Ansicht ---------- */
 .timeline-wrap { position: relative; }
 .timeline {
-  height: min(68dvh, 560px);
+  height: min(74dvh, 640px);
   overflow: auto;
   border: 1.5px solid var(--border);
   border-radius: 14px;

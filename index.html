@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PendelPanda</title>
 <meta name="description" content="Deine Pendelverbindung in 2 Taps – mit Echtzeit-Verspätungen.">
-<meta name="theme-color" content="#1b5e20" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0e1512" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e131f" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -49,15 +49,14 @@
 <!-- ANSICHT: ERGEBNISSE -->
 <main id="view-results" class="view" hidden>
   <div class="viewhead">
-    <button class="backbtn" data-back aria-label="Zurück">←</button>
     <h2 id="results-title" class="results-title"></h2>
-    <button id="btn-viewmode" class="iconbtn" title="Listen-/Grafikansicht">☰</button>
     <button id="btn-swap" class="iconbtn" title="Richtung tauschen">⇄</button>
   </div>
   <div class="timechips" id="timechips">
     <button id="chip-now" class="chip active">Jetzt</button>
     <button id="chip-last" class="chip" title="Letzte Verbindungen der Nacht">Letzte</button>
     <button id="chip-time" class="chip" title="Datum &amp; Uhrzeit wählen">📅</button>
+    <button id="btn-viewmode" class="chip chip-right" title="Listen-/Grafikansicht">☰</button>
   </div>
   <button id="list-earlier" class="loadbtn" hidden>◂ Frühere anzeigen</button>
   <div id="results-list" class="results-list" aria-live="polite"></div>

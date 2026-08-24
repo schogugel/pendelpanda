@@ -78,6 +78,7 @@ function byId(id) { return document.getElementById(id); }
 
 function showView(name) {
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
+  document.body.dataset.view = name; // steuert u. a. die Kopfzeile per CSS
   if (name === "grid") {
     app.selectedStart = null;
     renderGrid();
