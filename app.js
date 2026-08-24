@@ -530,14 +530,14 @@ function itKey(it) {
   ).join("|") || it.startTime;
 }
 
-// direction: null = neue Suche, "later" / "earlier" = blättern per Cursor
-async function runPlan(direction = null, limit = 10) {
+const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(tls[0].from.departure) : Infinity; };
+
+/* Eine Seite beschaffen und in den Pool mischen — OHNE zu rendern.
+   Trennung von Beschaffung und Darstellung: So kann eine Suche mehrere Seiten
+   nachladen (Bootstrap, „Letzte“) und trotzdem nur EINMAL rendern. Jedes
+   Zwischenrendern hat die Grafik neu positioniert — daher das Springen. */
+async function fetchPage(direction, limit = 10) {
   const { from, to } = app.search;
-  const loading = `<p class="status">Suche Verbindungen …</p>`;
-  if (!direction) {
-    resultsList.innerHTML = loading;
-    byId("timeline").innerHTML = loading;
-  }
   const t = app.searchTime;
   const baseTime = t.kind === "custom" ? new Date(t.time)
     : t.kind === "letzte" ? nextNightEnd()
@@ -566,7 +566,7 @@ async function runPlan(direction = null, limit = 10) {
         .then(r => (r.ok ? r.json() : null)).catch(() => null)
     : null;
 
-  try {
+  {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -593,42 +593,70 @@ async function runPlan(direction = null, limit = 10) {
     }
     // Spalten immer chronologisch nach Abfahrt (API-Reihenfolge ist teils
     // ein Qualitäts-Ranking und würde die Kaskade der Grafik brechen)
-    const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(tls[0].from.departure) : Infinity; };
     app.itins.sort((a, b) => depOf(a) - depOf(b));
-    // „Letzte“: erst die Nacht-Verbindungen VOR dem Morgen dazuladen, dann rendern
-    if (!direction && t.kind === "letzte" && app.prevPageCursor && app.itins.length) {
-      await runPlan("earlier");
-      return;
-    }
-    // „Jetzt“: zwei gerade verpasste Verbindungen mitladen — Inhalt über der
-    // Jetzt-Linie und Scrollraum nach links
-    if (!direction && t.kind === "now" && app.prevPageCursor && app.itins.length) {
-      await runPlan("earlier", 2);
-      return;
-    }
-    // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
-    // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
-    if (!direction && !app.itins.length && !app.aroundTried) {
-      app.aroundTried = true;
-      const around = await planAround(params);
-      const fresh2 = (around?.itineraries || []).filter(it => transitLegs(it).length);
-      if (fresh2.length) {
-        const seen = new Set();
-        app.itins = fresh2.filter(it => !seen.has(itKey(it)) && seen.add(itKey(it)))
-          .sort((a, b) => depOf(a) - depOf(b));
-        app.aroundUsed = true;
-        app.prevPageCursor = around.previousPageCursor || null;
-        app.nextPageCursor = around.nextPageCursor || null;
+    return { added: add.length, params };
+  }
+}
+
+/* Orchestrierung: beschafft (ggf. mehrere Seiten) und rendert GENAU EINMAL. */
+async function runPlan(direction = null, limit = 10) {
+  if (!direction) {
+    const loading = `<p class="status">Suche Verbindungen …</p>`;
+    resultsList.innerHTML = loading;
+    byId("timeline").innerHTML = loading;
+  }
+  try {
+    const { params } = await fetchPage(direction, limit);
+    if (!direction) {
+      const t = app.searchTime;
+      if (t.kind === "letzte") {
+        await loadBackToNightGap();
+      } else if (t.kind === "now" && app.itins.length && app.prevPageCursor) {
+        // zwei gerade verpasste Verbindungen als Kontext links
+        await fetchPage("earlier", 2);
+      }
+      // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
+      // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
+      if (!app.itins.length && !app.aroundTried) {
+        app.aroundTried = true;
+        const around = await planAround(params);
+        const fresh2 = (around?.itineraries || []).filter(it => transitLegs(it).length);
+        if (fresh2.length) {
+          const seen = new Set();
+          app.itins = fresh2.filter(it => !seen.has(itKey(it)) && seen.add(itKey(it)))
+            .sort((a, b) => depOf(a) - depOf(b));
+          app.aroundUsed = true;
+          app.prevPageCursor = around.previousPageCursor || null;
+          app.nextPageCursor = around.nextPageCursor || null;
+        }
       }
     }
     renderResults();
-    maybeAutoFill();
+    if (!direction) maybeAutoFill();
   } catch (e) {
     if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
       resultsList.innerHTML = msg;
       byId("timeline").innerHTML = msg;
     }
+  }
+}
+
+/* „Letzte“: so weit rückwärts laden, bis die Betriebspause der Nacht wirklich
+   im geladenen Fenster liegt. Vorher war es genau EINE Seite — reichte die
+   nicht bis zur Lücke, landete der Fokus irgendwo am Nachmittag. */
+async function loadBackToNightGap() {
+  const coverUntil = +nextNightEnd() - 7 * 3600e3; // bis ~20:30 des Vorabends
+  for (let i = 0; i < 3; i++) {
+    const list = gapList(app.itins);
+    if (nightGapIndex(list) >= 0) return;                 // Flaute gefunden
+    if (list.length && list[0].dep <= coverUntil) return; // Abend abgedeckt
+    // Deckt der Pool schon ≥4 h ohne Pause ab, fährt die Strecke durch —
+    // weiteres Rückwärtsladen wäre reine Wartezeit
+    if (list.length > 2 && list[list.length - 1].dep - list[0].dep >= 4 * 3600e3) return;
+    if (!app.prevPageCursor) return;
+    const { added } = await fetchPage("earlier", 10);
+    if (!added) return; // nichts Neues mehr — Abbruch statt Endlosschleife
   }
 }
 
@@ -716,24 +744,36 @@ async function diagnoseEmpty() {
    2) Anständig = kein Stranden: längste Umstiegs-Wartezeit <= 45 min
       (Gesamtdauer ist bewusst KEIN Kriterium – durchfahrende Nachtzüge sind ok).
    Gefiltert wird nichts; die Verbindung wird nur fokussiert. */
-function findLastDecent(itins, anchorMs) {
-  const list = itins.map(it => {
+// Verbindungen als sortierte Kennzahlen-Liste (Abfahrt + längste Umstiegswartezeit)
+function gapList(itins) {
+  return itins.map(it => {
     const legs = transitLegs(it);
+    if (!legs.length) return null;
     let maxGap = 0;
     for (let i = 1; i < legs.length; i++) {
       maxGap = Math.max(maxGap, +new Date(legs[i].from.departure) - +new Date(legs[i - 1].to.arrival));
     }
     return { key: itKey(it), dep: +new Date(legs[0].from.departure), maxGap };
-  }).sort((a, b) => a.dep - b.dep);
-  if (!list.length) return null;
-  if (list.length < 3) return list[list.length - 1].key;
+  }).filter(Boolean).sort((a, b) => a.dep - b.dep);
+}
 
+// Index der letzten Betriebspause („Nachtflaute“) in der Liste, sonst -1
+function nightGapIndex(list) {
+  if (list.length < 3) return -1;
   const deltas = list.slice(1).map((c, i) => c.dep - list[i].dep);
   const sorted = [...deltas].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
   const gapThresh = Math.max(90 * 60000, 2.5 * median);
   let gapIdx = -1;
   deltas.forEach((d, i) => { if (d >= gapThresh) gapIdx = i; });
+  return gapIdx;
+}
+
+function findLastDecent(itins, anchorMs) {
+  const list = gapList(itins);
+  if (!list.length) return null;
+  if (list.length < 3) return list[list.length - 1].key;
+  const gapIdx = nightGapIndex(list);
 
   // Keine Flaute gefunden (Strecke fährt durch): letzte Verbindung vor dem
   // Morgen-Anker nehmen statt willkürlich der letzten geladenen

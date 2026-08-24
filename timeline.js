@@ -84,12 +84,25 @@ function productClass(mode) {
 }
 function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
-  const prevT0 = tl.t0;
-  const prevFirstKey = tl.itins.length ? itKey(tl.itins[0]) : null;
   const sameSearch = tl.searchTag === app.searchTag;
   tl.searchTag = app.searchTag;
-  const keepScroll = sameSearch && tl.itins.length && itins.length > tl.itins.length;
+  const keepScroll = sameSearch && tl.itins.length && itins.length !== tl.itins.length;
   const prev = { left: scroller.scrollLeft, top: scroller.scrollTop };
+  /* Anker für „nichts darf springen“: Zeit an der Oberkante + die Spalte am
+     linken Rand samt Feinversatz. Über den Spalten-SCHLÜSSEL statt Index —
+     neue Verbindungen können auch MITTEN einsortiert werden, dann verschiebt
+     ein reiner Index-Vergleich die Ansicht. Der Zeit-Anker ist zusätzlich
+     robust gegen geänderte Zoomstufen. */
+  let anchor = null;
+  if (keepScroll && tl.ppm) {
+    const stepOld = tl.colW + TL.GAP;
+    const idx = Math.round((prev.left) / stepOld);
+    anchor = {
+      time: tl.t0 + (prev.top / tl.ppm) * 60000,
+      key: tl.itins[idx] ? itKey(tl.itins[idx]) : null,
+      offset: prev.left - idx * stepOld,
+    };
+  }
 
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
@@ -133,6 +146,7 @@ function renderTimeline(itins, focus = "start") {
   if (!sameSearch) {
     tl.ppm = tlAutoZoom(scroller, startIdx);
     tl.lastZoomIdx = startIdx;
+    tl.userMoved = false; // erst nach echter Nutzer-Geste vorausladen
   }
 
   // Kopffreiheit: über dem FRÜHESTEN geladenen Balken (und im „Jetzt“-Modus
@@ -157,11 +171,14 @@ function renderTimeline(itins, focus = "start") {
     }
   }
 
-  if (keepScroll) {
-    // Wurden frühere Verbindungen vorangestellt, sind die Spalten nach rechts gerückt
-    const shift = prevFirstKey ? Math.max(0, tl.itins.findIndex(it => itKey(it) === prevFirstKey)) : 0;
-    scroller.scrollLeft = prev.left + shift * (tl.colW + TL.GAP);
-    scroller.scrollTop = prev.top + tlY(prevT0);
+  if (keepScroll && anchor) {
+    // Ankerspalte an derselben Bildschirmposition halten; Zeit-Anker für oben
+    const step = tl.colW + TL.GAP;
+    const newIdx = anchor.key ? tl.itins.findIndex(it => itKey(it) === anchor.key) : -1;
+    scroller.scrollLeft = newIdx >= 0 ? Math.max(0, newIdx * step + anchor.offset) : prev.left;
+    scroller.scrollTop = Math.max(0, tlY(anchor.time));
+    // Zoom-Index mitziehen, sonst zoomt das Einrasten die Spalte neu (Sprung)
+    if (newIdx >= 0) tl.lastZoomIdx = newIdx;
   } else if (focus === "end") {
     // ans Ende scrollen
     const last = tl.bars[tl.bars.length - 1];
@@ -256,21 +273,27 @@ function tlBuild(scroller) {
   // Rand-Nachladen erst scharf schalten, wenn der Nutzer den Rand verlassen hat
   tl.armedLeft = false;
   tl.armedRight = false;
+  tl.lastCheckLeft = null; // Referenz für die Scrollrichtung neu setzen
 }
 
 /* Am Rand angekommen → nächsten Batch in diese Richtung laden.
    Scharf geschaltet wird eine Seite erst, sobald man NICHT am Rand ist —
    die Startposition am linken Rand löst also nichts aus. */
 function tlEdgeCheck(sc) {
-  // Vorausschauend: sind in Scrollrichtung nur noch <2 Spalten Restweg,
-  // wird schon nachgeladen — den Rand (und die Ladeanzeige) sieht man
-  // dadurch fast nie mehr
-  if (typeof loadMore === "function" && tl.bars.length) {
+  /* Vorausschauend nachladen — aber nur in die Richtung, in die der Nutzer
+     tatsächlich scrollt, und erst nachdem er die Ansicht angefasst hat.
+     Sonst feuert schon das Positionieren beim Öffnen ein Nachladen der
+     bereits abgefahrenen Verbindungen (unnötig, langsam, verwirrend). */
+  const last = tl.lastCheckLeft;
+  tl.lastCheckLeft = sc.scrollLeft;
+  if (typeof loadMore === "function" && tl.bars.length && tl.userMoved && last != null) {
     const step = tl.colW + TL.GAP;
+    const movedRight = sc.scrollLeft > last + 1;
+    const movedLeft = sc.scrollLeft < last - 1;
     const colsRight = (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) / step;
     const colsLeft = sc.scrollLeft / step;
-    if (colsRight < 1) loadMore("later");
-    else if (colsLeft < 1) loadMore("earlier");
+    if (movedRight && colsRight < 1) loadMore("later");
+    else if (movedLeft && colsLeft < 1) loadMore("earlier");
   }
   if (sc.scrollWidth <= sc.clientWidth + 4) return;
   const atLeft = sc.scrollLeft <= 2;
@@ -454,6 +477,7 @@ function tlSetZoom(newPpm) {
 function tlInitInteractions() {
   const sc = byId("timeline");
 
+  sc.addEventListener("wheel", () => { tl.userMoved = true; }, { passive: true });
   sc.addEventListener("wheel", (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault();
@@ -502,6 +526,7 @@ function tlInitInteractions() {
   }
 
   sc.addEventListener("pointerdown", (e) => {
+    tl.userMoved = true; // ab jetzt darf vorausschauend nachgeladen werden
     tl.pointers.set(e.pointerId, e);
     // Laufendes Gleiten sofort anhalten und übernehmen — so sind auch Taps
     // während der Einrast-Animation sofort klickbar
