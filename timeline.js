@@ -251,8 +251,8 @@ function tlEdgeCheck(sc) {
     const step = tl.colW + TL.GAP;
     const colsRight = (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) / step;
     const colsLeft = sc.scrollLeft / step;
-    if (colsRight < 2) loadMore("later");
-    else if (colsLeft < 2) loadMore("earlier");
+    if (colsRight < 1) loadMore("later");
+    else if (colsLeft < 1) loadMore("earlier");
   }
   if (sc.scrollWidth <= sc.clientWidth + 4) return;
   const atLeft = sc.scrollLeft <= 2;

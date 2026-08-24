@@ -452,14 +452,14 @@ function restartWith(kind, time = null, arriveBy = false) {
 byId("chip-now").addEventListener("click", () => restartWith("now"));
 byId("chip-last").addEventListener("click", () => restartWith("letzte"));
 
-// Nachladen: in der Grafik durch Scrollen an den Rand, in der Liste per Button.
-// Ein Batch = genau eine API-Anfrage (numItineraries Verbindungen pro Cursor-Seite).
-async function loadMore(direction) {
+/* Nachladen: ALLE Blätter-Ladevorgänge laufen serialisiert durch diese eine
+   Schleuse (app.paging) — parallele Ladevorgänge mit demselben Cursor waren
+   eine Dubletten-Quelle. Ein Batch = genau eine API-Anfrage. */
+async function loadMoreRaw(direction) {
   if (app.paging || !app.search) return;
   const cursor = direction === "earlier" ? app.prevPageCursor : app.nextPageCursor;
   if (!cursor) return;
   app.paging = true;
-  app.autoLoads = 0; // manuelle Aktion gibt dem Auto-Nachladen frisches Budget
   const edge = byId(direction === "earlier" ? "tl-load-left" : "tl-load-right");
   const btn = byId(direction === "earlier" ? "list-earlier" : "list-later");
   // Spinner nur zeigen, wenn man wirklich AM Rand steht (Fallback bei sehr
@@ -478,6 +478,12 @@ async function loadMore(direction) {
     edge.hidden = true;
     btn.disabled = false;
   }
+  maybeAutoFill(); // ggf. weiter auffüllen — durch die Schleuse, nie parallel
+}
+
+async function loadMore(direction) {
+  app.autoLoads = 0; // manuelle Aktion gibt dem Auto-Nachladen frisches Budget
+  return loadMoreRaw(direction);
 }
 byId("list-earlier").addEventListener("click", () => loadMore("earlier"));
 byId("list-later").addEventListener("click", () => loadMore("later"));
@@ -503,7 +509,7 @@ function itKey(it) {
 }
 
 // direction: null = neue Suche, "later" / "earlier" = blättern per Cursor
-async function runPlan(direction = null, limit = 8) {
+async function runPlan(direction = null, limit = 10) {
   const { from, to } = app.search;
   const loading = `<p class="status">Suche Verbindungen …</p>`;
   if (!direction) {
@@ -526,28 +532,16 @@ async function runPlan(direction = null, limit = 8) {
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
-  // Hauptanfrage IMMER ungefiltert (alle Verkehrsmittel — speist Anzeige-Pool
-  // und Legenden-Zustände). Sind Kategorien ausgeblendet, läuft parallel eine
-  // Hilfsanfrage nur mit den aktiven Modi, damit die gefilterte Ansicht
-  // sofort genug Treffer hat. Ein-/Ausblenden ist danach rein clientseitig.
-  let helper = null;
-  if (app.hiddenCats.size && enabledModes()) {
-    const p2 = new URLSearchParams(params);
-    p2.set("transitModes", enabledModes());
-    helper = fetch(`${API}/plan?${p2}`).then(r => (r.ok ? r.json() : null)).catch(() => null);
-  }
-
+  // GENAU EINE ungefilterte Anfrage pro Ladevorgang — sie speist Anzeige-Pool
+  // und Legende; gefiltert wird ausschließlich clientseitig.
   try {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
-    const helperData = helper ? await helper : null;
-    const fresh = (data.itineraries || []).concat(helperData?.itineraries || []);
-    // Dubletten sowohl gegen den Pool ALS AUCH innerhalb der frischen
-    // Antworten aussieben (Haupt- und Hilfsanfrage überlappen sich stark)
+    // Dubletten gegen den Pool UND innerhalb des Batches aussieben
     const known = new Set(app.itins.map(itKey));
     const add = [];
-    for (const it of fresh) {
+    for (const it of (data.itineraries || [])) {
       const k = itKey(it);
       if (known.has(k)) continue;
       known.add(k);
@@ -560,7 +554,7 @@ async function runPlan(direction = null, limit = 8) {
       app.itins = app.itins.concat(add);
       app.nextPageCursor = data.nextPageCursor || null;
     } else {
-      app.itins = fresh;
+      app.itins = add;
       app.prevPageCursor = data.previousPageCursor || null;
       app.nextPageCursor = data.nextPageCursor || null;
     }
@@ -573,14 +567,14 @@ async function runPlan(direction = null, limit = 8) {
       await runPlan("earlier");
       return;
     }
-    // „Jetzt“: die letzten DREI Verbindungen vor jetzt mitladen — echter Inhalt
-    // über der Jetzt-Linie und sofort Scrollraum nach links (Prefetch-Basis)
+    // „Jetzt“: zwei gerade verpasste Verbindungen mitladen — Inhalt über der
+    // Jetzt-Linie und Scrollraum nach links
     if (!direction && t.kind === "now" && app.prevPageCursor) {
-      await runPlan("earlier", 3);
+      await runPlan("earlier", 2);
       return;
     }
     renderResults();
-    await ensureFilled();
+    maybeAutoFill();
   } catch (e) {
     if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
@@ -673,22 +667,14 @@ const CAT_MODES = {
   fernbus: "COACH",
 };
 
-/* Die Hauptanfrage routet serverseitig nur mit den aktiven Kategorien —
-   jede Antwort ist damit voll verwertbar. Sind alle Kategorien aktiv,
-   wird ungefiltert angefragt. */
-function enabledModes() {
-  const enabled = CATS.filter(c => !app.hiddenCats.has(c));
-  if (enabled.length === CATS.length) return null;
-  return enabled.map(c => CAT_MODES[c]).join(",");
-}
-
-// Reicht es noch nicht für die Spaltenzahl, höchstens zwei Cursor-Seiten
-// nachlegen (die liefern dank Server-Filter garantiert Passendes)
+// Reicht es nach dem Filtern noch nicht für die Spaltenzahl,
+// weitere Cursor-Seiten nachlegen (serialisiert, gefiltert gezählt)
 async function ensureFilled() {
+  if (app.paging) return;
   if (visibleItins().length >= neededVisible()) return;
-  if (app.nextPageCursor && app.autoLoads < 2) {
+  if (app.nextPageCursor && app.autoLoads < 4) {
     app.autoLoads++;
-    await runPlan("later");
+    await loadMoreRaw("later"); // kettet sich über die Schleuse selbst weiter
   }
 }
 
