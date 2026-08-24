@@ -55,6 +55,24 @@ function lineParts(l) {
   return m ? { main: m[1], extra: m[2] } : { main: full, extra: null };
 }
 
+/* Schienenersatzverkehr erkennen: Der Ersatz fährt als BUS, trägt aber die
+   Nummer der Bahnlinie (z. B. „RB30“ mit routeType 3). Zusätzlich greifen
+   ausdrückliche Kennzeichnungen wie „SEV“ oder „Ersatz“ im Namen. */
+function isReplacementService(l) {
+  if (l.mode !== "BUS" && l.mode !== "COACH") return false;
+  const name = `${l.routeShortName || ""} ${l.displayName || ""}`.trim();
+  if (/^(RB|RE|IRE|RS|MEX|S|IC|ICE|EC)\s?\d/i.test(name)) return true;
+  return /\bSEV\b|ersatz/i.test(`${name} ${l.routeLongName || ""} ${l.headsign || ""}`);
+}
+
+// Google-Maps-Link zu einem Halt (Koordinaten stecken in jeder Antwort)
+function mapsPin(place, title = "Haltestelle in Google Maps öffnen") {
+  if (!place || !Number.isFinite(place.lat) || !Number.isFinite(place.lon)) return "";
+  const q = `${place.lat},${place.lon}`;
+  return `<a class="mappin" href="https://www.google.com/maps/search/?api=1&query=${q}"` +
+    ` target="_blank" rel="noopener" title="${title}" aria-label="${title}">📍</a>`;
+}
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
@@ -385,7 +403,10 @@ function tlColumn(it, left, isDominated = false) {
     const seg = document.createElement("span");
     const h = Math.max(6, s1 - s0);
     const isCancelled = flagged.has(l);
-    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") + (isCancelled ? " seg-cancelled" : "");
+    const sev = !isCancelled && isReplacementService(l);
+    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") +
+      (isCancelled ? " seg-cancelled" : "") + (sev ? " seg-sev" : "");
+    if (sev) seg.title = "Schienenersatzverkehr";
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
     const name = lineParts(l).main; // Zusatznummer nur in der Detailansicht

@@ -102,6 +102,9 @@ sie zurück.
   — so siehst du, wie weit du trotzdem kommst.
 - **⚠ (orange):** Meldung am Umsteigehalt (oft Steig- oder Haltestellenänderung). Der
   Anschluss fährt meistens trotzdem — vor Ort prüfen.
+- **Schienenersatzverkehr:** gelb schraffierter Abschnitt in Busfarbe – die Linie fährt
+  als Bus ab einer Ersatzhaltestelle. In den Details steht „Ersatzverkehr“, und über das
+  📍 neben dem Abfahrtsort findest du die Haltestelle in Google Maps.
 - **Ausgegraute Spalte:** fährt früher, kommt aber nicht früher an — die Nachbarspalte
   ist die bessere Wahl.
 
@@ -117,6 +120,8 @@ Gleis auf einer durchgehenden Linie.
   Gleis, entfallenden Halten sowie Angaben zu Barrierefreiheit und Fahrradmitnahme,
   soweit gemeldet. Läuft die Fahrt gerade, zeigt eine grüne Linie mit Punkt, wo sich
   der Zug befindet; passierte Halte sind gedimmt.
+- **📍 neben einem Halt** öffnet dessen genaue Lage in Google Maps – praktisch bei
+  Ersatzhaltestellen und unbekannten Umsteigepunkten.
 - **„Bei der DB öffnen“** führt zur Deutschen Bahn — für Wagenreihung, Auslastung und
   Tickets.
 

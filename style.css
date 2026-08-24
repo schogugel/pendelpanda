@@ -389,6 +389,13 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .seg-bus   { background: var(--seg-bus);   color: #131313; }
 .seg-fernbus { background: var(--seg-fernbus); color: #fff; }
 .seg-sonstige { background: var(--seg-sonstige); color: #fff; }
+/* Schienenersatzverkehr: Kategoriefarbe bleibt (es IST ein Bus), zusätzlich
+   gelbe Schrägstreifen als Warnmuster — analog zu Ausfällen, nur in Gelb */
+.tl-seg.seg-sev {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(0,0,0,0) 0 8px, rgba(240,166,58,.92) 8px 16px);
+}
+.tl-seg.seg-sev { color: #131313; text-shadow: 0 0 3px rgba(255,255,255,.55); }
 @media (prefers-color-scheme: dark) { .seg-sonstige { color: #131313; } }
 .tl-arr {
   position: absolute; left: 0; width: 100%;
@@ -416,6 +423,21 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 /* Linien-Chip in Verkehrsmittel-Farbe (Detailansicht) */
 .linechip { display: inline-block; padding: 0 .4em; border-radius: 5px; font-weight: 700; }
 .linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
+/* Ersatzverkehr in der Detailansicht */
+.linechip.chip-sev {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(0,0,0,0) 0 6px, rgba(240,166,58,.92) 6px 12px);
+  color: #131313;
+}
+.sev-badge {
+  background: var(--warn); color: #131313; font-size: .7rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: .1rem .4rem; border-radius: 4px; white-space: nowrap;
+}
+.sev-hint { font-size: .82rem; color: var(--warn); margin: .1rem 0 .1rem; }
+/* Karten-Link an Halten */
+.mappin { text-decoration: none; font-size: .9em; opacity: .75; }
+.mappin:hover { opacity: 1; }
 /* Aufklappbare Umstiegs-Meldung */
 .walkmeld { font-size: .85rem; color: var(--muted); }
 .walkmeld summary { cursor: pointer; }

@@ -69,6 +69,14 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
   `maxPreTransitTime`/`maxPostTransitTime` auf 1800 — ohne diese Parameter liefert
   auch die Koordinatensuche 0 (Default-Fußweg zu kurz). Ergebnis mit Hinweisbanner
   kennzeichnen. Slots speichern `lat`/`lon`; Altbestand wird per Geocode nachgerüstet.
+- **SEV erkennen:** Ersatzverkehr fährt als `mode: BUS` mit `routeType: 3`, trägt aber
+  die BAHN-Liniennummer (`routeShortName: "RB30"`). `isReplacementService()` prüft genau
+  das (plus „SEV“/„Ersatz“ im Namen) — an echten Strecken validiert: 10/10 Treffer im
+  SEV-Fall, 0 Fehlalarme bei normalen Stadt-/Regionalbussen. Darstellung: gelbe
+  Schrägstreifen ÜBER der Kategoriefarbe (es bleibt ein Bus), Badge „Ersatzverkehr“ in
+  den Details. Nicht mit der Ausfall-Streifung (schwarz-rot) verwechseln.
+- **Koordinaten sind überall dabei** (`place.lat/lon`) → `mapsPin()` baut daraus
+  Google-Maps-Links; wichtig, um Ersatzhaltestellen tatsächlich zu finden.
 - **Datenlücken sind real und sehen wie App-Fehler aus:** Ein Halt kann im Geocoder
   existieren und Abfahrten liefern, deren Fahrplan aber erst Wochen später beginnt
   (Beispiel Vorra (Pegnitz), 24.08.2026: 0 Verbindungen; ab 14.09.2026 fährt die RB30

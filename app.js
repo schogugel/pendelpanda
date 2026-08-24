@@ -962,9 +962,14 @@ function fillDetails(container, it) {
           `<p class="finequote">Die Datenquelle liefert dazu keinen Meldungstext. Häufig steckt eine Haltestellen- oder Steigänderung dahinter – der Anschluss fährt meist trotzdem. Vor Ort prüfen.</p>`;
         container.appendChild(det);
       } else {
+        // Fußwege benennen — bei Ersatzverkehr ist das der Weg zur Ersatzhaltestelle
+        const endName = p => p.name === "START" ? (app.search.from.label || app.search.from.name)
+          : p.name === "END" ? (app.search.to.label || app.search.to.name) : p.name;
+        const a = endName(l.from), b = endName(l.to);
         const w = document.createElement("p");
         w.className = "walkleg";
-        w.textContent = `🚶 ${fmtDur(l.duration)} Fußweg`;
+        w.innerHTML = `🚶 ${fmtDur(l.duration)} Fußweg` +
+          (a && b && a !== b ? `: ${escapeHtml(a)} → ${escapeHtml(b)} ${mapsPin(l.to, "Ziel des Fußwegs in Google Maps öffnen")}` : "");
         container.appendChild(w);
       }
       continue;
@@ -997,19 +1002,21 @@ function fillDetails(container, it) {
 
     const wrap = document.createElement("div");
     wrap.className = "leg2";
+    const sev = !flagged.has(l) && isReplacementService(l);
     wrap.innerHTML = `
-      <div class="leg-head"><span class="linechip seg-${productClass(l.mode)}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}</div>
+      <div class="leg-head"><span class="linechip seg-${productClass(l.mode)}${sev ? " chip-sev" : ""}">${escapeHtml(lp.main)}</span>${lp.extra ? ` <span class="linextra">(${escapeHtml(lp.extra)})</span>` : ""} → ${escapeHtml(l.headsign || l.to.name)}${flagged.has(l) ? ` <span class="cancelled-label">Fällt aus</span>` : ""}${sev ? ` <span class="sev-badge">Ersatzverkehr</span>` : ""}</div>
+      ${sev ? `<p class="sev-hint">Fährt als Bus ab einer Ersatzhaltestelle – Abfahrtsort unten prüfen.</p>` : ""}
       <div class="leg-body">
         <div class="leg-track"></div>
         <div class="leg-progress" hidden></div>
         <div class="leg-row" data-ts="${+new Date(l.from.departure)}">
           <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-          <span class="leg-text">ab ${escapeHtml(l.from.name)}${trackPart}</span>
+          <span class="leg-text">ab ${escapeHtml(l.from.name)}${trackPart} ${mapsPin(l.from, "Abfahrtsort in Google Maps öffnen")}</span>
         </div>
         ${infoBlock}
         <div class="leg-row" data-ts="${+new Date(l.to.arrival)}">
           <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
-          <span class="leg-text">an ${escapeHtml(l.to.name)}</span>
+          <span class="leg-text">an ${escapeHtml(l.to.name)} ${mapsPin(l.to, "Ankunftsort in Google Maps öffnen")}</span>
         </div>
       </div>`;
     const det = wrap.querySelector("details.leginfo");
