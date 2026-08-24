@@ -1,7 +1,7 @@
 "use strict";
 
 const API = "https://api.transitous.org/api/v1";
-const MIN_SLOTS = 4, MAX_SLOTS = 24;
+const BASE_SLOTS = 14, MAX_SLOTS = 40;
 // Optional: URL des deployten db-link-workers (siehe README, Ordner db-link-worker/).
 // Wenn gesetzt, öffnet „Bei der DB öffnen“ exakt die gewählte Verbindung (vbid-Link,
 // öffnet auf dem Handy den DB Navigator mit „Zu meinen Reisen hinzufügen“).
@@ -49,7 +49,9 @@ function loadSettings() {
     }
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(5, Math.max(3, Math.round(n)));
+    if (s && (s.connectMode === "tap" || s.connectMode === "hybrid")) def.connectMode = s.connectMode;
   } catch { /* Default behalten */ }
+  if (!def.connectMode) def.connectMode = "hybrid"; // Verbinde-Modus bei >14 Kacheln
   return def;
 }
 let settings = loadSettings();
@@ -66,11 +68,11 @@ function loadSlots() {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (Array.isArray(raw) && raw.length) {
       const arr = raw.slice(0, MAX_SLOTS);
-      while (arr.length < MIN_SLOTS) arr.push(null);
+      while (arr.length < BASE_SLOTS) arr.push(null);
       return arr;
     }
   } catch { /* Default nutzen */ }
-  return new Array(12).fill(null);
+  return new Array(BASE_SLOTS).fill(null);
 }
 function saveSlots() { localStorage.setItem(STORAGE_KEY, JSON.stringify(slots)); }
 
@@ -114,6 +116,13 @@ const gridEl = byId("buttongrid");
 
 function renderGrid() {
   gridEl.innerHTML = "";
+  // Bei >14 Kacheln muss das Grid scrollbar sein: „Nur Tippen“ deaktiviert das
+  // Wisch-Verbinden komplett; „Hybrid“ deaktiviert es, sobald ein Start gewählt
+  // ist (dann scrollt Wischen frei zum Ziel). Bearbeiten-Modus bleibt unberührt.
+  const scrollGrid = slots.length > BASE_SLOTS;
+  const dragOff = !app.editMode && scrollGrid &&
+    (settings.connectMode === "tap" || app.selectedStart !== null);
+  gridEl.classList.toggle("no-drag", dragOff);
   slots.forEach((slot, i) => {
     const btn = document.createElement("button");
     btn.className = "stationbtn" + (slot ? "" : " empty") + (app.selectedStart === i ? " selected" : "");
@@ -189,6 +198,8 @@ function attachStationPointer(btn, i) {
     if (e.pointerId !== activeId || held) return;
     if (!dragging) {
       if (!slots[i]) return;
+      // Wisch-Verbinden ggf. deaktiviert (Scroll-Modus bei vielen Kacheln)
+      if (!app.editMode && gridEl.classList.contains("no-drag")) return;
       if (Math.hypot(e.clientX - startX, e.clientY - startY) < 14) return;
       dragging = true;
       mode = app.editMode ? "move" : "connect";
@@ -942,7 +953,7 @@ function dbLink(fromName, toName, depIso, arrIso) {
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show, cols: settings.cols };
+  const payload = { v: 2, slots, show: settings.show, cols: settings.cols, connect: settings.connectMode };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
@@ -972,12 +983,13 @@ function maybeImportConfig() {
     const newSlots = Array.isArray(imported) ? imported : imported.slots;
     if (Array.isArray(newSlots) && confirm("Buttons übernehmen? Die im Link gespeicherte Konfiguration ersetzt deine aktuelle.")) {
       slots = newSlots.slice(0, MAX_SLOTS);
-      while (slots.length < MIN_SLOTS) slots.push(null);
+      while (slots.length < BASE_SLOTS) slots.push(null);
       saveSlots();
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
         const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
         if (Number.isFinite(n)) settings.cols = Math.min(5, Math.max(3, Math.round(n)));
+        if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
         saveSettings();
       }
       alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
@@ -1026,7 +1038,7 @@ byId("btn-settings").addEventListener("click", () => {
   document.querySelectorAll("#settings-cats input").forEach(cb => {
     cb.checked = settings.show[cb.dataset.cat];
   });
-  byId("set-count").value = slots.length;
+  refreshTileOpts();
   renderColsControl();
   byId("settings-dialog").showModal();
 });
@@ -1056,17 +1068,61 @@ byId("settings-dialog").addEventListener("close", () => {
   gridSettingsDirty = false;
 });
 
-// Kachel-Anzahl ändern – Verkleinern kann nie belegte Kacheln löschen
-byId("set-count").addEventListener("change", () => {
-  let n = Math.round(Number(byId("set-count").value)) || slots.length;
-  n = Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, n));
-  let lastUsed = -1;
-  slots.forEach((s, idx) => { if (s) lastUsed = idx; });
-  n = Math.max(n, lastUsed + 1);
+/* Kachel-Anzahl: Standard sind 14 (7×2, passt ohne Scrollen). „Mehr als 14“
+   schaltet frei — dann gerade Anzahl bis 40 plus Wahl des Verbinde-Modus.
+   Verkleinern kann nie belegte Kacheln löschen. */
+function lastUsedIndex() {
+  let last = -1;
+  slots.forEach((s, i) => { if (s) last = i; });
+  return last;
+}
+
+function setSlotCount(n) {
+  n = Math.max(BASE_SLOTS, Math.min(MAX_SLOTS, Math.round(n)));
+  n = Math.max(n, lastUsedIndex() + 1);
+  if (n > BASE_SLOTS && n % 2) n += 1; // gerade halten
   while (slots.length < n) slots.push(null);
   slots.length = n;
-  byId("set-count").value = n;
   saveSlots();
+  renderGrid();
+}
+
+function refreshTileOpts() {
+  const more = slots.length > BASE_SLOTS;
+  byId("set-more").checked = more;
+  byId("more-tiles-opts").hidden = !more;
+  byId("set-count").value = Math.max(16, slots.length);
+  const mode = settings.connectMode === "tap" ? "tap" : "hybrid";
+  byId("set-connect").dataset.idx = mode === "tap" ? 1 : 0;
+  byId("set-connect").querySelectorAll("button").forEach(b =>
+    b.classList.toggle("active", b.dataset.mode === mode));
+}
+
+byId("set-more").addEventListener("change", () => {
+  if (byId("set-more").checked) {
+    setSlotCount(16);
+  } else {
+    if (lastUsedIndex() >= BASE_SLOTS) {
+      alert("Es sind Kacheln jenseits von Nr. 14 belegt – bitte erst leeren oder verschieben.");
+      byId("set-more").checked = true;
+      return;
+    }
+    setSlotCount(BASE_SLOTS);
+  }
+  refreshTileOpts();
+});
+
+byId("set-count").addEventListener("change", () => {
+  setSlotCount(Number(byId("set-count").value) || 16);
+  refreshTileOpts();
+});
+
+byId("set-connect").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mode]");
+  if (!b) return;
+  settings.connectMode = b.dataset.mode;
+  saveSettings();
+  refreshTileOpts();
   renderGrid();
 });
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PendelPanda</title>
 <meta name="description" content="Deine Pendelverbindung in 2 Taps – mit Echtzeit-Verspätungen.">
-<meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#b97800" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0e18" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png?v=2" type="image/png">
@@ -14,15 +14,12 @@
 </head>
 <body>
 
-<header class="topbar">
-  <img src="icons/icon-192.png?v=2" alt="" class="topbar-logo">
-  <h1>PendelPanda</h1>
-  <button id="btn-settings" class="iconbtn" aria-label="Einstellungen" title="Einstellungen">⚙</button>
-</header>
-
 <!-- ANSICHT: BUTTON-GRID -->
 <main id="view-grid" class="view">
-  <h2 class="pagetitle">Abfahrtstafel</h2>
+  <div class="pagehead">
+    <h2 class="pagetitle">Abfahrtstafel</h2>
+    <button id="btn-settings" class="iconbtn" aria-label="Einstellungen" title="Einstellungen">⚙</button>
+  </div>
   <div class="gridtools">
     <p class="hint" id="grid-hint">Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.</p>
     <button id="btn-editmode" class="linklike">✎ Bearbeiten</button>
@@ -101,9 +98,21 @@
     <label><input type="checkbox" data-cat="sonstige"> <i class="catdot seg-sonstige"></i> Sonstige (Fähre, Rufbus u.&nbsp;ä.)</label>
     <label><input type="checkbox" data-cat="fernbus"> <i class="catdot seg-fernbus"></i> Fernbus (Flix &amp; Co.)</label>
   </div>
-  <label class="countrow">Anzahl Kacheln (4–24)
-    <input type="number" id="set-count" min="4" max="24" step="1" inputmode="numeric">
+  <label class="countrow">Mehr als 14 Kacheln
+    <input type="checkbox" id="set-more">
   </label>
+  <div id="more-tiles-opts" hidden>
+    <label class="countrow">Anzahl Kacheln (gerade, max. 40)
+      <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
+    </label>
+    <div class="countrow">Verbinden
+      <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
+        <button type="button" data-mode="hybrid">Hybrid</button>
+        <button type="button" data-mode="tap">Nur Tippen</button>
+      </div>
+    </div>
+    <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
+  </div>
   <div class="countrow">Grafik: Verbindungen nebeneinander
     <div class="seg3" id="set-cols" role="radiogroup" aria-label="Verbindungen nebeneinander">
       <button type="button" data-cols="3">3</button>

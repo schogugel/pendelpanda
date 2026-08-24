@@ -3,8 +3,8 @@
   --card: #ffffff;
   --text: #151c28;
   --muted: #5b6b80;
-  --accent: #1e40af;
-  --accent-soft: #e3e9f8;
+  --accent: #b97800;
+  --accent-soft: #f6e8cf;
   --border: #d6dde8;
   --ok: #1e7d32;
   --warn: #b26a00;
@@ -27,8 +27,8 @@
     --card: #131928;
     --text: #e6eaf2;
     --muted: #93a0b4;
-    --accent: #6d9eff;
-    --accent-soft: #182138;
+    --accent: #f0a63a;
+    --accent-soft: #35280f;
     --border: #273246;
     --ok: #7cc47f;
     --warn: #ffb74d;
@@ -64,12 +64,20 @@ body {
   max-width: 640px; margin: 0 auto;
   border-bottom: 1px solid var(--border);
 }
-/* Markanter Seitentitel (Screenshot-Design) */
+/* Markanter Seitentitel (Screenshot-Design) mit ⚙ rechtsbündig */
+.pagehead {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  margin-top: .75rem;
+}
 .pagetitle {
   font-size: 1.55rem; font-weight: 800;
   text-transform: uppercase; letter-spacing: .3em;
   margin: .55rem 0 .1rem;
 }
+/* Scroll-Modus bei vielen Kacheln: Wisch-Verbinden aus → normales Scrollen */
+.buttongrid.no-drag .stationbtn { touch-action: manipulation; }
+/* Zweier-Variante des Schiebeschalters */
+.seg3.seg2::before { width: calc((100% - 6px) / 2); }
 .topbar-logo { width: 34px; height: 34px; border-radius: 8px; }
 .topbar h1 { font-size: 1.25rem; letter-spacing: .01em; flex: 1; }
 #btn-settings { font-size: 1.3rem; }
@@ -151,7 +159,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   gap: .35rem;
   min-height: 96px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--card);
   color: var(--text);
   font: inherit;
@@ -163,19 +171,20 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   -webkit-touch-callout: none;
   overflow: hidden;
 }
-/* Farbbalken oben: Akzent bei belegter Kachel, neutral bei leerer */
+/* Farbbalken INNEN an der Oberkante: Akzent bei belegter Kachel, neutral bei leerer */
 .tile-bar {
-  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  position: absolute; top: 8px; left: 10px; right: 10px; height: 3px;
+  border-radius: 2px;
   background: var(--border);
 }
 .stationbtn:not(.empty) .tile-bar { background: var(--accent); }
 .tile-num {
-  position: absolute; top: .5rem; left: .65rem;
+  position: absolute; top: .95rem; left: .65rem;
   font-size: .68rem; font-weight: 600; letter-spacing: .12em;
   color: var(--muted);
 }
 .tile-flag {
-  position: absolute; top: .5rem; right: .65rem;
+  position: absolute; top: .95rem; right: .65rem;
   font-size: .66rem; font-weight: 800; letter-spacing: .14em;
   text-transform: uppercase; color: var(--accent);
 }
