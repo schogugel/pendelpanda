@@ -113,15 +113,18 @@ sie zurück.
 ## Verbindungsdetails
 
 Ein Tipp auf einen Balken (oder eine Listenkarte) zeigt die Verbindung im Detail:
-farbiger Linien-Chip mit Fahrtnummer, Fahrtziel, Abfahrts- und Ankunftszeiten mit
-Gleis auf einer durchgehenden Linie.
+farbiger Linien-Chip mit Fahrtnummer, Fahrtziel sowie Abfahrts- und Ankunftszeit auf
+einer durchgehenden Linie. **Gleis und Kartenlink** stehen als ein Feld hinter dem Halt
+(„Gl. 8 📍“) – bei Ein- und Ausstieg, denn nur dort braucht man sie. Eine
+Gleisänderung ist rot hervorgehoben; der Pin führt bahnsteiggenau in Google Maps.
 
 - **„Zwischenhalte & Infos“** klappt die vollständige Haltefolge auf — mit Echtzeit,
   Gleis, entfallenden Halten sowie Angaben zu Barrierefreiheit und Fahrradmitnahme,
   soweit gemeldet. Läuft die Fahrt gerade, zeigt eine grüne Linie mit Punkt, wo sich
   der Zug befindet; passierte Halte sind gedimmt.
-- **📍 neben einem Halt** öffnet dessen genaue Lage in Google Maps – praktisch bei
-  Ersatzhaltestellen und unbekannten Umsteigepunkten.
+- **📍 im Gleis-Feld** öffnet die genaue Lage in Google Maps – praktisch bei
+  Ersatzhaltestellen und unbekannten Umsteigepunkten. Bei Zwischenhalten ohne
+  Ein-/Ausstieg wird bewusst kein Gleis angezeigt.
 - **„Bei der DB öffnen“** führt zur Deutschen Bahn — für Wagenreihung, Auslastung und
   Tickets.
 

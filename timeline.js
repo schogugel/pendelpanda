@@ -73,6 +73,28 @@ function mapsPin(place, title = "Haltestelle in Google Maps öffnen") {
     ` target="_blank" rel="noopener" title="${title}" aria-label="${title}">📍</a>`;
 }
 
+/* Gleis + Karten-Pin als EIN Element: Die Koordinaten sind bahnsteiggenau
+   (verschiedene Gleise desselben Bahnhofs haben verschiedene Positionen),
+   Gleisangabe und Kartenlink gehören also zusammen. Ohne Gleisangabe
+   (Busse) bleibt nur der Pin. */
+function trackChip(place, what = "Halt") {
+  if (!place) return "";
+  const track = place.track;
+  if (!track) return mapsPin(place, `${what} in Google Maps öffnen`);
+  const changed = place.scheduledTrack && place.scheduledTrack !== track;
+  const q = Number.isFinite(place.lat) ? `${place.lat},${place.lon}` : null;
+  const inner =
+    `<span class="tc-key">Gl.</span><span class="tc-no">${escapeHtml(String(track))}</span>` +
+    (changed ? `<span class="tc-old">statt ${escapeHtml(String(place.scheduledTrack))}</span>` : "") +
+    (q ? `<span class="tc-pin">📍</span>` : "");
+  const cls = `trackchip${changed ? " changed" : ""}`;
+  const title = `Gleis ${track}${changed ? ` (geändert, planmäßig ${place.scheduledTrack})` : ""}` +
+    (q ? " – in Google Maps öffnen" : "");
+  return q
+    ? `<a class="${cls}" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener" title="${title}">${inner}</a>`
+    : `<span class="${cls}" title="${title}">${inner}</span>`;
+}
+
 function productClass(mode) {
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";

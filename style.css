@@ -580,3 +580,22 @@ dialog form { margin-top: 1rem; }
 }
 .menurow small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: .15rem; }
 .menurow-arrow { color: var(--muted); font-size: 1.3rem; line-height: 1; }
+
+/* Gleis + Karten-Pin als eine Einheit (Koordinaten sind bahnsteiggenau) */
+.trackchip {
+  display: inline-flex; align-items: center; gap: .28em;
+  padding: .08em .45em; margin-left: .15em;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg); color: var(--text);
+  font-size: .82em; line-height: 1.5; text-decoration: none; white-space: nowrap;
+  vertical-align: baseline;
+}
+.trackchip .tc-key { color: var(--muted); }
+.trackchip .tc-no { font-weight: 700; font-variant-numeric: tabular-nums; }
+.trackchip .tc-old { color: var(--muted); font-size: .92em; }
+.trackchip .tc-pin { opacity: .75; }
+a.trackchip:hover { border-color: var(--accent); }
+a.trackchip:hover .tc-pin { opacity: 1; }
+/* Gleisänderung deutlich hervorheben */
+.trackchip.changed { border-color: var(--bad); color: var(--bad); }
+.trackchip.changed .tc-key, .trackchip.changed .tc-old { color: var(--bad); opacity: .85; }

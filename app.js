@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -996,12 +996,6 @@ function fillDetails(container, it) {
     }
     const lp = lineParts(l);
     const stops = l.intermediateStops || [];
-    const trackChanged = l.from.track && l.from.scheduledTrack && l.from.track !== l.from.scheduledTrack;
-    const trackPart = l.from.track
-      ? (trackChanged
-        ? ` · <span class="track-changed">Gl. ${escapeHtml(String(l.from.track))} (statt ${escapeHtml(String(l.from.scheduledTrack))})</span>`
-        : ` · Gl. ${escapeHtml(String(l.from.track))}`)
-      : "";
     const facts = [];
     if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
     if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
@@ -1011,7 +1005,7 @@ function fillDetails(container, it) {
       return `<li class="leg-row" data-ts="${+new Date(t || ts)}">` +
         `<span class="leg-dot mini"></span><span class="leg-time">${timeWithDelay(ts, t)}</span>` +
         `<span class="leg-text${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
-        `${s.track ? ` · Gl. ${escapeHtml(String(s.track))}` : ""}${s.cancelled ? " · entfällt" : ""}</span></li>`;
+        `${s.cancelled ? " · entfällt" : ""}</span></li>`;
     };
     const infoBlock = (stops.length || facts.length) ? `
       <details class="leginfo">
@@ -1031,12 +1025,12 @@ function fillDetails(container, it) {
         <div class="leg-progress" hidden></div>
         <div class="leg-row" data-ts="${+new Date(l.from.departure)}">
           <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.from.scheduledDeparture, l.from.departure)}</span>
-          <span class="leg-text">ab ${escapeHtml(l.from.name)}${trackPart} ${mapsPin(l.from, "Abfahrtsort in Google Maps öffnen")}</span>
+          <span class="leg-text">ab ${escapeHtml(l.from.name)} ${trackChip(l.from, "Abfahrtsort")}</span>
         </div>
         ${infoBlock}
         <div class="leg-row" data-ts="${+new Date(l.to.arrival)}">
           <span class="leg-dot"></span><span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
-          <span class="leg-text">an ${escapeHtml(l.to.name)} ${mapsPin(l.to, "Ankunftsort in Google Maps öffnen")}</span>
+          <span class="leg-text">an ${escapeHtml(l.to.name)} ${trackChip(l.to, "Ankunftsort")}</span>
         </div>
       </div>`;
     const det = wrap.querySelector("details.leginfo");
