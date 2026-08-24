@@ -26,9 +26,19 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
 
 ## Lade-Architektur (Invarianten — nicht aufweichen!)
 
-- **Genau EINE ungefilterte `/plan`-Anfrage pro Ladevorgang** (`numItineraries` 10;
-  „Jetzt“-Bootstrap zusätzlich einmal `earlier` mit 2). Verkehrsmittel-Filterung ist
-  **ausschließlich clientseitig** (`hiddenCats` + `productClass`).
+- **Pro Ladevorgang eine ungefilterte Anfrage — plus eine gefilterte, sobald
+  Kategorien ausgeblendet sind.** Beide Ergebnisse in EINEM Dedupe-Durchgang mischen;
+  Cursor immer aus der ungefilterten Antwort.
+  **Warum beides zwingend ist (teuer gelernt, nicht „optimieren“!):** MOTIS liefert
+  **Pareto-optimale** Ergebnisse. Eine Verbindung, die langsamer *und* umstiegsreicher
+  ist als eine andere, wird weggeschnitten — auch wenn sie die einzige ist, die zum
+  Filter des Nutzers passt. Beispiel Nürnberg-Erlenstegen → Kufstein: ungefiltert
+  kommen ausschließlich ICE-Ketten, die reinen Regio-Verbindungen (D-Ticket!) fehlen
+  vollständig; mit `transitModes` erscheinen 10 Stück. Die beiden Antworten waren im
+  Test **disjunkt**. Ungefiltert braucht es trotzdem — es speist die Legende
+  („was gäbe es sonst noch?“).
+- Verkehrsmittel-Filterung der **Anzeige** bleibt clientseitig (`hiddenCats` +
+  `productClass`); die gefilterte Anfrage beschafft nur zusätzliche Kandidaten.
 - **Alle Blätter-Loads durch die Schleuse `loadMoreRaw`** (`app.paging`-Lock, danach
   `maybeAutoFill()`-Kette). NIE `runPlan("later"/"earlier")` parallel aufrufen —
   paralleles Laden mit gleichem Cursor war eine Dubletten-Quelle.
@@ -51,6 +61,14 @@ keine Frameworks, kein Backend**. Live: https://schogugel.github.io/pendelpanda/
 - Tests per curl/node brauchen einen **eigenen User-Agent** — generische werden geblockt
   (Browser-PWA unbetroffen, Origin identifiziert die App).
 - API-Reihenfolge der itineraries ist teils Ranking, nicht Zeit → immer selbst sortieren.
+- **Datenlücken sind real und sehen wie App-Fehler aus:** Ein Halt kann im Geocoder
+  existieren und Abfahrten liefern, deren Fahrplan aber erst Wochen später beginnt
+  (Beispiel Vorra (Pegnitz), 24.08.2026: 0 Verbindungen; ab 14.09.2026 fährt die RB30
+  normal). Bei leerem Ergebnis daher IMMER `stoptimes` für beide Halte prüfen und dem
+  Nutzer den Grund nennen (`diagnoseEmpty`) — nie kommentarlos „nichts gefunden“.
+- Stop-IDs können Bahnsteig-Ebene sein (`…:3:1`). Das ist korrekt so — die zugehörige
+  Eltern-ID ohne Suffix ist oft **keine** gültige Timetable-Location (404). Immer die
+  ID aus dem Geocoder verwenden, nie selbst kürzen.
 
 ## Grafik (timeline.js)
 

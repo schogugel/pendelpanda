@@ -431,6 +431,8 @@ function startSearch(from, to) {
   app.search = { from, to };
   app.itins = [];
   app.autoLoads = 0;
+  app.emptyReason = null;
+  app.diagnosing = false;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
@@ -532,16 +534,27 @@ async function runPlan(direction = null, limit = 10) {
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
 
-  // GENAU EINE ungefilterte Anfrage pro Ladevorgang — sie speist Anzeige-Pool
-  // und Legende; gefiltert wird ausschließlich clientseitig.
+  /* Zwei Anfragen pro Ladevorgang, wenn gefiltert wird (sonst eine):
+     - ungefiltert → speist die Legende („was gäbe es?“) und den Pool
+     - gefiltert   → die unter der Filterung optimalen Verbindungen, die die
+       ungefilterte Suche wegen Pareto-Optimierung verschweigt
+     Beide werden in EINEM Dedupe-Durchgang gemischt; Cursor kommen immer aus
+     der ungefilterten Antwort (Zeitstempel, filter-agnostisch). */
+  const modes = enabledModes();
+  const filtered = modes
+    ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`)
+        .then(r => (r.ok ? r.json() : null)).catch(() => null)
+    : null;
+
   try {
     const res = await fetch(`${API}/plan?${params}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
+    const filteredData = filtered ? await filtered : null;
     // Dubletten gegen den Pool UND innerhalb des Batches aussieben
     const known = new Set(app.itins.map(itKey));
     const add = [];
-    for (const it of (data.itineraries || [])) {
+    for (const it of (data.itineraries || []).concat(filteredData?.itineraries || [])) {
       const k = itKey(it);
       if (known.has(k)) continue;
       known.add(k);
@@ -582,6 +595,42 @@ async function runPlan(direction = null, limit = 10) {
       byId("timeline").innerHTML = msg;
     }
   }
+}
+
+/* Leeres Ergebnis erklären statt schweigen: Für beide Halte prüfen, ob dort
+   überhaupt etwas fährt. Deckt Datenlücken (Fahrplan beginnt erst später),
+   stillgelegte/saisonale Halte und echte „keine Verbindung“-Fälle ab. */
+async function nextDeparture(stopId) {
+  try {
+    const res = await fetch(`${API}/stoptimes?stopId=${encodeURIComponent(stopId)}&n=1`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    const s = (d.stopTimes || [])[0];
+    return s ? new Date(s.place.departure || s.place.scheduledDeparture) : null;
+  } catch { return null; }
+}
+
+async function diagnoseEmpty() {
+  app.diagnosing = true;
+  const myTag = app.searchTag;
+  const { from, to } = app.search;
+  const [a, b] = await Promise.all([nextDeparture(from.id), nextDeparture(to.id)]);
+  app.diagnosing = false;
+  if (myTag !== app.searchTag || app.itins.length) return;
+  const parts = [];
+  const soon = Date.now() + 36 * 3600e3;
+  for (const [stop, next] of [[from, a], [to, b]]) {
+    const nm = escapeHtml(stop.label || stop.name);
+    if (!next) parts.push(`Für <strong>${nm}</strong> liegen keine Fahrplandaten vor.`);
+    else if (+next > soon) {
+      parts.push(`Für <strong>${nm}</strong> beginnt der hinterlegte Fahrplan erst am ` +
+        `<strong>${next.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</strong>.`);
+    }
+  }
+  app.emptyReason = parts.length
+    ? parts.join(" ") + " Deshalb findet die Suche hier nichts – das ist eine Lücke in den offenen Fahrplandaten, keine fehlende Verbindung."
+    : "Keine Verbindungen im gewählten Zeitraum. Über 📅 einen anderen Zeitpunkt wählen oder in der Legende weitere Verkehrsmittel einblenden.";
+  renderResults();
 }
 
 /* --- „Letzte anständige Verbindung“ ---
@@ -667,6 +716,18 @@ const CAT_MODES = {
   fernbus: "COACH",
 };
 
+/* transitModes der aktiven Kategorien (null = alle aktiv).
+   WICHTIG: Der Router liefert Pareto-optimale Ergebnisse. Eine rein
+   ungefilterte Anfrage verschweigt daher Verbindungen, die nur unter der
+   Filterung optimal sind (eine Regio-Kette ist langsamer UND umstiegsreicher
+   als der ICE → wird weggeschnitten). Deshalb braucht es bei aktiver
+   Filterung zusätzlich eine gefilterte Anfrage. */
+function enabledModes() {
+  const enabled = CATS.filter(c => !app.hiddenCats.has(c));
+  if (enabled.length === CATS.length) return null;
+  return enabled.map(c => CAT_MODES[c]).join(",");
+}
+
 // Reicht es nach dem Filtern noch nicht für die Spaltenzahl,
 // weitere Cursor-Seiten nachlegen (serialisiert, gefiltert gezählt)
 async function ensureFilled() {
@@ -727,12 +788,14 @@ function renderResults() {
   toggle.title = graph ? "Als Liste anzeigen" : "Als Grafik anzeigen";
   renderLegend();
   const visible = visibleItins();
+  // Warum ist nichts da? Einmal pro Suche klären (Guard gegen Re-Entry).
+  if (!app.itins.length && app.search && !app.emptyReason && !app.diagnosing) diagnoseEmpty();
   byId("list-earlier").hidden = graph || !visible.length || !app.prevPageCursor;
   byId("list-later").hidden = graph || !visible.length || !app.nextPageCursor;
   if (!visible.length) {
     const msg = app.itins.length
       ? `<p class="status">Alle geladenen Verbindungen sind über die Legende ausgeblendet – unten wieder einblenden.</p>`
-      : `<p class="status">Keine Verbindungen gefunden.</p>`;
+      : `<p class="status">${app.emptyReason || "Keine Verbindungen gefunden."}</p>`;
     if (graph) byId("timeline").innerHTML = msg; else resultsList.innerHTML = msg;
     return;
   }
