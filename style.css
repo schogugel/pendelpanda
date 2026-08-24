@@ -351,6 +351,13 @@ body {
 .walkmeld summary { cursor: pointer; }
 .walkmeld p { margin: .3rem 0 0 1.15rem; }
 .walkmeld .finequote { margin-top: .4rem; }
+/* Aufklappbare Abschnitts-Infos (Zwischenhalte, Betreiber, …) */
+.leginfo { font-size: .82rem; color: var(--muted); margin-top: .1rem; }
+.leginfo summary { cursor: pointer; }
+.leginfo p { margin: .3rem 0 .2rem .5rem; }
+.leginfo ul { list-style: none; margin: .2rem 0 .2rem .5rem; display: flex; flex-direction: column; gap: .15rem; }
+.leginfo .leg-time { font-weight: 600; }
+.stop-cancelled { color: var(--bad); text-decoration: line-through; }
 /* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut */
 .tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; }
 .tl-col.dominated .tl-head { opacity: .6; }

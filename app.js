@@ -456,6 +456,7 @@ async function runPlan(direction = null, limit = 8) {
     time: baseTime.toISOString(),
     numItineraries: String(limit),
     language: "de",
+    withScheduledSkippedStops: "true", // auch übersprungene Halte mitnehmen
   });
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
   if (enabledModes()) params.set("transitModes", enabledModes());
@@ -801,6 +802,7 @@ function fillDetails(container, it) {
       <span class="leg-time">${timeWithDelay(l.to.scheduledArrival, l.to.arrival)}</span>
       <span class="leg-detail" style="grid-column:2">an ${escapeHtml(l.to.name)}${arrDelay > 0 ? ` (${delayText(arrDelay)})` : ""}</span>`;
     void depDelay;
+    appendLegInfo(div, l);
     container.appendChild(div);
   }
   const legs = transitLegs(it);
@@ -814,6 +816,40 @@ function fillDetails(container, it) {
   );
   a.textContent = "Bei der DB öffnen (Wagenreihung, Tickets …)";
   container.appendChild(a);
+}
+
+/* Aufklappbare Zusatzinfos je Verkehrsmittel-Abschnitt: alles, was das
+   Backend liefert — Betreiber, Fahrtnummer, Barrierefreiheit sowie die
+   Zwischenhalte mit Echtzeit, Gleis und Entfallen-Status. */
+function appendLegInfo(div, l) {
+  const stops = l.intermediateStops || [];
+  const facts = [];
+  if (l.agencyName) facts.push(`Betreiber: ${escapeHtml(l.agencyName)}`);
+  const lp = lineParts(l);
+  const tripNo = lp.extra || l.tripShortName;
+  if (tripNo) facts.push(`Fahrt-Nr. ${escapeHtml(String(tripNo))}`);
+  if (l.routeLongName && l.routeLongName !== l.routeShortName) facts.push(escapeHtml(l.routeLongName));
+  if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
+  if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
+  if (!facts.length && !stops.length) return;
+
+  const det = document.createElement("details");
+  det.className = "leginfo";
+  const label = stops.length
+    ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"} & Infos`
+    : "Infos zur Fahrt";
+  det.innerHTML =
+    `<summary>${label}</summary>` +
+    (facts.length ? `<p>${facts.join(" · ")}</p>` : "") +
+    (stops.length ? `<ul>` + stops.map(s => {
+      const gone = s.cancelled;
+      const track = s.track ? ` · Gl. ${escapeHtml(String(s.track))}` : "";
+      return `<li class="${gone ? "stop-cancelled" : ""}">` +
+        `<span class="leg-time">${timeWithDelay(s.scheduledArrival || s.scheduledDeparture, s.arrival || s.departure)}</span> ` +
+        `${escapeHtml(s.name)}${track}${gone ? " · entfällt" : ""}</li>`;
+    }).join("") + `</ul>` : "");
+  det.style.gridColumn = "2";
+  div.appendChild(det);
 }
 
 /* ---------------- DB-Link ---------------- */
