@@ -16,6 +16,7 @@
   --seg-sbahn: #1baf7a;
   --seg-utram: #eda100;
   --seg-bus: #e87ba4;
+  --seg-fernbus: #008300;
   --tl-line: rgba(0,0,0,.06);
   --tl-line-strong: rgba(0,0,0,.14);
 }
@@ -38,6 +39,7 @@
     --seg-sbahn: #199e70;
     --seg-utram: #c98500;
     --seg-bus: #d55181;
+    --seg-fernbus: #008300;
     --tl-line: rgba(255,255,255,.07);
     --tl-line-strong: rgba(255,255,255,.16);
   }
@@ -328,6 +330,7 @@ body {
 .seg-sbahn { background: var(--seg-sbahn); color: #131313; }
 .seg-utram { background: var(--seg-utram); color: #131313; }
 .seg-bus   { background: var(--seg-bus);   color: #131313; }
+.seg-fernbus { background: var(--seg-fernbus); color: #fff; }
 .tl-arr {
   position: absolute; left: 0; width: 100%;
   text-align: center; font-size: .72rem; color: var(--muted);
@@ -391,8 +394,9 @@ body {
 .stoplist .leg-time { font-weight: 400; font-size: .95em; }
 .leg-facts { margin: .35rem 0 0 calc(3.8rem + 16px); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
-/* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut */
-.tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; }
+/* Dominierte Verbindung: fährt früher los, kommt nicht früher an — ausgegraut,
+   Beschriftung weiß für Lesbarkeit auf dem Grau */
+.tl-col.dominated .tl-seg { filter: grayscale(.85); opacity: .5; color: #fff; }
 .tl-col.dominated .tl-head { opacity: .6; }
 .tl-col.dominated .tl-arr { opacity: .5; }
 .loadbtn {

@@ -30,13 +30,14 @@ const app = {
 
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
-const CATS = ["fern", "regio", "sbahn", "utram", "bus"];
-const CAT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige" };
+const CATS = ["fern", "regio", "sbahn", "utram", "bus", "fernbus"];
+const CAT_LABEL = { fern: "Fernverkehr", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus/Sonstige", fernbus: "Fernbus" };
 
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
-    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true },
+    // D-Ticket-Sicht: Fernverkehr UND Fernbus standardmäßig aus
+    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true, fernbus: false },
     cols: 3, // Verbindungen nebeneinander in der Grafik (3/4/5)
   };
   try {
@@ -605,7 +606,8 @@ const CAT_MODES = {
   regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL",
   sbahn: "SUBURBAN,METRO",
   utram: "SUBWAY,TRAM",
-  bus: "BUS,COACH,FERRY,ODM",
+  bus: "BUS,FERRY,ODM",
+  fernbus: "COACH",
 };
 
 /* Die Hauptanfrage routet serverseitig nur mit den aktiven Kategorien —

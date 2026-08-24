@@ -60,7 +60,8 @@ function productClass(mode) {
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
   if (["SUBURBAN", "METRO"].includes(mode)) return "sbahn";
   if (["SUBWAY", "TRAM"].includes(mode)) return "utram";
-  return "bus";
+  if (mode === "COACH") return "fernbus";
+  return "bus"; // BUS, Fähren, Rufbusse/On-Demand, Rest
 }
 function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
