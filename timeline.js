@@ -86,7 +86,10 @@ function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
   const sameSearch = tl.searchTag === app.searchTag;
   tl.searchTag = app.searchTag;
-  const keepScroll = sameSearch && tl.itins.length && itins.length !== tl.itins.length;
+  /* Position halten bei JEDEM Neuaufbau innerhalb derselben Suche — nicht nur
+     wenn Verbindungen dazukamen. Ein Nachladen ohne Treffer hat sonst die
+     Ansicht auf den Startzustand zurückgeworfen („springt auf Jetzt zurück“). */
+  const keepScroll = sameSearch && tl.itins.length > 0;
   const prev = { left: scroller.scrollLeft, top: scroller.scrollTop };
   /* Anker für „nichts darf springen“: Zeit an der Oberkante + die Spalte am
      linken Rand samt Feinversatz. Über den Spalten-SCHLÜSSEL statt Index —

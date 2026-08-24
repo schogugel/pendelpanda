@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -458,6 +458,7 @@ function startSearch(from, to) {
   app.diagnosing = false;
   app.aroundTried = false;
   app.aroundUsed = false;
+  app.aroundPlaces = null;
   app.searchTag = (app.searchTag || 0) + 1;
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
@@ -555,6 +556,16 @@ async function fetchPage(direction, limit = 10) {
     language: "de",
     withScheduledSkippedStops: "true", // auch übersprungene Halte mitnehmen
   });
+  /* Läuft die Suche im Umkreis-Modus (Ersatzverkehr), muss auch das BLÄTTERN
+     mit Koordinaten laufen. Sonst werden die Cursor der Umkreis-Antwort mit
+     einer Haltestellen-Anfrage kombiniert, die für diese Strecke gar nichts
+     liefert — Ergebnis: „Nachladen bringt nichts“. */
+  if (app.aroundUsed && app.aroundPlaces) {
+    params.set("fromPlace", app.aroundPlaces.from);
+    params.set("toPlace", app.aroundPlaces.to);
+    params.set("maxPreTransitTime", "1800");
+    params.set("maxPostTransitTime", "1800");
+  }
   if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
@@ -694,6 +705,7 @@ async function planAround(baseParams) {
   const { from, to } = app.search;
   const [a, b] = await Promise.all([coordsOf(from), coordsOf(to)]);
   if (!a || !b) return null;
+  app.aroundPlaces = { from: a, to: b }; // fürs spätere Blättern merken
   const p = new URLSearchParams(baseParams);
   p.set("fromPlace", a);
   p.set("toPlace", b);

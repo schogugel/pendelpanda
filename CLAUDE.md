@@ -92,6 +92,10 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
   `maxPreTransitTime`/`maxPostTransitTime` auf 1800 — ohne diese Parameter liefert
   auch die Koordinatensuche 0 (Default-Fußweg zu kurz). Ergebnis mit Hinweisbanner
   kennzeichnen. Slots speichern `lat`/`lon`; Altbestand wird per Geocode nachgerüstet.
+  **Der Umkreis-Modus gilt für die ganze Suche:** Ist er aktiv (`app.aroundUsed`), muss
+  auch jedes BLÄTTERN mit Koordinaten + den Fußweg-Parametern laufen
+  (`app.aroundPlaces`). Cursor einer Koordinaten-Antwort zusammen mit Haltestellen-IDs
+  ergeben 0 Treffer — dann „lädt“ die App endlos ohne Ergebnis.
 - **SEV erkennen:** Ersatzverkehr fährt als `mode: BUS` mit `routeType: 3`, trägt aber
   die BAHN-Liniennummer (`routeShortName: "RB30"`). `isReplacementService()` prüft genau
   das (plus „SEV“/„Ersatz“ im Namen) — an echten Strecken validiert: 10/10 Treffer im
@@ -115,6 +119,9 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
   Neuberechnung nur bei neuer Suche + Spaltenwechsel (`tl.lastZoomIdx`-Guard schützt Pinch).
   **Zoom-Anker = Viewport-Oberkante** (oben bleibt stehen, unten atmet).
   `tl.minPpm`-Floor: p25 der Leg-Fahrzeiten behält ≥20 px (Labels nie wegzoombar).
+- `keepScroll` hängt NUR an „gleiche Suche + es gab schon Spalten“ — nie an einer
+  geänderten Trefferzahl. Sonst wirft ein Nachladen ohne Treffer die Ansicht auf den
+  Startzustand zurück (sichtbar als „springt auf Jetzt zurück“).
 - Scroll-Anker beim Nachladen: Ankerspalte über den **Schlüssel** (neue Verbindungen
   werden chronologisch auch MITTEN einsortiert — ein Index-Anker verschiebt dann alles)
   plus Zeit-Anker für die Vertikale; `tl.lastZoomIdx` mitziehen, sonst zoomt das
