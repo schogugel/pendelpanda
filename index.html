@@ -28,8 +28,6 @@
   <div id="buttongrid" class="buttongrid" aria-label="Gespeicherte Bahnhöfe"></div>
   <footer class="footlinks">
     <button class="linklike" id="btn-help">Hilfe</button>
-    <span>·</span>
-    <button class="linklike" id="btn-share-config">Buttons übertragen</button>
   </footer>
 </main>
 
@@ -122,7 +120,11 @@
       <button type="button" data-cols="5">5</button>
     </div>
   </div>
-  <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden. Einstellungen und Buttons wandern über „Buttons übertragen“ gemeinsam als Link mit.</p>
+  <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden.</p>
+  <button id="btn-share-config" class="menurow">
+    <span>Buttons übertragen<small>Kacheln und Einstellungen auf ein anderes Gerät</small></span>
+    <span class="menurow-arrow">›</span>
+  </button>
   <p class="version-line">PendelPanda <span id="app-version">–</span></p>
   <form method="dialog"><button class="widebtn">Fertig</button></form>
 </dialog>
@@ -147,7 +149,7 @@
   <input id="share-url" readonly aria-label="Übertragungslink">
   <button id="share-copy" class="widebtn">Link kopieren</button>
   <button id="share-native" class="widebtn" hidden>Teilen …</button>
-  <form method="dialog"><button class="linklike">Schließen</button></form>
+  <form method="dialog"><button class="linklike">‹ Zurück</button></form>
 </dialog>
 
 <!-- HILFE -->
@@ -163,7 +165,7 @@
     <li><strong>Legende = Filter:</strong> Ein Eintrag in der Legende unter den Ergebnissen lässt sich antippen – ausgegraut heißt, Verbindungen mit diesem Verkehrsmittel sind ausgeblendet (nochmal antippen blendet sie wieder ein). Was standardmäßig ausgeblendet ist, legst du im ⚙-Menü fest.</li>
     <li><strong>Zeitleiste:</strong> „Jetzt“ ist die Standardsicht. In der Grafik einfach an den linken oder rechten Rand scrollen – frühere bzw. spätere Verbindungen werden automatisch nachgeladen (in der Liste über die Knöpfe oben/unten). „Letzte“ springt zur letzten Verbindung der Nacht, bei der man unterwegs nicht strandet – markiert, mit den Verbindungen davor und dem ersten Morgen-Zug daneben. 📅 öffnet die Datums- und Uhrzeitwahl – wahlweise nach Abfahrt oder Ankunft.</li>
     <li>„Bei der DB öffnen“ führt zur Buchung, Wagenreihung &amp; Co. auf bahn.de.</li>
-    <li><strong>„Buttons übertragen“:</strong> erzeugt einen Link mit deiner Belegung. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandern die Buttons mit.</li>
+    <li><strong>Buttons übertragen</strong> (im ⚙-Menü): erzeugt einen Link mit deiner Belegung und deinen Einstellungen. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandert alles mit.</li>
   </ul>
   <p class="finequote"><a href="HILFE.md" target="_blank" rel="noopener">Ausführliche Hilfe</a> · Fahrplandaten: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> (DELFI/GTFS, Echtzeit).</p>
   <form method="dialog"><button class="widebtn">Alles klar</button></form>

@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1143,6 +1143,11 @@ function dbLink(fromName, toName, depIso, arrIso) {
 
 byId("btn-share-config").addEventListener("click", () => {
   if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
+  // Unterseite der Einstellungen: Einstellungen schließen, danach zurückkehren
+  if (byId("settings-dialog").open) {
+    app.shareFromSettings = true;
+    byId("settings-dialog").close();
+  }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
   const payload = { v: 2, slots, show: settings.show, cols: settings.cols, connect: settings.connectMode };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -1164,6 +1169,13 @@ byId("share-copy").addEventListener("click", async () => {
 
 byId("share-native").addEventListener("click", () => {
   navigator.share({ title: "PendelPanda-Buttons", url: byId("share-url").value }).catch(() => {});
+});
+
+// Zurück in die Einstellungen, wenn von dort aufgerufen
+byId("share-dialog").addEventListener("close", () => {
+  if (!app.shareFromSettings) return;
+  app.shareFromSettings = false;
+  byId("settings-dialog").showModal();
 });
 
 function maybeImportConfig() {

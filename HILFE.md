@@ -46,7 +46,7 @@ wählen → optional eine **eigene Beschriftung** vergeben („Zuhause“, „Ar
 - Abkürzung ohne Bearbeiten-Modus: Kachel **lange gedrückt halten**.
 
 ### Buttons auf ein anderes Gerät übertragen
-**„Buttons übertragen“** unten erzeugt einen Link, der deine komplette Konfiguration
+**⚙ → „Buttons übertragen“** erzeugt einen Link, der deine komplette Konfiguration
 enthält — Kacheln, Reihenfolge, Beschriftungen und alle Einstellungen. Link kopieren
 oder teilen, auf dem anderen Gerät öffnen, Frage bestätigen. Es ist kein Server
 beteiligt: Die Daten stecken im Link selbst.

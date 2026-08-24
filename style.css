@@ -569,3 +569,14 @@ dialog form { margin-top: 1rem; }
   margin-top: .9rem; text-align: center;
   font-size: .78rem; color: var(--muted); letter-spacing: .04em;
 }
+
+/* Menüzeile in den Einstellungen (führt auf eine Unterseite) */
+.menurow {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  width: 100%; margin-top: .9rem; padding: .7rem .8rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text);
+  font: inherit; font-weight: 600; text-align: left; cursor: pointer;
+}
+.menurow small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: .15rem; }
+.menurow-arrow { color: var(--muted); font-size: 1.3rem; line-height: 1; }
