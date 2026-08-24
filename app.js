@@ -382,7 +382,6 @@ function startSearch(from, to) {
   updateChips();
   navigate("results");
   runPlan();
-  probeHidden(); // läuft parallel, füttert nur die Legende
 }
 
 function updateChips() {
@@ -462,6 +461,27 @@ async function runPlan(direction = null, limit = 8) {
   if (enabledModes()) params.set("transitModes", enabledModes());
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
+
+  // Parallel: ungefilterte Sondierung desselben Zeitfensters für die Legende —
+  // erkennt auch GEMISCHTE Verbindungen (z. B. ICE + Bus), die eine reine
+  // „nur ausgeblendete Modi“-Anfrage nie finden würde
+  const myTag = app.searchTag;
+  if (app.hiddenCats.size) {
+    const p2 = new URLSearchParams(params);
+    p2.delete("transitModes");
+    p2.set("numItineraries", "5");
+    fetch(`${API}/plan?${p2}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d || myTag !== app.searchTag) return;
+        const known = new Set((app.probeItins || []).concat(app.itins).map(itKey));
+        const add = (d.itineraries || []).filter(x => transitLegs(x).length && !known.has(itKey(x)));
+        if (!add.length) return;
+        app.probeItins = (app.probeItins || []).concat(add).slice(-40);
+        renderLegend();
+      })
+      .catch(() => { /* Sondierung ist optional */ });
+  }
 
   try {
     const res = await fetch(`${API}/plan?${params}`);
@@ -611,38 +631,6 @@ function maybeAutoFill() {
   if (!app.paging) ensureFilled();
 }
 
-/* Sondierung für die Legende: kleine Parallel-Anfrage (3 Ergebnisse) nur mit
-   den AUSGEBLENDETEN Kategorien. Gibt es dort Verbindungen im Zeitfenster,
-   erscheint der ausgegraute Legenden-Chip zum Wieder-Einblenden — die
-   Verbindungen selbst bleiben ausgeblendet, bis man ihn antippt. */
-async function probeHidden() {
-  if (!app.hiddenCats.size || !app.search) return;
-  const myTag = app.searchTag;
-  const hiddenModes = CATS.filter(c => app.hiddenCats.has(c)).map(c => CAT_MODES[c]).join(",");
-  const t = app.searchTime;
-  const baseTime = t.kind === "custom" ? new Date(t.time)
-    : t.kind === "letzte" ? nextNightEnd()
-    : new Date();
-  const params = new URLSearchParams({
-    fromPlace: app.search.from.id,
-    toPlace: app.search.to.id,
-    time: baseTime.toISOString(),
-    numItineraries: "3",
-    transitModes: hiddenModes,
-    language: "de",
-  });
-  if (t.kind === "custom" && t.arriveBy) params.set("arriveBy", "true");
-  try {
-    const res = await fetch(`${API}/plan?${params}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (myTag !== app.searchTag) return; // Suche hat inzwischen gewechselt
-    // separat halten (nicht in app.itins), damit die parallele Hauptantwort
-    // nichts überschreibt — fließt nur in die Legenden-Anzeige ein
-    app.probeItins = (data.itineraries || []).filter(it => transitLegs(it).length);
-    if (app.probeItins.length) renderLegend();
-  } catch { /* Sondierung ist optional */ }
-}
 
 function renderLegend() {
   const present = new Set();
