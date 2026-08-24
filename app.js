@@ -117,7 +117,13 @@ function renderGrid() {
   slots.forEach((slot, i) => {
     const btn = document.createElement("button");
     btn.className = "stationbtn" + (slot ? "" : " empty") + (app.selectedStart === i ? " selected" : "");
-    btn.textContent = slot ? (slot.label || slot.name) : "+";
+    const num = String(i + 1).padStart(2, "0");
+    btn.innerHTML = slot
+      ? `<span class="tile-bar"></span><span class="tile-num">${num}</span>` +
+        (app.selectedStart === i ? `<span class="tile-flag">Start</span>` : "") +
+        `<span class="tile-name">${escapeHtml(slot.label || slot.name)}</span>`
+      : `<span class="tile-bar"></span><span class="tile-num">${num}</span>` +
+        `<span class="tile-plus">+</span><span class="tile-hint">Halt speichern</span>`;
     btn.dataset.slot = i;
     attachStationPointer(btn, i);
     gridEl.appendChild(btn);
