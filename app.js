@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.4.3";
+const APP_VERSION = "1.4.4";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1342,6 +1342,19 @@ maybeImportConfig();
 renderGrid();
 showView("grid");
 
+/* Selbstheilung gegen veraltete Stände: aktiv nach Updates suchen (beim Start
+   und stündlich) und einmalig neu laden, sobald ein neuer Service Worker
+   übernimmt. Ohne das blieb eine installierte App auf einem alten Stand
+   hängen, weil sie beim Wiederöffnen gar nicht neu lädt. */
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.register("sw.js").then(reg => {
+    reg.update().catch(() => {});
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+  }).catch(() => {});
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
 }
