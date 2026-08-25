@@ -513,6 +513,37 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .leg-facts { margin: .35rem 0 0 calc(4.15rem + 10px); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
 
+/* Feste Legende mit drei Zuständen:
+   on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·
+   nodata = alles ausgegraut + durchgestrichen (keine solchen Verbindungen) */
+.tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
+.tl-key {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: none; background: none; color: var(--text);
+  font: inherit; font-size: .8rem; padding: .2rem 0; cursor: pointer;
+}
+.tl-key i, .catdot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+.tl-key.off i.dot { background: transparent; border: 1.5px solid var(--muted); }
+.tl-key.nodata { opacity: .38; text-decoration: line-through; cursor: default; }
+.tl-key.nodata i.dot { background: var(--muted); border: none; }
+
+/* ---------- Zeit-Dialog & Einstellungen ---------- */
+.segmented { display: flex; gap: .5rem; margin: .6rem 0; }
+.segmented label {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
+  border: 1.5px solid var(--border); border-radius: 10px; padding: .55rem;
+  font-size: .92rem; cursor: pointer;
+}
+.segmented label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+#time-input {
+  width: 100%; font: inherit; font-size: 1rem; padding: .6rem .7rem; margin: .4rem 0 .8rem;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); color-scheme: light dark;
+}
+.checklist { display: flex; flex-direction: column; gap: .55rem; margin: .7rem 0; }
+.checklist label { display: flex; align-items: center; gap: .55rem; font-size: .95rem; cursor: pointer; }
+.checklist input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
+
 /* ---------- Dialoge: Details & Übertragen ---------- */
 #trip-dialog { width: min(520px, calc(100vw - 2rem)); }
 #trip-dialog .trip-details { border-top: none; padding: .4rem 0 0; }

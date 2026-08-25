@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE = "pendelpanda-v1.4.2";
+const CACHE = "pendelpanda-v1.4.3";
 const SHELL = [
   "./",
   "./index.html",
@@ -24,17 +24,25 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+/* Netz zuerst, Cache nur als Offline-Rückfall.
+   Vorher galt Cache-zuerst: Dabei konnten HTML, JS und CSS aus
+   VERSCHIEDENEN Ständen gemischt werden — die App lief dann fehlerhaft
+   (hängende Versionsnummer, kaputte Verbindungsauswahl, lange Ladezeiten),
+   und Änderungen brauchten zwei Neuladungen. Die App ist klein, der
+   Netzweg schnell — Aktualität ist hier mehr wert als der Millisekunden-
+   Vorsprung des Caches. */
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  // API-Anfragen immer live, nur die App-Hülle aus dem Cache
-  if (url.origin !== location.origin) return;
+  if (url.origin !== location.origin || e.request.method !== "GET") return; // API immer live
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const fresh = fetch(e.request).then(res => {
-        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+    fetch(e.request)
+      .then(res => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+        }
         return res;
-      }).catch(() => cached);
-      return cached || fresh;
-    })
+      })
+      .catch(() => caches.match(e.request).then(c => c || caches.match("./index.html")))
   );
 });
