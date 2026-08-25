@@ -31,6 +31,14 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
 5. Nutzerhinweis: Ein Neuladen genügt (Netz-zuerst); danach steht die neue Nummer im
    ⚙-Dialog. Stimmt sie nicht, ist etwas mit dem Deploy oder dem SW nicht in Ordnung.
 
+## Fallstrick: Navigation über den URL-Anker
+
+Die Ansichten hängen am `location.hash` (damit die Android-Zurück-Geste greift).
+Wird derselbe Hash erneut gesetzt, feuert **kein** `hashchange` — die Ansicht bleibt
+stehen und die App wirkt tot. Deshalb: `navigate()` schaltet direkt um, wenn der Hash
+schon passt, und beim Start wird ein übrig gebliebener Hash entfernt (er überlebt ein
+Neuladen und blockierte sonst dauerhaft das Verbinden zweier Kacheln).
+
 ## Fallstrick: CSS-Blöcke per Skript ersetzen
 
 Große Block-Ersetzungen in `style.css` (von Kommentar A bis Kommentar B) haben schon
