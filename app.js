@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.4.5";
+const APP_VERSION = "1.4.6";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -111,9 +111,14 @@ function navigate(name) {
   if (name === "grid") {
     if (location.hash) history.back();
     else showView("grid");
-  } else {
-    location.hash = name;
+    return;
   }
+  /* Steht der Anker schon auf dem Ziel (z. B. nach einem Neuladen mit
+     „#results“ in der Adresszeile), meldet der Browser KEINE Änderung —
+     dann muss direkt umgeschaltet werden. Ohne das passierte beim
+     Verbinden zweier Kacheln scheinbar gar nichts. */
+  if (location.hash === `#${name}`) showView(name);
+  else location.hash = name;
 }
 
 document.querySelectorAll("[data-back]").forEach(b => b.addEventListener("click", () => navigate("grid")));
@@ -1359,6 +1364,10 @@ byId("settings-cats").addEventListener("change", (e) => {
 });
 
 maybeImportConfig();
+// Beim Start immer sauber in der Übersicht beginnen: ein übrig gebliebener
+// Anker (etwa „#results“ nach einem Neuladen) würde sonst die spätere
+// Navigation blockieren.
+if (location.hash) history.replaceState(null, "", location.pathname + location.search);
 renderGrid();
 showView("grid");
 
