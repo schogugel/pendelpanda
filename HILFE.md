@@ -104,12 +104,19 @@ Zeitpunkt oder Richtung änderst; erst eine neue Verbindung von der Startseite s
 sie zurück.
 
 ### Was die Balken zeigen
-- **Gelbes Warndreieck ⚠:** An dieser Verbindung weicht etwas vom Fahrplan ab — eine
-  Echtzeitmeldung am Umstieg, ein Fußweg, der nicht mehr in die Umstiegszeit passt, eine
-  Verspätung, die den Umstieg verkürzt, ein Gleiswechsel oder ein ausgelassener Halt. In
-  der Detailansicht ist die betroffene Zeile aufklappbar (⚠ mit Pfeil): Antippen zeigt,
-  worum es genau geht. Es erscheint bewusst selten — nur bei echter Abweichung, damit es
-  nicht zur Tapete wird.
+- **Drei Symbole, drei Bedeutungen.** Sie stehen an der Verbindung in der Übersicht und
+  noch einmal an der betroffenen Zeile in der Detailansicht — dort sind sie aufklappbar
+  und sagen im Klartext, worum es geht:
+  - **Roter Kreis mit Strich** — nach der aktuellen Prognose ist der Anschluss nicht mehr
+    zu schaffen.
+  - **Orange Sanduhr** — noch zu schaffen, aber ohne Reserve. Erscheint nur, wenn eine
+    Verspätung den Puffer aufgefressen hat; ein von vornherein knapp geplanter Umstieg
+    ist normal und wird nicht markiert.
+  - **Gelbes Dreieck** — es gibt eine Meldung: eine Störung, Bauarbeiten, ein defekter
+    Aufzug, ein ausgelassener Halt. Wo der Verkehrsbetrieb einen Text veröffentlicht hat,
+    steht dieser im Original darin.
+  Ein **Gleiswechsel** taucht hier bewusst nicht auf — der steht direkt bei der
+  Gleisangabe („Gl. 7 statt 3“), wo man beim Einsteigen hinschaut.
 - **Zeitfarben zeigen die Datenlage:** **grau** = nur Sollfahrplan, es liegen (noch)
   keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich — aber nur, solange der Halt noch
   bevorsteht; ist er passiert, wird auch er grau; **rot** =

@@ -426,6 +426,15 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
 .warn-label { color: var(--warn); font-weight: 700; }
 .warn-tri { color: var(--warn); font-weight: 700; }
+/* Drei Risikoklassen, drei Symbole, drei Farben. Der Unterschied muss ohne
+   Lesen erkennbar sein: Rot heißt „das schaffst du nicht“, Orange „ohne
+   Reserve“, Gelb „es gibt eine Meldung“ — das sind drei verschiedene
+   Entscheidungen für den Fahrgast, kein abgestufter Alarm. */
+.risk { display: inline-flex; align-items: center; vertical-align: -.18em; }
+.risk .mi { width: 1.1em; height: 1.1em; }
+.risk-broken { color: var(--bad); }
+.risk-tight { color: var(--warn); }
+.risk-notice { color: var(--accent); }
 /* Linien-Chip in Verkehrsmittel-Farbe (Detailansicht) */
 .linechip { display: inline-block; padding: 0 .4em; border-radius: 5px; font-weight: 700; }
 .linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
@@ -531,9 +540,16 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 /* Hinweiszeile: gelb angerissen, damit sie beim Aufklappen sofort als Warnung
    und nicht als weitere Fahrtinfo gelesen wird. */
 .jrn-warn { font-size: .84rem; padding-bottom: .25rem; }
-.jrn-warn ul { grid-column: 3; margin: 0; padding: 0 0 0 .7rem; list-style: none; border-left: 2px solid var(--warn); }
+.jrn-warn ul { grid-column: 3; margin: 0; padding: 0 0 0 .7rem; list-style: none; border-left: 2px solid var(--accent); }
+.jrn-warn.risk-broken ul { border-left-color: var(--bad); }
+.jrn-warn.risk-tight ul { border-left-color: var(--warn); }
 .jrn-warn li { color: var(--text); padding: .12rem 0 .12rem .45rem; overflow-wrap: anywhere; }
-.jrn-toggle .warn-tri { margin-left: .15rem; }
+/* Der Fließtext der Verkehrsbetriebe bringt eigene Zeilenumbrüche und
+   Aufzählungen mit — die müssen erhalten bleiben, sonst wird eine Liste
+   von Ersatzfahrten zu einer unlesbaren Textwurst. */
+.jrn-warn .alert-body { display: block; margin-top: .15rem; color: var(--muted); white-space: pre-line; }
+.jrn-toggle .risk { margin-left: .15rem; }
+.jrn-transfer.risk-broken .jrn-body, .jrn-transfer.risk-tight .jrn-body { color: var(--text); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
 
 /* Feste Legende mit drei Zuständen:

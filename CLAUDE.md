@@ -140,24 +140,26 @@ Was ansteht, steht in `TODO.md`.
 - **`cancelled` auf WALK-Legs ist ein RT-Artefakt** (Halt-/Steig-Meldung am Umstieg),
   KEIN Ausfall des Anschlusses → als „⚠ Umstieg prüfen“ zeigen (`transferWarning`),
   nie als Ausfall. Echte Ausfälle: nur Transit-Leg-Flags (`cancelledTransitLegs`).
-- Kein Alert-/Meldungstext in den Daten (Spec+Live geprüft) — nur strukturierte Flags.
-  **Warnhinweise werden deshalb aus den Feldern GEBAUT** (`transferWarnings`/`legWarnings`
-  in timeline.js): Echtzeitmeldung am Umstiegs-Fußweg, Fußweg passt nicht mehr in den
-  Puffer, Verspätung verkürzt den Umstieg um ≥5 min, Gleiswechsel, ausgelassene Halte.
-  **Nicht gewarnt wird bei „knappen“ Umstiegen an sich** — MOTIS plant routinemäßig mit
-  1–3 min Reserve; eine Warnung darauf träfe 44 % aller Verbindungen (gemessen an 84).
-  So bleibt das Dreieck bei ~4 % und wird noch gesehen.
-- **Fußwege eines Umstiegs über die POSITION im leg-Array suchen** (`walkLegsBetween`),
-  nie über ein Zeitfenster: Ein Fenster-Filter setzt voraus, dass der Fußweg noch in die
-  Lücke passt, und blendet genau den Fall aus, der gemeldet werden soll.
-- **`leg.realTime` unterscheidet Soll- von bestätigten Zeiten.** Nur wenn es `true` ist,
-  sind die Zeiten live bestätigt; sonst ist „+0“ bedeutungslos (nur Fahrplan). Deshalb:
-  grau ohne Echtzeit, grün bestätigt-pünktlich, rot bei Verspätung; das Abzeichen in der
-  Spaltenkachel zeigt dann „Plan“ statt „+0“. Zwischenhalte erben den Wert ihrer Fahrt.
-  **Grün gilt nur für noch bevorstehende Halte** (`.passed` überschreibt es auf grau):
-  Grün ist eine Zusage für das, was kommt — im Rückblick ist sie verbraucht. Rot bleibt
-  auch rückblickend rot. Deshalb zieht `startJourneyTicker()` die Detailansicht alle
-  30 s nach; ohne ihn stünde die Farbe still, solange niemand tippt.
+- **Meldungstexte gibt es — aber NICHT in `/plan`.** (Frühere Notiz hier war falsch.)
+  Das `Alert`-Schema (headerText, descriptionText, cause, effect, severityLevel, url)
+  hängt an den HALTEN und kommt nur über **`/stoptimes&withAlerts=true`**; in
+  `/plan`-Antworten fehlt das Feld, auch mit `withAlerts`. Deshalb lädt
+  `attachStopAlerts()` sie erst beim ÖFFNEN einer Verbindung für Ein-/Um-/Ausstiegs-
+  halte nach (2–4 Anfragen, stundenweise gecacht). Die Texte kommen als **HTML**
+  (`<b>`, `<ul>`, `<li>`) → immer durch `alertText()` (Struktur zu Zeichen, dann Tags weg).
+- **Drei Risikoklassen mit je eigenem Symbol**, nicht ein Dreieck für alles
+  (`transferIssues`/`legIssues`/`itinIssues`):
+  `broken` (rot, Kreis-Strich) = nach Prognose nicht erreichbar ·
+  `tight` (orange, Sanduhr) = erreichbar, aber ohne Reserve ·
+  `notice` (gelb, Dreieck) = Meldung/ausgelassener Halt.
+  Jede Markierung ist aufklappbar und nennt ihren Grund — ein Symbol ohne Erklärung
+  ist schlimmer als keines.
+- **`tight` meldet nur, wenn die ECHTZEITLAGE den Puffer gefressen hat**
+  (`slack <= 2 && late > 0`). Von vornherein knapp geplante Umstiege sind bei MOTIS
+  der Normalfall: An 84 echten Verbindungen hatte ein Drittel ≤1 min Reserve. Mit der
+  Zusatzbedingung liegt die Gesamtquote bei 3 % statt 44 %.
+- **Gleiswechsel gehört NICHT in die Aufklapper**, sondern bleibt direkt an der
+  Gleisangabe (`trackChip`: „Gl. 7 statt 3“) — dort sucht man ihn beim Einsteigen.
 - `withScheduledSkippedStops=true` immer mitschicken (übersprungene Halte).
 - Tests per curl/node brauchen einen **eigenen User-Agent** — generische werden geblockt
   (Browser-PWA unbetroffen, Origin identifiziert die App).
@@ -224,6 +226,13 @@ Was ansteht, steht in `TODO.md`.
   `findLastDecent()` wählt daraus nur noch die FOKUS-Spalte: späteste mit
   Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
+- **Die Fokusspalte bestimmt den Zoom.** `startIdx` MUSS bei „Letzte“/Datumsauswahl
+  auf die fokussierte Verbindung zeigen, sonst zoomt `tlAutoZoom` auf die erste
+  geladene, während der Blick auf der letzten liegt — man scrollt seitwärts hin und
+  sieht ins Leere. Vertikal immer `tlAlignTopFor`, nie eine eigene Rechnung.
+  Die Fokusverbindung steht in der **zweiten** Spalte (eine Spalte Kontext davor).
+- **Kontext-Vorladen gilt in JEDEM Modus** (zwei Verbindungen davor), nicht nur bei
+  „Jetzt“ — sonst klebt das Ziel bei „Letzte“ am linken Rand.
 
 ## Verbindungs-Detailansicht (`fillDetails` + `updateJourneyLine`)
 

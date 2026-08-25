@@ -45,83 +45,123 @@ function cancelledTransitLegs(it) {
 }
 
 /* ---------------------------------------------------------------------------
-   Warnungen
+   Hinweise und Risiken
 
-   Die Daten enthalten KEINE Meldungstexte — weder in der Spec noch live, mehrfach
-   nachgesehen. Es gibt nur strukturierte Felder. Ein Warnhinweis muss also aus
-   ihnen zusammengesetzt werden; jeder Satz hier ist eine Aussage über etwas,
-   das tatsächlich in der Antwort steht, nichts Erfundenes.
+   DREI Klassen mit je eigenem Symbol — bewusst nicht ein Dreieck für alles,
+   weil „Aufzug defekt“ und „diesen Anschluss verpasst du“ nichts miteinander
+   zu tun haben:
 
-   Bewusst zurückhaltend: Ein Dreieck, das an jedem zweiten Umstieg klebt, wird
-   nach zwei Tagen übersehen. Gewarnt wird deshalb nur bei echter ABWEICHUNG vom
-   Fahrplan — an 84 echten Verbindungen gemessen trifft das 4 % davon.
+     broken  Nach der Echtzeit-Prognose NICHT mehr erreichbar
+     tight   Erreichbar, aber ohne Reserve
+     notice  Meldung (Störung, ausgelassener Halt, Hinweis am Umstiegshalt)
+
+   Woher die Texte kommen: Verbindungssuche (/plan) liefert KEINE Meldungs-
+   texte — nachgemessen, das Feld gibt es dort nicht. Echte Meldungen hängen
+   an den HALTEN und kommen über /stoptimes (siehe stopAlerts in app.js).
+   Alles, was hier steht, ist dagegen aus den Zeitfeldern gerechnet und daher
+   immer verfügbar.
+
+   Was hier bewusst NICHT auftaucht: der Gleiswechsel. Der steht bereits
+   direkt an der Gleisangabe („Gl. 7 statt 3“), wo man ihn beim Einsteigen
+   sucht — in einem Aufklapper wäre er schlechter aufgehoben, nicht besser.
    --------------------------------------------------------------------------- */
 
-const toMin = ms => Math.round(ms / 60000);
+const RISK_ICON = {
+  broken: svgIcon(`<circle cx="8" cy="8" r="5.6"/><path d="M4.6 4.6l6.8 6.8"/>`),
+  tight: svgIcon(`<path d="M4.6 2.5h6.8"/><path d="M4.6 13.5h6.8"/>` +
+    `<path d="M5.5 2.5v2.2L8 7.3l2.5-2.6V2.5"/><path d="M5.5 13.5v-2.2L8 8.7l2.5 2.6v2.2"/>`),
+  notice: svgIcon(`<path d="M8 2.7 14 13.3H2z"/><path d="M8 6.7v3"/><path d="M8 11.5h.01"/>`),
+};
+const RISK_RANK = { notice: 1, tight: 2, broken: 3 };
+const RISK_LABEL = {
+  broken: "Anschluss nach Prognose nicht erreichbar",
+  tight: "Umstieg ohne Reserve",
+  notice: "Meldung",
+};
 
-/* Die Fußwege zwischen zwei Fahrten über die POSITION suchen, nicht über die
-   Uhrzeit. Ein Zeitfenster-Filter („Fußweg liegt zwischen Ankunft und
-   Abfahrt“) setzt voraus, dass der Fußweg noch in die Lücke passt — und blendet
-   damit ausgerechnet den Fall aus, der gemeldet werden soll: den Fußweg, der
-   wegen einer Verspätung nicht mehr hineinpasst. */
+// Symbol + Beschriftung für eine Risikoklasse
+function riskMark(level, extra = "") {
+  if (!level) return "";
+  return `<span class="risk risk-${level}${extra}" title="${RISK_LABEL[level]}" ` +
+    `aria-label="${RISK_LABEL[level]}">${RISK_ICON[level]}</span>`;
+}
+
+const toMin = ms => Math.round(ms / 60000);
+const worst = (a, b) => ((RISK_RANK[b] || 0) > (RISK_RANK[a] || 0) ? b : a) || null;
+
+/* Die Fußwege zwischen zwei Fahrten über die POSITION im leg-Array suchen,
+   nicht über die Uhrzeit. Ein Zeitfenster-Filter („Fußweg liegt zwischen
+   Ankunft und Abfahrt“) setzt voraus, dass der Fußweg noch in die Lücke passt
+   — und blendet damit ausgerechnet den Fall aus, um den es geht: den Fußweg,
+   der wegen einer Verspätung nicht mehr hineinpasst. */
 function walkLegsBetween(legs, prev, next) {
   const a = legs.indexOf(prev), b = legs.indexOf(next);
   if (a < 0 || b < 0) return [];
   return legs.slice(a + 1, b).filter(l => l.mode === "WALK");
 }
 
-function transferWarnings(it, prev, next) {
-  const out = [];
+function transferIssues(it, prev, next) {
+  const notes = [];
+  let level = null;
   const walk = walkLegsBetween(it.legs, prev, next);
   const walkMin = Math.round(walk.reduce((a, l) => a + l.duration, 0) / 60);
   const buf = toMin(+new Date(next.from.departure) - +new Date(prev.to.arrival));
   const plan = toMin(+new Date(next.from.scheduledDeparture) - +new Date(prev.to.scheduledArrival));
+  const slack = buf - walkMin;
+  const late = plan - buf; // wie viel die Echtzeitlage vom Puffer weggenommen hat
+
+  if (slack < 0) {
+    level = "broken";
+    notes.push(walkMin
+      ? `Der Fußweg dauert ${walkMin} min, bis zur Abfahrt bleiben aber nur ${buf} min.`
+      : `Der Anschluss fährt ${Math.abs(buf)} min vor der Ankunft ab.`);
+  } else if (slack <= 2 && late > 0) {
+    /* „Knapp“ meldet nur, wenn die ECHTZEITLAGE den Puffer gefressen hat.
+       Ein von vornherein knapp geplanter Umstieg ist bei MOTIS der Normalfall
+       (an 84 echten Verbindungen gemessen: ein Drittel hat ≤1 min Reserve) —
+       ihn zu markieren hieße, ein Drittel aller Verbindungen zu markieren. */
+    level = "tight";
+    notes.push(`${slack === 0 ? "Keine Reserve mehr" : `Nur noch ${slack} min Reserve`}: ` +
+      `${buf} min Umstiegszeit${walkMin ? `, davon ${walkMin} min Fußweg` : ""}.`);
+  }
+
+  if (late >= 5) {
+    level = worst(level, level === "broken" ? "broken" : "tight");
+    notes.push(`Verspätung verkürzt den Umstieg von ${plan} auf ${buf} min.`);
+  }
 
   /* Ein „cancelled“ auf dem Fußweg ist KEIN Ausfall des Anschlusses, sondern
-     eine Echtzeitmeldung am Umstiegshalt — deshalb Hinweis statt Ausfall. */
-  if (walk.some(legCancelled))
-    out.push("Für diesen Umstieg liegt eine Echtzeitmeldung vor — prüfe vor Ort die Anzeigen.");
+     eine Echtzeitmeldung am Umstiegshalt (die Direktsuche zeigt dieselben
+     Anschlüsse als fahrend) — deshalb Hinweis, nicht Ausfall. */
+  if (walk.some(legCancelled)) {
+    level = worst(level, "notice");
+    notes.push("Am Umstiegshalt liegt eine Echtzeitmeldung vor — prüfe vor Ort die Anzeigen.");
+  }
 
-  /* Bewusst KEINE Warnung für „knappe“ Umstiege an sich: Gemessen an echten
-     Anfragen plant MOTIS Umstiege routinemäßig mit ein bis drei Minuten Reserve
-     — das ist der Normalfall, keine Abweichung. Eine Warnung darauf träfe 44 %
-     aller Verbindungen und wäre nach zwei Tagen unsichtbar. Gewarnt wird nur,
-     wenn die Echtzeitlage den Umstieg tatsächlich unmöglich macht (4 % der
-     Verbindungen, siehe die übrigen Regeln hier). */
-  if (buf < walkMin)
-    out.push(`Der Fußweg dauert ${walkMin} min, es bleiben aber nur ${buf} min. Der Anschluss ist so nicht zu schaffen.`);
-
-  if (plan - buf >= 5)
-    out.push(`Verspätung verkürzt den Umstieg von ${plan} auf ${buf} min.`);
-
-  const gl = (p, wann) => (p.track && p.scheduledTrack && p.track !== p.scheduledTrack)
-    ? `Gleiswechsel ${wann}: Gleis ${p.track} statt ${p.scheduledTrack}.` : null;
-  for (const m of [gl(prev.to, "bei der Ankunft"), gl(next.from, "bei der Abfahrt")]) if (m) out.push(m);
-
-  return out;
+  return { level, notes };
 }
 
-function legWarnings(l) {
-  const out = [];
+function legIssues(l) {
+  const notes = [];
   const skipped = (l.intermediateStops || []).filter(s => s.cancelled);
-  if (skipped.length)
-    out.push(`Hält nicht in ${skipped.map(s => s.name).join(", ")}.`);
-  return out;
+  if (skipped.length) notes.push(`Hält nicht in ${skipped.map(s => s.name).join(", ")}.`);
+  return { level: notes.length ? "notice" : null, notes };
 }
 
-// Alle Warnungen einer Verbindung — speist das Dreieck in der Übersicht
-function itinWarnings(it) {
+// Gesamtlage einer Verbindung — speist das Symbol in der Übersicht
+function itinIssues(it) {
   const T = it.legs.filter(l => l.mode !== "WALK");
-  const out = [];
+  let level = null;
+  const notes = [];
   T.forEach((l, i) => {
-    out.push(...legWarnings(l));
-    if (i < T.length - 1) out.push(...transferWarnings(it, l, T[i + 1]));
+    const a = legIssues(l);
+    level = worst(level, a.level); notes.push(...a.notes);
+    if (i < T.length - 1) {
+      const b = transferIssues(it, l, T[i + 1]);
+      level = worst(level, b.level); notes.push(...b.notes);
+    }
   });
-  return out;
-}
-
-function transferWarning(it) {
-  return itinWarnings(it).length > 0;
+  return { level, notes };
 }
 
 // „RB51 (84185)“ → Hauptkennung „RB51“ + Zusatznummer „84185“
@@ -275,12 +315,20 @@ function renderTimeline(itins, focus = "start") {
   tl.t0 = min - TL.PAD_MIN * 60000;
   tl.t1 = max + TL.PAD_MIN * 60000;
 
-  // Startspalte (im „Jetzt“-Modus die erste noch erreichbare Verbindung)
+  /* Startspalte: im „Jetzt“-Modus die erste noch erreichbare Verbindung, sonst
+     die fokussierte (z. B. die letzte des Tages). Das ist WICHTIG für den Zoom
+     — tlAutoZoom richtet sich danach. Stand hier immer 0, wurde die Ansicht auf
+     die erste geladene Verbindung gezoomt, während der Blick auf der letzten
+     lag: Man scrollte seitwärts hin und sah ins Leere. */
+  const focusIdx = (focus && focus !== "start" && focus !== "end")
+    ? tl.itins.findIndex(it => itKey(it) === focus) : -1;
   let startIdx = 0;
   if (app.searchTime.kind === "now") {
     const i = tl.itins.findIndex(it =>
       +new Date(transitLegs(it)[0].from.departure) >= Date.now() - 30000);
     if (i > 0) startIdx = i;
+  } else if (focusIdx >= 0) {
+    startIdx = focusIdx;
   }
 
   // Neuer Suchlauf: Y-Zoom dynamisch aus den Verbindungen ab der Startspalte
@@ -326,12 +374,16 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollLeft = scroller.scrollWidth;
     scroller.scrollTop = Math.max(0, last.top + last.height - scroller.clientHeight + 40);
   } else if (focus !== "start") {
-    // eine bestimmte Verbindung fokussieren (z. B. letzte anständige der Nacht),
-    // mit Kontext davor und danach im Bild
-    const idx = tl.itins.findIndex(it => itKey(it) === focus);
-    const bar = idx >= 0 ? tl.bars[idx] : tl.bars[tl.bars.length - 1];
-    scroller.scrollLeft = Math.max(0, bar.colLeft - TL.AXIS_W - (scroller.clientWidth - TL.AXIS_W) * 0.3);
-    scroller.scrollTop = Math.max(0, bar.top - tlHeadClear() - 30);
+    /* Eine bestimmte Verbindung fokussieren (z. B. die letzte des Tages).
+       Sie steht in der ZWEITEN Spalte: eine Spalte Kontext davor zeigt, was
+       man als vorletzte Möglichkeit noch hätte. Vertikal gilt dieselbe
+       Docking-Regel wie überall sonst — vorher stand hier eine eigene
+       Rechnung, die den Balken verfehlen konnte. */
+    const idx = focusIdx >= 0 ? focusIdx : tl.bars.length - 1;
+    const bar = tl.bars[idx];
+    scroller.scrollLeft = Math.max(0, (idx - 1) * (tl.colW + TL.GAP));
+    scroller.scrollTop = tlAlignTopFor(bar, scroller);
+    tl.lastZoomIdx = idx;
     if (bar.head) bar.head.classList.add("tl-focus");
   } else {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
@@ -524,7 +576,7 @@ function tlColumn(it, left, isDominated = false) {
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
   const flagged = cancelledTransitLegs(it);
   const cancelled = flagged.size > 0;
-  const warn = !cancelled && transferWarning(it);
+  const risk = cancelled ? null : itinIssues(it).level;
   const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
   const top = tlY(+new Date(dep.departure));
   const height = Math.max(10, tlY(+new Date(arr.arrival)) - top);
@@ -538,7 +590,7 @@ function tlColumn(it, left, isDominated = false) {
   const head = document.createElement("button");
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
   head.innerHTML =
-    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${warn ? ` <span class="warn-tri" title="${escapeHtml(itinWarnings(it).join(" "))}">⚠</span>` : ""}</span>` +
+    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${riskMark(risk)}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
     `<small>${it.transfers} Umst.</small>`;
   head.addEventListener("click", () => {

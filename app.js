@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -632,9 +632,11 @@ async function runPlan(direction = null, limit = 10) {
   try {
     const { params } = await fetchPage(direction, limit);
     if (!direction) {
-      const t = app.searchTime;
-      if (t.kind === "now" && app.itins.length && app.prevPageCursor) {
-        // zwei gerade verpasste Verbindungen als Kontext links
+      /* Zwei Verbindungen davor als Kontext — in JEDEM Modus gleich.
+         Vorher nur im „Jetzt“-Modus; bei „Letzte“ und bei der Datumsauswahl
+         stand die Zielverbindung dadurch ganz links am Rand, ohne dass man
+         gesehen hätte, was es davor noch gegeben hätte. */
+      if (app.itins.length && app.prevPageCursor) {
         await fetchPage("earlier", 2);
       }
       // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
@@ -952,7 +954,7 @@ function renderItineraries(itineraries) {
       <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
       <span class="trip-meta">
         <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-tri" title="${escapeHtml(itinWarnings(it).join(" "))}">⚠</span>` : ""}</span>
+        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${cancelled ? "" : (issues => issues.level ? ` · ${riskMark(issues.level)}` : "")(itinIssues(it))}</span>
       </span>
       ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
 
@@ -985,7 +987,7 @@ function fillDetails(container, it) {
   const stopRow = (p, kind, rt) => {
     const t = kind === "dep" ? p.departure : p.arrival;
     const ts = kind === "dep" ? p.scheduledDeparture : p.scheduledArrival;
-    return `<div class="jrn-stop" data-ts="${+new Date(t || ts)}">` +
+    return `<div class="jrn-stop" data-ts="${+new Date(t || ts)}" data-stop="${escapeHtml(p.stopId || "")}">` +
       `<span class="jrn-time">${timeWithDelay(ts, t, rt)}</span>` +
       `<span class="jrn-dot"></span>` +
       `<span class="jrn-name">${escapeHtml(p.name)}` +
@@ -1025,19 +1027,19 @@ function fillDetails(container, it) {
        dem Raster gebracht und die Punkte neben die Linie geschoben.
        Das Auf- und Zuklappen macht ein eigener Umschalter. */
     const gid = `g${jrnGroup++}`;
-    const warns = legWarnings(l);
+    const { level, notes } = legIssues(l);
     const label = stops.length
       ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}`
-      : warns.length ? "Hinweise zur Fahrt" : "Infos zur Fahrt";
-    const info = (stops.length || facts.length || warns.length)
+      : notes.length ? "Hinweise zur Fahrt" : "Infos zur Fahrt";
+    const info = (stops.length || facts.length || notes.length)
       ? `<div class="jrn-more"><span class="jrn-dur"></span><span></span>` +
-          (warns.length
-            ? warnToggle(gid, label)
+          (notes.length
+            ? noteToggle(gid, level, label)
             : `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
               `${label}<span class="caret">▾</span></button>`) +
           `</div>` +
         stops.map(st => stopLi(st, gid)).join("") +
-        (warns.length ? warnRows(gid, warns) : "") +
+        (notes.length ? noteRows(gid, level, notes) : "") +
         (facts.length
           ? `<div class="jrn-facts" data-group="${gid}" hidden><span class="jrn-dur"></span>` +
             `<span></span><span>${facts.join(" · ")}</span></div>`
@@ -1046,31 +1048,34 @@ function fillDetails(container, it) {
     return seg + info;
   };
 
-  /* Aufklappbare Hinweiszeile. Es gibt keine Meldungstexte in den Daten, also
-     stehen hier Sätze, die aus den strukturierten Feldern gebaut sind
-     (transferWarnings/legWarnings in timeline.js). Sie liegen als eigene
-     Rasterzeile NEBEN dem Auslöser, nicht darin verschachtelt — verschachtelte
-     Zeilen haben die Punkte schon einmal von der Linie geschoben. */
-  const warnRows = (gid, warns) =>
-    `<div class="jrn-warn" data-group="${gid}" hidden><span class="jrn-dur"></span><span></span>` +
-    `<ul>${warns.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`;
+  /* Aufklappbare Hinweiszeile. Sie liegt als eigene Rasterzeile NEBEN dem
+     Auslöser, nicht darin verschachtelt — verschachtelte Zeilen haben die
+     Punkte schon einmal von der Linie geschoben.
 
-  const warnToggle = (gid, label) =>
+     Jede Markierung ist aufklappbar und nennt ihren Grund. Ein Symbol ohne
+     Erklärung ist schlimmer als keines: Man sieht, dass etwas ist, kann aber
+     nichts damit anfangen. */
+  const noteRows = (gid, level, notes) =>
+    `<div class="jrn-warn risk-${level}" data-group="${gid}" hidden>` +
+    `<span class="jrn-dur"></span><span></span>` +
+    `<ul>${notes.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`;
+
+  const noteToggle = (gid, level, label) =>
     `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
-    `${label} <span class="warn-tri">⚠</span><span class="caret">▾</span></button>`;
+    `${label} ${riskMark(level)}<span class="caret">▾</span></button>`;
 
   // Umstieg zwischen zwei Fahrten: Fußweg und/oder Wartezeit
   const transferBlock = (prev, next) => {
     const ms = +new Date(next.from.departure) - +new Date(prev.to.arrival);
     const walk = walkLegsBetween(legs, prev, next);
     const walkMin = walk.reduce((a, l) => a + l.duration, 0);
-    const warns = transferWarnings(it, prev, next);
+    const { level, notes } = transferIssues(it, prev, next);
     const gid = `g${jrnGroup++}`;
     const label = `<span class="wi">${ICON.walk}</span>${walkMin > 60 ? `Umstieg mit ${fmtDur(walkMin)} Fußweg` : "Umstieg"}`;
-    return `<div class="jrn-transfer">` +
+    return `<div class="jrn-transfer${level ? ` risk-${level}` : ""}">` +
       `<span class="jrn-dur">${fmtDur(Math.max(0, ms / 1000))}</span>` +
-      `<div class="jrn-body">${warns.length ? warnToggle(gid, label) : label}</div></div>` +
-      (warns.length ? warnRows(gid, warns) : "");
+      `<div class="jrn-body">${notes.length ? noteToggle(gid, level, label) : label}</div></div>` +
+      (notes.length ? noteRows(gid, level, notes) : "");
   };
 
   // führender / abschließender Fußweg (Umkreis-Suche, Ersatzhaltestellen)
@@ -1106,6 +1111,7 @@ function fillDetails(container, it) {
     relayout();
   });
   requestAnimationFrame(relayout);
+  attachStopAlerts(jrn, T, relayout);
   startJourneyTicker();
   container.appendChild(jrn);
 
@@ -1131,6 +1137,104 @@ function fillDetails(container, it) {
    der aktuelle Zug zwischen zwei Halten steht. Bereits passierte Halte
    werden gedimmt. Läuft die Reise nicht (noch nicht los / schon vorbei),
    bleibt die Linie neutral. */
+/* ---------------------------------------------------------------------------
+   Echte Meldungen der Verkehrsbetriebe
+
+   Die Verbindungssuche (/plan) liefert KEINE Meldungstexte — das Feld gibt es
+   dort schlicht nicht (nachgemessen, auch mit withAlerts). Die echten Texte
+   hängen an den HALTEN und kommen über /stoptimes: Störungen, Bauarbeiten,
+   defekte Aufzüge, Umleitungen — mit Überschrift, Fließtext, Ursache und
+   Wirkung, so wie der Verkehrsbetrieb sie formuliert hat.
+
+   Deshalb werden sie erst beim ÖFFNEN einer Verbindung nachgeladen, für deren
+   Ein-, Um- und Ausstiegshalte. Das sind zwei bis vier Anfragen, nur auf
+   ausdrücklichen Wunsch des Nutzers, und sie werden stundenweise gecacht.
+   Schlägt es fehl, fehlen nur die Zusatztexte — die gerechneten Hinweise
+   (Umstieg zu knapp usw.) stehen unabhängig davon.
+   --------------------------------------------------------------------------- */
+
+const alertCache = new Map();
+
+async function stopAlerts(stopId, timeIso) {
+  if (!stopId) return [];
+  const key = `${stopId}@${timeIso.slice(0, 13)}`; // stundenweise reicht völlig
+  if (!alertCache.has(key)) {
+    alertCache.set(key, (async () => {
+      try {
+        const q = new URLSearchParams({ stopId, time: timeIso, n: "1", withAlerts: "true" });
+        const res = await fetch(`${API}/stoptimes?${q}`);
+        if (!res.ok) return [];
+        const d = await res.json();
+        const all = [...(d.place?.alerts || [])]
+          .concat((d.stopTimes || []).flatMap(st => st.place?.alerts || []));
+        const seen = new Set();
+        return all.filter(a => {
+          const k = `${a.headerText}|${a.descriptionText}`;
+          return !seen.has(k) && seen.add(k);
+        });
+      } catch { return []; }
+    })());
+  }
+  return alertCache.get(key);
+}
+
+/* Die Texte kommen als HTML aus den Feeds (<b>, <ul>, <li>, <br>). Sie roh
+   einzusetzen wäre eine Lücke, sie stumpf zu entschärfen macht Listen
+   unlesbar — deshalb Struktur in Zeichen übersetzen und dann alle Tags weg. */
+function alertText(raw) {
+  return String(raw || "")
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<\/(p|div|ul|ol|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+const ALERT_CAUSE = {
+  TECHNICAL_PROBLEM: "Technische Störung", STRIKE: "Streik", DEMONSTRATION: "Demonstration",
+  ACCIDENT: "Unfall", HOLIDAY: "Feiertag", WEATHER: "Wetter", MAINTENANCE: "Wartung",
+  CONSTRUCTION: "Bauarbeiten", POLICE_ACTIVITY: "Polizeieinsatz",
+  MEDICAL_EMERGENCY: "Medizinischer Notfall", SPECIAL_EVENT: "Veranstaltung",
+};
+
+async function attachStopAlerts(jrn, T, relayout) {
+  const stops = [];
+  T.forEach((l, i) => {
+    if (i === 0) stops.push([l.from, l.from.departure]);
+    stops.push([l.to, l.to.arrival]);
+    if (i < T.length - 1) stops.push([T[i + 1].from, T[i + 1].from.departure]);
+  });
+  const seen = new Set();
+  await Promise.all(stops.map(async ([p, when]) => {
+    if (!p.stopId || seen.has(p.stopId)) return;
+    seen.add(p.stopId);
+    const alerts = await stopAlerts(p.stopId, when || new Date().toISOString());
+    if (!alerts.length || !jrn.isConnected) return;
+    const row = jrn.querySelector(`.jrn-stop[data-stop="${CSS.escape(p.stopId)}"]`);
+    if (!row || row.dataset.alerted) return;
+    row.dataset.alerted = "1";
+    const gid = `a${jrnGroup++}`;
+    const items = alerts.map(a => {
+      const cause = ALERT_CAUSE[a.cause];
+      const head = alertText(a.headerText);
+      const body = alertText(a.descriptionText);
+      return `<li>${cause ? `<b>${escapeHtml(cause)}:</b> ` : ""}${escapeHtml(head)}` +
+        (body && body !== head ? `<span class="alert-body">${escapeHtml(body)}</span>` : "") +
+        (a.url ? ` <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">Mehr</a>` : "") +
+        `</li>`;
+    }).join("");
+    row.insertAdjacentHTML("afterend",
+      `<div class="jrn-more"><span class="jrn-dur"></span><span></span>` +
+      `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
+      `${alerts.length === 1 ? "Meldung zu diesem Halt" : `${alerts.length} Meldungen zu diesem Halt`} ` +
+      `${riskMark("notice")}<span class="caret">▾</span></button></div>` +
+      `<div class="jrn-warn risk-notice" data-group="${gid}" hidden>` +
+      `<span class="jrn-dur"></span><span></span><ul>${items}</ul></div>`);
+    relayout();
+  }));
+}
+
 /* Der Fortschritt hängt an der Uhr, nicht an einer Nutzeraktion: Linie,
    gedimmte Halte und die Umfärbung Grün→Grau müssen auch bei einer offen
    liegenden Ansicht weiterlaufen. EIN Ticker für alle sichtbaren Reisen, der
