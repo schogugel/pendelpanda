@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.5.2";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1162,11 +1162,19 @@ function updateJourneyLine(jrn) {
 
 /* ---------------- DB-Link ---------------- */
 
-// Lokale Zeit minutengenau: "YYYY-MM-DDTHH:MM"
+/* Deutsche Ortszeit minutengenau: "YYYY-MM-DDTHH:MM".
+   Bewusst NICHT die Zeitzone des Geräts: Die DB rechnet in Europe/Berlin.
+   Wer aus einer anderen Zeitzone plant (Urlaub, Dienstreise, Grenzregion),
+   bekäme sonst einen Link mit der falschen Minute — die Suche landet am
+   falschen Zeitpunkt, und der Worker findet die Verbindung gar nicht mehr. */
+const BERLIN_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Berlin", hourCycle: "h23",
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+});
 function localMinuteIso(iso) {
-  const d = new Date(iso);
-  const pad = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const p = {};
+  for (const { type, value } of BERLIN_FMT.formatToParts(new Date(iso))) p[type] = value;
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
 function dbLink(fromName, toName, depIso, arrIso) {

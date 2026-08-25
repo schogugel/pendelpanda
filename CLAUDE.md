@@ -228,12 +228,21 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## DB-Integration
 
+- **Zeiten im DB-Link immer in Europe/Berlin** (`localMinuteIso`), NIE in der Zeitzone
+  des Geräts. Wer aus einer anderen Zeitzone plant, bekäme sonst die falsche Minute —
+  die Suche landet daneben, der Worker findet die Verbindung überhaupt nicht.
 - Fallback-Link: `bahn.de/buchung/fahrplan/suche#sts=true&so/zo/soid/zoid&hd=<exakte Sollabfahrt>`.
 - Exakter Verbindungs-Link (öffnet DB Navigator mit „Zu meinen Reisen“): Worker deployen,
   URL in `DB_LINK_PROXY` (app.js) eintragen. Ablauf: bahn.de `fahrplan` (ctxRecon) →
   mob-Backend `verbindung/teilen` `{GH, HD, SO, ZO}` (Media-Type
   `application/x.db.vendo.mob.verbindungteilen.v1+json`, UA `DBNavigator/Android/26.9.0`)
-  → `vbid`. Inoffiziell; ein Aufruf pro Klick. CORS-blockiert im Browser → nur via Worker.
+  → `vbid`. Inoffiziell; ein Aufruf pro Klick.
+- **Der einzige Hinderungsgrund im Browser ist CORS** — am 25.08.2026 nachgemessen:
+  Der Teilen-Endpunkt beantwortet den Preflight mit 405 und ohne
+  `Access-Control-Allow-Origin`, und der Media-Type erzwingt einen Preflight. Der
+  User-Agent ist dagegen egal (mit Browser-UA kam ebenso eine vbid). Heißt: Jede
+  Umgebung ohne Browser-CORS — Worker, oder eine APK mit nativem HTTP — kann die
+  Kette direkt fahren. Ein TWA-Wrapper hilft NICHT, das ist Chrome mit CORS.
 
 ## Historie / Kontext
 
