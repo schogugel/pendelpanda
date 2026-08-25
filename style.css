@@ -460,7 +460,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   background: var(--accent); box-shadow: 0 0 0 3px var(--card);
 }
 /* gemeinsames Raster: Zeit | Punkt | Inhalt */
-.jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub {
+.jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub, .jrn-more, .jrn-facts {
   display: grid; grid-template-columns: 3.6rem 10px 1fr; align-items: start; gap: .55rem;
 }
 .jrn-stop { padding: .25rem 0; align-items: center; }
@@ -504,13 +504,19 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .jrn-transfer { padding: .3rem 0; color: var(--muted); font-size: .85rem; }
 .jrn-transfer .jrn-body { grid-column: 3; }
 .jrn-transfer.edge .jrn-body { color: var(--text); }
-/* Zwischenhalte — Geschwister des Fahrtblocks, damit die Punkte auf dem
-   gleichen Raster (und damit auf der Linie) sitzen */
-.leginfo { font-size: .84rem; color: var(--muted); margin: -.15rem 0 .35rem; }
-.leginfo summary { cursor: pointer; margin-left: calc(4.15rem + 10px); }
-.stoplist { list-style: none; margin: .35rem 0 0; display: flex; flex-direction: column; gap: .28rem; }
-.stoplist .jrn-time { font-weight: 400; font-size: .95em; }
-.leg-facts { margin: .35rem 0 0 calc(4.15rem + 10px); }
+/* Zwischenhalte, Umschalter und Zusatzinfos sind DIREKTE Zeilen im selben
+   Raster — dadurch sitzen ihre Punkte zwangsläufig auf der Linie. */
+.jrn-sub { padding: .12rem 0; font-size: .84rem; color: var(--muted); }
+.jrn-sub .jrn-time { font-weight: 400; }
+.jrn-more { padding: .1rem 0 .2rem; }
+.jrn-toggle {
+  justify-self: start; display: inline-flex; align-items: center; gap: .3rem;
+  border: none; background: none; padding: .1rem 0; cursor: pointer;
+  font: inherit; font-size: .84rem; color: var(--accent);
+}
+.jrn-toggle .caret { transition: transform .18s ease; display: inline-block; }
+.jrn-toggle[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.jrn-facts { font-size: .84rem; color: var(--muted); padding-bottom: .2rem; }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
 
 /* Feste Legende mit drei Zuständen:

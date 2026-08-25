@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.4.4";
+const APP_VERSION = "1.4.5";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -966,6 +966,8 @@ function renderItineraries(itineraries) {
   }
 }
 
+let jrnGroup = 0; // laufende Nummer für Zwischenhalt-Gruppen
+
 function fillDetails(container, it) {
   const flagged = cancelledTransitLegs(it);
   const T = transitLegs(it);
@@ -994,12 +996,12 @@ function fillDetails(container, it) {
     const facts = [];
     if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
     if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
-    const stopLi = s => {
+    const stopLi = (s, gid) => {
       const t = s.arrival || s.departure, ts = s.scheduledArrival || s.scheduledDeparture;
-      return `<li class="jrn-sub" data-ts="${+new Date(t || ts)}">` +
-        `<span class="jrn-time">${timeWithDelay(ts, t)}</span><span class="jrn-dot mini"></span>` +
+      return `<div class="jrn-sub" data-group="${gid}" data-ts="${+new Date(t || ts)}" hidden>` +
+        `<span class="jrn-time">${timeWithDelay(ts, t)}</span><span class="jrn-dot"></span>` +
         `<span class="jrn-name${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
-        `${s.cancelled ? " · entfällt" : ""}</span></li>`;
+        `${s.cancelled ? " · entfällt" : ""}</span></div>`;
     };
     const seg = `<div class="jrn-seg">` +
       `<span class="jrn-dur">${fmtDur(l.duration)}</span>` +
@@ -1013,13 +1015,21 @@ function fillDetails(container, it) {
         `<p class="jrn-dir">nach ${escapeHtml(l.headsign || l.to.name)}</p>` +
         `${sev ? `<p class="sev-hint">Fährt als Bus ab einer Ersatzhaltestelle.</p>` : ""}` +
       `</div></div>`;
-    /* Zwischenhalte bewusst als GESCHWISTER des Fahrtblocks, nicht darin
-       verschachtelt: nur so liegen ihre Punkte auf demselben Raster (und
-       damit auf der Linie) wie die Hauptzeilen. */
+    /* Zwischenhalte als DIREKTE Geschwisterzeilen — bewusst OHNE
+       <details>/<ul> drumherum. Jede Verschachtelung hat ihre Zeilen aus
+       dem Raster gebracht und die Punkte neben die Linie geschoben.
+       Das Auf- und Zuklappen macht ein eigener Umschalter. */
+    const gid = `g${jrnGroup++}`;
     const info = (stops.length || facts.length)
-      ? `<details class="leginfo"><summary>${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}</summary>` +
-        (stops.length ? `<ul class="stoplist">${stops.map(stopLi).join("")}</ul>` : "") +
-        (facts.length ? `<p class="leg-facts">${facts.join(" · ")}</p>` : "") + `</details>`
+      ? `<div class="jrn-more"><span class="jrn-dur"></span><span></span>` +
+          `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
+          `${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}` +
+          `<span class="caret">▾</span></button></div>` +
+        stops.map(st => stopLi(st, gid)).join("") +
+        (facts.length
+          ? `<div class="jrn-facts" data-group="${gid}" hidden><span class="jrn-dur"></span>` +
+            `<span></span><span>${facts.join(" · ")}</span></div>`
+          : "")
       : "";
     return seg + info;
   };
@@ -1061,7 +1071,15 @@ function fillDetails(container, it) {
 
   jrn.innerHTML = parts.join("");
   const relayout = () => updateJourneyLine(jrn);
-  jrn.querySelectorAll("details.leginfo").forEach(d => d.addEventListener("toggle", relayout));
+  jrn.addEventListener("click", (e) => {
+    const btn = e.target.closest(".jrn-toggle");
+    if (!btn) return;
+    const open = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", open ? "false" : "true");
+    jrn.querySelectorAll(`.jrn-sub[data-group="${btn.dataset.group}"], .jrn-facts[data-group="${btn.dataset.group}"]`)
+      .forEach(el => { el.hidden = open; });
+    relayout();
+  });
   requestAnimationFrame(relayout);
   container.appendChild(jrn);
 
