@@ -488,6 +488,11 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .jrn-stop.passed .jrn-dot, .jrn-sub.passed .jrn-dot { border-color: var(--accent); background: var(--accent); }
 .jrn-stop.passed .jrn-name, .jrn-stop.passed .jrn-time,
 .jrn-sub.passed .jrn-name, .jrn-sub.passed .jrn-time { opacity: .55; }
+/* Vorbei und pünktlich → doch grau. Grün ist eine Zusage für das, was noch
+   kommt („bestätigt, das klappt“). Liegt der Halt hinter uns, ist die Zusage
+   verbraucht und nur noch Chronik. Eine Verspätung bleibt auch rückblickend
+   rot — sie erklärt, warum man dort ist, wo man ist. */
+.jrn-stop.passed .t-real.ok, .jrn-sub.passed .t-real.ok { color: var(--muted); }
 .jrn-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
 .jrn-sub .jrn-name { font-weight: 400; }
 .jrn-track { white-space: nowrap; }

@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1087,6 +1087,7 @@ function fillDetails(container, it) {
     relayout();
   });
   requestAnimationFrame(relayout);
+  startJourneyTicker();
   container.appendChild(jrn);
 
   const a = document.createElement("a");
@@ -1107,6 +1108,20 @@ function fillDetails(container, it) {
    der aktuelle Zug zwischen zwei Halten steht. Bereits passierte Halte
    werden gedimmt. Läuft die Reise nicht (noch nicht los / schon vorbei),
    bleibt die Linie neutral. */
+/* Der Fortschritt hängt an der Uhr, nicht an einer Nutzeraktion: Linie,
+   gedimmte Halte und die Umfärbung Grün→Grau müssen auch bei einer offen
+   liegenden Ansicht weiterlaufen. EIN Ticker für alle sichtbaren Reisen, der
+   sich selbst beendet, sobald keine mehr offen ist. */
+let jrnTicker = null;
+function startJourneyTicker() {
+  if (jrnTicker) return;
+  jrnTicker = setInterval(() => {
+    const open = [...document.querySelectorAll(".jrn")].filter(j => j.offsetParent !== null);
+    if (!open.length) { clearInterval(jrnTicker); jrnTicker = null; return; }
+    open.forEach(updateJourneyLine);
+  }, 30000);
+}
+
 function updateJourneyLine(jrn) {
   const rows = [...jrn.querySelectorAll(".jrn-stop, .jrn-sub")]
     .filter(r => r.offsetParent !== null);

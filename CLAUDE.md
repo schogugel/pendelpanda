@@ -102,6 +102,10 @@ drumherum noch existieren, z. B.:
   sind die Zeiten live bestätigt; sonst ist „+0“ bedeutungslos (nur Fahrplan). Deshalb:
   grau ohne Echtzeit, grün bestätigt-pünktlich, rot bei Verspätung; das Abzeichen in der
   Spaltenkachel zeigt dann „Plan“ statt „+0“. Zwischenhalte erben den Wert ihrer Fahrt.
+  **Grün gilt nur für noch bevorstehende Halte** (`.passed` überschreibt es auf grau):
+  Grün ist eine Zusage für das, was kommt — im Rückblick ist sie verbraucht. Rot bleibt
+  auch rückblickend rot. Deshalb zieht `startJourneyTicker()` die Detailansicht alle
+  30 s nach; ohne ihn stünde die Farbe still, solange niemand tippt.
 - `withScheduledSkippedStops=true` immer mitschicken (übersprungene Halte).
 - Tests per curl/node brauchen einen **eigenen User-Agent** — generische werden geblockt
   (Browser-PWA unbetroffen, Origin identifiziert die App).

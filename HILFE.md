@@ -96,7 +96,8 @@ sie zurück.
 
 ### Was die Balken zeigen
 - **Zeitfarben zeigen die Datenlage:** **grau** = nur Sollfahrplan, es liegen (noch)
-  keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich; **rot** =
+  keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich — aber nur, solange der Halt noch
+  bevorsteht; ist er passiert, wird auch er grau; **rot** =
   Verspätung, daneben die durchgestrichene Sollzeit. Steht in der Spaltenkachel „Plan“
   statt „+0“, gibt es für diese Fahrt noch keine Live-Meldung — „+0“ hieße sonst
   fälschlich „bestätigt pünktlich“.
