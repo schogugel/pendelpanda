@@ -1,10 +1,12 @@
 "use strict";
 
-const CACHE = "pendelpanda-v1.5.2";
+const CACHE = "pendelpanda-v1.5.3";
 const SHELL = [
   "./",
   "./index.html",
   "./style.css",
+  "./platform.js",
+  "./dblink.js",
   "./app.js",
   "./timeline.js",
   "./manifest.webmanifest",

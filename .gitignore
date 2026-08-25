@@ -1,2 +1,17 @@
 .DS_Store
 Thumbs.db
+
+# --- Android-Hülle: alles Erzeugte und alle Geheimnisse ---
+# www/ und android/ entstehen aus der Repo-Wurzel (native/sync.mjs, cap add).
+# Sie im Repo zu führen hieße, denselben Code zweimal zu pflegen — genau das,
+# was diese Architektur vermeiden soll.
+native/node_modules/
+native/www/
+native/android/
+native/assets/
+native/.env
+
+# Signaturschlüssel gehören in ein Backup, nicht in ein öffentliches Repo.
+*.keystore
+*.jks
+native/android/keystore.properties

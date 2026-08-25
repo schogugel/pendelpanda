@@ -1,0 +1,16 @@
+{
+  "appId": "de.pendelpanda.app",
+  "appName": "PendelPanda",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0a0e18",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "StatusBar": {
+      "backgroundColor": "#0a0e18",
+      "style": "DARK",
+      "overlaysWebView": false
+    }
+  }
+}

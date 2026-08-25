@@ -16,6 +16,9 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
   - **MAJOR** — grundlegender Umbau (Architektur, Datenquelle, Bedienkonzept).
 - `CACHE` in `sw.js` **gleichlautend** mitziehen (`pendelpanda-v<Version>`), sonst
   bekommen Nutzer die Änderung nicht ausgeliefert.
+- Die APK zieht automatisch mit: `native/sync.mjs` liest `APP_VERSION` und schreibt
+  `versionName`/`versionCode` in `build.gradle`. **Niemals von Hand in Android pflegen** —
+  sonst zeigen ⚙-Dialog und Android-Einstellungen Verschiedenes an.
 - **Am Ende jeder Antwort die neue Versionsnummer nennen** — der Nutzer prüft damit
   im ⚙-Dialog, ob sein Gerät den aktuellen Stand hat.
 
@@ -47,8 +50,45 @@ Große Block-Ersetzungen in `style.css` (von Kommentar A bis Kommentar B) haben 
 drumherum noch existieren, z. B.:
 `for r in .tl-key .checklist .catdot .segmented .timechips; do grep -c "$r" style.css; done`
 
+## Zwei Auslieferungen, EINE Codebasis
+
+Es gibt die Web-App (GitHub Pages) und eine Android-APK. Beide laufen auf denselben
+Dateien in der Repo-Wurzel — **kein zweiter Zweig, keine Kopie.** `native/` enthält nur
+die Hülle; `native/sync.mjs` kopiert per **Allowlist** in `native/www/`, danach
+`cap sync`. `www/`, `android/`, `node_modules/` sind Erzeugnisse und gitignored.
+
+**Warum die APK existiert:** Der exakte DB-Verbindungslink braucht eine `vbid`, deren
+Endpunkt keine CORS-Header schickt — keine Webseite darf ihn aufrufen, egal wo sie
+liegt. Nativ gilt CORS nicht, also holt das Gerät die vbid selbst. Kein Proxy, kein
+Konto, keine Anfragen, die sich bei einer Person sammeln. Der frühere Cloudflare-Worker
+ist deshalb ersatzlos entfallen (steckt noch in der Historie bis `v1.5.2`).
+
+Unterschiede ausschließlich über `PP.native` (platform.js), an vier Stellen:
+
+| | Web | App |
+|---|---|---|
+| DB-Link | vorbefüllte Suche | exakte Verbindung (vbid, `dblink.js`) |
+| Externe Links | neuer Tab | Intent via AppLauncher → DB Navigator, Karten |
+| Zurück | Browser | Dialog › Ansicht › `exitApp()` |
+| Service Worker | ja | nein (Dateien liegen lokal) |
+
+- **Neue Datei zur App? → in die Allowlist in `native/sync.mjs`**, sonst fehlt sie in
+  der APK. Das Skript bricht bei fehlenden gelisteten Dateien ab, kann aber nicht
+  wissen, was du vergessen hast. Genauso in `SHELL` in `sw.js` eintragen.
+- **Kein TWA/Bubblewrap/PWABuilder** — das ist Chrome mit vollem CORS und löst gar
+  nichts. Es muss eine WebView mit nativer Brücke sein (Capacitor).
+- `CapacitorHttp` wird **gezielt nur in `dblink.js`** benutzt, nicht global als
+  `fetch`-Patch. Sonst liefen auch die Transitous-Aufrufe über den nativen Stack und
+  der App-Build verhielte sich anders als der Web-Build.
+- iOS bleibt bewusst bei der PWA: Eine native Verteilung außerhalb des App Store
+  kostet 99 €/Jahr plus Apple-Notarisierung pro Build (AltStore PAL, nur EU/Japan/
+  Brasilien) — für genau ein Feature. Die PWA läuft auf iOS ohnehin.
+
 ## Dateien
 
+- `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
+- `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
+- `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README
 - `index.html` — alle Views/Dialoge (Grid, Edit, Ergebnisse, Settings, Zeit, Teilen, Hilfe, Trip-Details)
 - `app.js` — Zustand, Grid/Gesten, Suche/Laden, Legende, Details, Settings, Link-Transfer
 - `timeline.js` — Grafik (Canvas-Aufbau, Zoom, Panning, Einrasten, Prefetch, Kategorien)

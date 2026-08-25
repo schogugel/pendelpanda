@@ -1,0 +1,22 @@
+{
+  "name": "pendelpanda-native",
+  "private": true,
+  "description": "Android-Hülle für PendelPanda. Web-Dateien kommen aus der Repo-Wurzel.",
+  "type": "module",
+  "scripts": {
+    "sync": "node sync.mjs && cap sync android",
+    "apk": "npm run sync && cd android && ./gradlew assembleRelease",
+    "apk:debug": "npm run sync && cd android && ./gradlew assembleDebug",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/app-launcher": "^8.0.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}

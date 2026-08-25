@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.5.2";
+const APP_VERSION = "1.5.3";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -11,7 +11,6 @@ const BASE_SLOTS = 14, MAX_SLOTS = 40;
 // Wenn gesetzt, öffnet „Bei der DB öffnen“ exakt die gewählte Verbindung (vbid-Link,
 // öffnet auf dem Handy den DB Navigator mit „Zu meinen Reisen hinzufügen“).
 // Leer = Fallback auf die vorbefüllte bahn.de-Suche.
-const DB_LINK_PROXY = "";
 const STORAGE_KEY = "pp.buttons.v1";
 const LONGPRESS_MS = 550;
 
@@ -1099,6 +1098,10 @@ function fillDetails(container, it) {
     T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival
   );
   a.textContent = "Bei der DB öffnen (Wagenreihung, Tickets …)";
+  if (PP.native) {
+    enableExactDbLink(a, app.search.from.name, app.search.to.name,
+      T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival);
+  }
   container.appendChild(a);
 }
 
@@ -1180,12 +1183,10 @@ function localMinuteIso(iso) {
 function dbLink(fromName, toName, depIso, arrIso) {
   const enc = encodeURIComponent;
   const dep = localMinuteIso(depIso);
-  if (DB_LINK_PROXY) {
-    // Worker löst die exakte Verbindung auf und leitet zum vbid-Link weiter
-    return `${DB_LINK_PROXY}?from=${enc(fromName)}&to=${enc(toName)}&dep=${enc(dep)}&arr=${enc(localMinuteIso(arrIso))}`;
-  }
-  // Fallback: vorbefüllte Suche mit exakter Soll-Abfahrtszeit — die gewünschte
-  // Verbindung steht damit ganz oben in der Trefferliste
+  /* Vorbefüllte Suche mit exakter Soll-Abfahrtszeit — die gewünschte Verbindung
+     steht damit ganz oben in der Trefferliste. Das ist das Beste, was ohne
+     Server geht, und bleibt auch im nativen Build der Rückfall, wenn die vbid
+     nicht zustande kommt (siehe dblink.js). */
   return `https://www.bahn.de/buchung/fahrplan/suche#sts=true&so=${enc(fromName)}&zo=${enc(toName)}&soid=${enc("O=" + fromName)}&zoid=${enc("O=" + toName)}&hd=${enc(dep + ":00")}`;
 }
 
@@ -1295,7 +1296,7 @@ function escapeHtml(s) {
 /* ---------------- Start ---------------- */
 
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
-byId("app-version").textContent = `v${APP_VERSION}`;
+byId("app-version").textContent = `v${APP_VERSION} · ${PP.kind}`;
 
 /* --- Einstellungs-Dialog --- */
 
@@ -1410,7 +1411,7 @@ showView("grid");
    und stündlich) und einmalig neu laden, sobald ein neuer Service Worker
    übernimmt. Ohne das blieb eine installierte App auf einem alten Stand
    hängen, weil sie beim Wiederöffnen gar nicht neu lädt. */
-if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+if (!PP.native && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   navigator.serviceWorker.register("sw.js").then(reg => {
     reg.update().catch(() => {});
     setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);

@@ -6,6 +6,15 @@ Live: https://schogugel.github.io/pendelpanda/
 
 ---
 
+## Web-App oder Android-App?
+
+PendelPanda gibt es zweimal, mit demselben Inhalt. Die **Web-App** läuft überall —
+Android, iPhone, Rechner — und ist nach einem Neuladen von selbst aktuell. Die
+**Android-App** (APK) kann zusätzlich eines: Der Knopf „Bei der DB öffnen“ führt dort
+auf *genau diese* Verbindung statt auf eine vorbefüllte Suche, und dafür steht kein
+fremder Server dazwischen — dein Gerät fragt selbst bei der Bahn nach. Im ⚙-Dialog
+steht hinter der Versionsnummer, was gerade läuft (`· Web` oder `· App`).
+
 ## Installieren
 
 **Android (Chrome):** Seite öffnen → Menü (⋮) → „App installieren“ bzw. „Zum
