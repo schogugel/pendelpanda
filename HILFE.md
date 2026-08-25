@@ -104,6 +104,12 @@ Zeitpunkt oder Richtung änderst; erst eine neue Verbindung von der Startseite s
 sie zurück.
 
 ### Was die Balken zeigen
+- **Gelbes Warndreieck ⚠:** An dieser Verbindung weicht etwas vom Fahrplan ab — eine
+  Echtzeitmeldung am Umstieg, ein Fußweg, der nicht mehr in die Umstiegszeit passt, eine
+  Verspätung, die den Umstieg verkürzt, ein Gleiswechsel oder ein ausgelassener Halt. In
+  der Detailansicht ist die betroffene Zeile aufklappbar (⚠ mit Pfeil): Antippen zeigt,
+  worum es genau geht. Es erscheint bewusst selten — nur bei echter Abweichung, damit es
+  nicht zur Tapete wird.
 - **Zeitfarben zeigen die Datenlage:** **grau** = nur Sollfahrplan, es liegen (noch)
   keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich — aber nur, solange der Halt noch
   bevorsteht; ist er passiert, wird auch er grau; **rot** =

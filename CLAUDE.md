@@ -141,6 +141,15 @@ Was ansteht, steht in `TODO.md`.
   KEIN Ausfall des Anschlusses → als „⚠ Umstieg prüfen“ zeigen (`transferWarning`),
   nie als Ausfall. Echte Ausfälle: nur Transit-Leg-Flags (`cancelledTransitLegs`).
 - Kein Alert-/Meldungstext in den Daten (Spec+Live geprüft) — nur strukturierte Flags.
+  **Warnhinweise werden deshalb aus den Feldern GEBAUT** (`transferWarnings`/`legWarnings`
+  in timeline.js): Echtzeitmeldung am Umstiegs-Fußweg, Fußweg passt nicht mehr in den
+  Puffer, Verspätung verkürzt den Umstieg um ≥5 min, Gleiswechsel, ausgelassene Halte.
+  **Nicht gewarnt wird bei „knappen“ Umstiegen an sich** — MOTIS plant routinemäßig mit
+  1–3 min Reserve; eine Warnung darauf träfe 44 % aller Verbindungen (gemessen an 84).
+  So bleibt das Dreieck bei ~4 % und wird noch gesehen.
+- **Fußwege eines Umstiegs über die POSITION im leg-Array suchen** (`walkLegsBetween`),
+  nie über ein Zeitfenster: Ein Fenster-Filter setzt voraus, dass der Fußweg noch in die
+  Lücke passt, und blendet genau den Fall aus, der gemeldet werden soll.
 - **`leg.realTime` unterscheidet Soll- von bestätigten Zeiten.** Nur wenn es `true` ist,
   sind die Zeiten live bestätigt; sonst ist „+0“ bedeutungslos (nur Fahrplan). Deshalb:
   grau ohne Echtzeit, grün bestätigt-pünktlich, rot bei Verspätung; das Abzeichen in der
@@ -263,6 +272,9 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Status semantisch: ok grün, warn orange, bad rot — nie als Deko missbrauchen.
 - Formen: Kacheln 4 px (Farbbalken INNEN an der Oberkante, eingerückt), Karten/Chips 8 px,
   Segmente 3 px. Typo-Akzente versal-gesperrt (Seitentitel, BEARBEITEN, START-Flag).
+- Verspätungs-Abzeichen zeigt IMMER die Zahl (`+0`, `+3`, …), auch ohne Echtzeitdaten.
+  Ein Sonderzustand „Plan“ war ausdrücklich unerwünscht — die Datenlage steckt in der
+  Textfarbe der Uhrzeit, nicht im Abzeichen.
 - Fahrdauern: <60 min „42 min“, sonst „1:40 h“ (`fmtDur`). Ist-Zeiten farbcodiert,
   Soll durchgestrichen gestapelt darüber (Spaltenbreite konstant halten!).
 - Icons: aus `icons/icon_pendelpanda.png` generieren (magick). **Bei Icon-Wechsel

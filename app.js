@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.5.3";
+const APP_VERSION = "1.6.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -952,9 +952,9 @@ function renderItineraries(itineraries) {
       <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
       <span class="trip-meta">
         <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-tri">⚠</span>` : ""}</span>
+        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-tri" title="${escapeHtml(itinWarnings(it).join(" "))}">⚠</span>` : ""}</span>
       </span>
-      ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin, legs[0].realTime)}`;
+      ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
 
     const details = document.createElement("div");
     details.className = "trip-details";
@@ -1025,12 +1025,19 @@ function fillDetails(container, it) {
        dem Raster gebracht und die Punkte neben die Linie geschoben.
        Das Auf- und Zuklappen macht ein eigener Umschalter. */
     const gid = `g${jrnGroup++}`;
-    const info = (stops.length || facts.length)
+    const warns = legWarnings(l);
+    const label = stops.length
+      ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}`
+      : warns.length ? "Hinweise zur Fahrt" : "Infos zur Fahrt";
+    const info = (stops.length || facts.length || warns.length)
       ? `<div class="jrn-more"><span class="jrn-dur"></span><span></span>` +
-          `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
-          `${stops.length ? `${stops.length} Zwischenhalt${stops.length === 1 ? "" : "e"}` : "Infos zur Fahrt"}` +
-          `<span class="caret">▾</span></button></div>` +
+          (warns.length
+            ? warnToggle(gid, label)
+            : `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
+              `${label}<span class="caret">▾</span></button>`) +
+          `</div>` +
         stops.map(st => stopLi(st, gid)).join("") +
+        (warns.length ? warnRows(gid, warns) : "") +
         (facts.length
           ? `<div class="jrn-facts" data-group="${gid}" hidden><span class="jrn-dur"></span>` +
             `<span></span><span>${facts.join(" · ")}</span></div>`
@@ -1039,18 +1046,31 @@ function fillDetails(container, it) {
     return seg + info;
   };
 
+  /* Aufklappbare Hinweiszeile. Es gibt keine Meldungstexte in den Daten, also
+     stehen hier Sätze, die aus den strukturierten Feldern gebaut sind
+     (transferWarnings/legWarnings in timeline.js). Sie liegen als eigene
+     Rasterzeile NEBEN dem Auslöser, nicht darin verschachtelt — verschachtelte
+     Zeilen haben die Punkte schon einmal von der Linie geschoben. */
+  const warnRows = (gid, warns) =>
+    `<div class="jrn-warn" data-group="${gid}" hidden><span class="jrn-dur"></span><span></span>` +
+    `<ul>${warns.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`;
+
+  const warnToggle = (gid, label) =>
+    `<button type="button" class="jrn-toggle" data-group="${gid}" aria-expanded="false">` +
+    `${label} <span class="warn-tri">⚠</span><span class="caret">▾</span></button>`;
+
   // Umstieg zwischen zwei Fahrten: Fußweg und/oder Wartezeit
   const transferBlock = (prev, next) => {
     const ms = +new Date(next.from.departure) - +new Date(prev.to.arrival);
-    const walk = legs.filter(l => l.mode === "WALK" &&
-      +new Date(l.startTime) >= +new Date(prev.to.arrival) &&
-      +new Date(l.endTime) <= +new Date(next.from.departure));
+    const walk = walkLegsBetween(legs, prev, next);
     const walkMin = walk.reduce((a, l) => a + l.duration, 0);
-    const warn = walk.some(legCancelled);
+    const warns = transferWarnings(it, prev, next);
+    const gid = `g${jrnGroup++}`;
+    const label = `<span class="wi">${ICON.walk}</span>${walkMin > 60 ? `Umstieg mit ${fmtDur(walkMin)} Fußweg` : "Umstieg"}`;
     return `<div class="jrn-transfer">` +
       `<span class="jrn-dur">${fmtDur(Math.max(0, ms / 1000))}</span>` +
-      `<div class="jrn-body"><span class="wi">${ICON.walk}</span>${walkMin > 60 ? `Umstieg mit ${fmtDur(walkMin)} Fußweg` : "Umstieg"}` +
-        `${warn ? ` <span class="warn-tri" title="Meldung am Umstiegshalt">⚠</span>` : ""}</div></div>`;
+      `<div class="jrn-body">${warns.length ? warnToggle(gid, label) : label}</div></div>` +
+      (warns.length ? warnRows(gid, warns) : "");
   };
 
   // führender / abschließender Fußweg (Umkreis-Suche, Ersatzhaltestellen)
@@ -1268,8 +1288,7 @@ function diffMin(scheduledIso, actualIso) {
   return Math.round((new Date(actualIso) - new Date(scheduledIso)) / 60000);
 }
 function delayText(min) { return (min >= 0 ? "+" : "") + min; }
-function delayBadge(min, realTime) {
-  if (realTime === false) return `<span class="t-plan badge-plan">Plan</span>`;
+function delayBadge(min) {
   const cls = min <= 0 ? "ok" : min < 6 ? "warn" : "bad";
   return `<span class="delay ${cls}">${delayText(min)}</span>`;
 }
