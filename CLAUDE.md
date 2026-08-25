@@ -28,15 +28,25 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 4. Push → Deploy verifizieren: `until curl -sL <pages-url>/app.js | grep -q "<neuer-code>"; do sleep 5; done`
    (Achtung: Groß-/Kleinschreibung des Grep-Strings exakt!).
-5. Nutzerhinweis: SW aktualisiert per „stale-while-revalidate“ → **zweimal neu laden**;
-   danach steht die neue Nummer im ⚙-Dialog.
+5. Nutzerhinweis: Ein Neuladen genügt (Netz-zuerst); danach steht die neue Nummer im
+   ⚙-Dialog. Stimmt sie nicht, ist etwas mit dem Deploy oder dem SW nicht in Ordnung.
+
+## Fallstrick: CSS-Blöcke per Skript ersetzen
+
+Große Block-Ersetzungen in `style.css` (von Kommentar A bis Kommentar B) haben schon
+**fremde Regeln mitgelöscht** (Legende, Kategorie-Punkte, Einstellungsliste, Zeit-Dialog
+— erst Runden später bemerkt). Nach jedem Block-Ersatz gegenprüfen, dass die Selektoren
+drumherum noch existieren, z. B.:
+`for r in .tl-key .checklist .catdot .segmented .timechips; do grep -c "$r" style.css; done`
 
 ## Dateien
 
 - `index.html` — alle Views/Dialoge (Grid, Edit, Ergebnisse, Settings, Zeit, Teilen, Hilfe, Trip-Details)
 - `app.js` — Zustand, Grid/Gesten, Suche/Laden, Legende, Details, Settings, Link-Transfer
 - `timeline.js` — Grafik (Canvas-Aufbau, Zoom, Panning, Einrasten, Prefetch, Kategorien)
-- `sw.js` — Cache-first mit Hintergrund-Update; API-Requests nie cachen
+- `sw.js` — **Netz-zuerst**, Cache nur als Offline-Rückfall; API-Requests nie cachen.
+  Cache-zuerst hatte HTML/JS/CSS aus verschiedenen Ständen gemischt → hängende
+  Versionsnummer, kaputte Verbindungsauswahl, lange Ladezeiten. **Nicht zurückdrehen.**
 - `db-link-worker/worker.js` — optionaler Cloudflare Worker für exakte DB-Links (vbid)
 - `icons/icon_pendelpanda.png` — Icon-QUELLE (schwarz auf weiß, 1254²)
 
