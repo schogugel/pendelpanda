@@ -66,12 +66,8 @@ function cancelledTransitLegs(it) {
    sucht — in einem Aufklapper wäre er schlechter aufgehoben, nicht besser.
    --------------------------------------------------------------------------- */
 
-const RISK_ICON = {
-  broken: svgIcon(`<circle cx="8" cy="8" r="5.6"/><path d="M4.6 4.6l6.8 6.8"/>`),
-  tight: svgIcon(`<path d="M4.6 2.5h6.8"/><path d="M4.6 13.5h6.8"/>` +
-    `<path d="M5.5 2.5v2.2L8 7.3l2.5-2.6V2.5"/><path d="M5.5 13.5v-2.2L8 8.7l2.5 2.6v2.2"/>`),
-  notice: svgIcon(`<path d="M8 2.7 14 13.3H2z"/><path d="M8 6.7v3"/><path d="M8 11.5h.01"/>`),
-};
+/* Die SYMBOLE dazu stehen weiter unten bei den übrigen Icons — `svgIcon` ist
+   ein const und hier oben noch nicht initialisiert. */
 const RISK_RANK = { notice: 1, tight: 2, broken: 3 };
 const RISK_LABEL = {
   broken: "Anschluss nach Prognose nicht erreichbar",
@@ -237,6 +233,19 @@ const ICON = {
     `<path d="M8 4.6h3.1L8 6.7"/><path d="M2.4 14.2c1.3.9 2.7.9 4 0s2.7-.9 4 0"/>`),
   walk: svgIcon(`<circle cx="9.3" cy="2.9" r="1.5"/><path d="M9.3 5.3 7.7 8.4l1.3 1.5.8 3.9"/>` +
     `<path d="M7.7 8.4 5.5 10"/><path d="M9 9.9 7 13.7"/><path d="M9.9 6.5l2 1.3"/>`),
+};
+
+/* Symbole der drei Risikoklassen (die Logik dazu steht oben bei
+   `transferIssues`). Sie gehören ZWINGEND hierher, unter `svgIcon`: Weiter oben
+   aufgerufen, wirft die Datei beim Laden. Funktionsdeklarationen werden dabei
+   trotzdem gehoistet, deshalb sieht man von der eigentlichen Ursache nichts —
+   nur einen kryptischen Folgefehler („cannot access X before initialization“)
+   an ganz anderer Stelle. Genau das ist in v1.7.0 passiert. */
+const RISK_ICON = {
+  broken: svgIcon(`<circle cx="8" cy="8" r="5.6"/><path d="M4.6 4.6l6.8 6.8"/>`),
+  tight: svgIcon(`<path d="M4.6 2.5h6.8"/><path d="M4.6 13.5h6.8"/>` +
+    `<path d="M5.5 2.5v2.2L8 7.3l2.5-2.6V2.5"/><path d="M5.5 13.5v-2.2L8 8.7l2.5 2.6v2.2"/>`),
+  notice: svgIcon(`<path d="M8 2.7 14 13.3H2z"/><path d="M8 6.7v3"/><path d="M8 11.5h.01"/>`),
 };
 
 // Symbol passend zum konkreten Verkehrsmittel des Abschnitts

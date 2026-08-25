@@ -24,7 +24,10 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
 
 ## Arbeitsritual (bei jeder Änderung)
 
-1. Code ändern → `node --check app.js timeline.js` (Syntax).
+1. Code ändern → **`node tools/smoke.mjs`** (Pflicht, nicht optional).
+   `node --check` prüft nur Syntax und übersieht Ladefehler. Der Ladetest führt
+   platform/dblink/app/timeline in der Reihenfolge aus index.html aus und ruft die
+   zentralen Funktionen einmal auf.
 2. **`APP_VERSION` erhöhen und `CACHE` in `sw.js` angleichen** (siehe oben).
    Neue Shell-Dateien zusätzlich in `SHELL` eintragen.
 3. Commit deutsch, Was+Warum, Version in der ersten Zeile, Trailer
@@ -33,6 +36,17 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
    (Achtung: Groß-/Kleinschreibung des Grep-Strings exakt!).
 5. Nutzerhinweis: Ein Neuladen genügt (Netz-zuerst); danach steht die neue Nummer im
    ⚙-Dialog. Stimmt sie nicht, ist etwas mit dem Deploy oder dem SW nicht in Ordnung.
+
+## Fallstrick: `const` vor seiner Deklaration benutzen
+
+Alle vier Skripte sind **klassische Skripte** und teilen sich einen globalen Scope.
+Ein `const`, das oben in einer Datei benutzt und weiter unten deklariert wird, wirft
+beim LADEN — die Datei bricht ab. Funktionsdeklarationen sind aber schon gehoistet,
+also existieren die Funktionen weiterhin und stolpern erst beim Aufruf über ein nicht
+initialisiertes `const`. Man sieht dann einen Folgefehler an ganz anderer Stelle
+(v1.7.0: `RISK_ICON` rief `svgIcon` 150 Zeilen zu früh → sichtbar war
+„cannot access 'worst' before initialization“, und die App fand keine Verbindungen).
+**Immer `node tools/smoke.mjs` laufen lassen** — der Test nennt die echte Ursache.
 
 ## Fallstrick: Navigation über den URL-Anker
 
@@ -89,6 +103,7 @@ Was ansteht, steht in `TODO.md`.
 ## Dateien
 
 - `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
+- `tools/smoke.mjs` — Ladetest (gehört NICHT in die APK, steht nicht in der Allowlist)
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
 - `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
 - `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README
