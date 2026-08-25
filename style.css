@@ -461,7 +461,6 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 }
 /* gemeinsames Raster: Zeit | Punkt | Inhalt */
 .jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub {
-  position: relative;
   display: grid; grid-template-columns: 3.6rem 10px 1fr; align-items: start; gap: .55rem;
 }
 .jrn-stop { padding: .25rem 0; align-items: center; }
@@ -472,11 +471,12 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .jrn-time { font-weight: 700; }
 .jrn-dur { color: var(--muted); font-size: .8rem; padding-top: .15rem; }
 .jrn-dot {
-  position: absolute; left: var(--rail); top: 50%;
-  transform: translate(-50%, -50%);
+  justify-self: center; margin-top: .1rem;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--card); border: 2.5px solid var(--text); z-index: 2;
 }
+/* justify-self: center hält JEDE Punktgröße mittig in der 10px-Spalte —
+   damit liegen große und kleine Punkte auf derselben Achse wie die Linie. */
 .jrn-sub .jrn-dot { width: 8px; height: 8px; border-width: 2px; border-color: var(--muted); }
 .jrn-stop.passed .jrn-dot, .jrn-sub.passed .jrn-dot { border-color: var(--accent); background: var(--accent); }
 .jrn-stop.passed .jrn-name, .jrn-stop.passed .jrn-time,

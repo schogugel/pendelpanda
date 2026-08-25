@@ -1087,8 +1087,10 @@ function updateJourneyLine(jrn) {
   const rows = [...jrn.querySelectorAll(".jrn-stop, .jrn-sub")]
     .filter(r => r.offsetParent !== null);
   if (rows.length < 2) return;
-  // Punkte sitzen mittig in ihrer Zeile (top: 50%) → Zeilenmitte messen
-  const center = r => r.offsetTop + r.offsetHeight / 2;
+  const center = r => {
+    const dot = r.querySelector(".jrn-dot");
+    return dot ? dot.offsetTop + dot.offsetHeight / 2 : r.offsetTop + r.offsetHeight / 2;
+  };
   const y0 = center(rows[0]), y1 = center(rows[rows.length - 1]);
   const line = jrn.querySelector(".jrn-line");
   line.style.top = y0 + "px";
