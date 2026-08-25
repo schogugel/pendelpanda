@@ -84,8 +84,11 @@ Unterschiede ausschließlich über `PP.native` (platform.js), an vier Stellen:
   kostet 99 €/Jahr plus Apple-Notarisierung pro Build (AltStore PAL, nur EU/Japan/
   Brasilien) — für genau ein Feature. Die PWA läuft auf iOS ohnehin.
 
+Was ansteht, steht in `TODO.md`.
+
 ## Dateien
 
+- `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
 - `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
 - `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README
