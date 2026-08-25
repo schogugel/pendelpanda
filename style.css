@@ -445,9 +445,12 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .walkmeld .finequote { margin-top: .4rem; }
 /* Verbindungs-Detailansicht: durchgehende Linie, Zeitspalte links.
    Reihenfolge wie bei der Bahn: Halt zuerst, darunter die Fahrt dorthin. */
-.jrn { position: relative; font-size: .92rem; }
+/* --rail = x-Position der Linie. ALLE Punkte werden absolut daran gehängt,
+   statt sich auf Rasterspalten zu verlassen — dadurch sitzen sie unabhängig
+   von Verschachtelung, Schriftgröße und Zeilenart immer exakt auf der Linie. */
+.jrn { position: relative; font-size: .92rem; --rail: calc(3.6rem + .55rem + 5px); }
 .jrn-line, .jrn-progress {
-  position: absolute; left: calc(3.6rem + .55rem + 4px); width: 2px; border-radius: 1px;
+  position: absolute; left: calc(var(--rail) - 1px); width: 2px; border-radius: 1px;
 }
 .jrn-line { background: var(--border); }
 .jrn-progress { background: var(--accent); z-index: 1; }
@@ -458,6 +461,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 }
 /* gemeinsames Raster: Zeit | Punkt | Inhalt */
 .jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub {
+  position: relative;
   display: grid; grid-template-columns: 3.6rem 10px 1fr; align-items: start; gap: .55rem;
 }
 .jrn-stop { padding: .25rem 0; align-items: center; }
@@ -468,10 +472,12 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .jrn-time { font-weight: 700; }
 .jrn-dur { color: var(--muted); font-size: .8rem; padding-top: .15rem; }
 .jrn-dot {
-  width: 10px; height: 10px; border-radius: 50%; margin-top: .1rem;
+  position: absolute; left: var(--rail); top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px; height: 10px; border-radius: 50%;
   background: var(--card); border: 2.5px solid var(--text); z-index: 2;
 }
-.jrn-sub .jrn-dot { width: 8px; height: 8px; margin-left: 1px; border-width: 2px; border-color: var(--muted); }
+.jrn-sub .jrn-dot { width: 8px; height: 8px; border-width: 2px; border-color: var(--muted); }
 .jrn-stop.passed .jrn-dot, .jrn-sub.passed .jrn-dot { border-color: var(--accent); background: var(--accent); }
 .jrn-stop.passed .jrn-name, .jrn-stop.passed .jrn-time,
 .jrn-sub.passed .jrn-name, .jrn-sub.passed .jrn-time { opacity: .55; }
