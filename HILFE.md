@@ -95,8 +95,11 @@ Zeitpunkt oder Richtung änderst; erst eine neue Verbindung von der Startseite s
 sie zurück.
 
 ### Was die Balken zeigen
-- **Verspätung:** Soll-Zeit klein durchgestrichen, Ist-Zeit farbig (grün pünktlich,
-  orange bis 5 min, rot darüber).
+- **Zeitfarben zeigen die Datenlage:** **grau** = nur Sollfahrplan, es liegen (noch)
+  keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich; **rot** =
+  Verspätung, daneben die durchgestrichene Sollzeit. Steht in der Spaltenkachel „Plan“
+  statt „+0“, gibt es für diese Fahrt noch keine Live-Meldung — „+0“ hieße sonst
+  fälschlich „bestätigt pünktlich“.
 - **Ausfall:** betroffenes Teilstück schwarz-rot gestreift mit weißer Beschriftung,
   „Fällt aus“ in der Kopfzeile. Fahrende Abschnitte derselben Verbindung bleiben normal
   — so siehst du, wie weit du trotzdem kommst.

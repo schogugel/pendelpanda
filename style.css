@@ -281,6 +281,13 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .leg-line { font-weight: 600; }
 .leg-detail { color: var(--muted); grid-column: 2; }
 .leg .old-time { text-decoration: line-through; color: var(--muted); font-weight: 400; margin-right: .3em; }
+/* Zeitfarben nach Datenlage: grau = nur Sollfahrplan, grün = Echtzeit
+   bestätigt und pünktlich, rot = Echtzeit mit Verspätung */
+.t-plan { color: var(--muted); }
+.jrn .old-time { text-decoration: line-through; color: var(--muted); font-weight: 400; font-size: .92em; }
+.t-real.ok { color: var(--ok); }
+.t-real.bad { color: var(--bad); }
+.badge-plan { font-size: .78em; font-weight: 600; letter-spacing: .03em; }
 .track-changed { color: var(--bad); font-weight: 700; }
 .walkleg { color: var(--muted); font-size: .85rem; }
 

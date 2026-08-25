@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.4.6";
+const APP_VERSION = "1.5.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -955,7 +955,7 @@ function renderItineraries(itineraries) {
         <span class="trip-lines">${escapeHtml(lines)}</span>
         <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${!cancelled && transferWarning(it) ? ` · <span class="warn-tri">⚠</span>` : ""}</span>
       </span>
-      ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
+      ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin, legs[0].realTime)}`;
 
     const details = document.createElement("div");
     details.className = "trip-details";
@@ -983,11 +983,11 @@ function fillDetails(container, it) {
   jrn.className = "jrn";
   const parts = [`<div class="jrn-line"></div><div class="jrn-progress" hidden></div>`];
 
-  const stopRow = (p, kind) => {
+  const stopRow = (p, kind, rt) => {
     const t = kind === "dep" ? p.departure : p.arrival;
     const ts = kind === "dep" ? p.scheduledDeparture : p.scheduledArrival;
     return `<div class="jrn-stop" data-ts="${+new Date(t || ts)}">` +
-      `<span class="jrn-time">${timeWithDelay(ts, t)}</span>` +
+      `<span class="jrn-time">${timeWithDelay(ts, t, rt)}</span>` +
       `<span class="jrn-dot"></span>` +
       `<span class="jrn-name">${escapeHtml(p.name)}` +
       `<span class="jrn-track">${trackChip(p, kind === "dep" ? "Abfahrtsort" : "Ankunftsort")}</span></span></div>`;
@@ -1002,9 +1002,10 @@ function fillDetails(container, it) {
     if (l.wheelchairAccessible === true || l.wheelchairAccessible === "WHEELCHAIR_ACCESSIBLE") facts.push("♿ barrierefrei");
     if (l.bikesAllowed === true || l.bikesAllowed === "BIKES_ALLOWED") facts.push("🚲 Fahrradmitnahme");
     const stopLi = (s, gid) => {
+      const rt = l.realTime;
       const t = s.arrival || s.departure, ts = s.scheduledArrival || s.scheduledDeparture;
       return `<div class="jrn-sub" data-group="${gid}" data-ts="${+new Date(t || ts)}" hidden>` +
-        `<span class="jrn-time">${timeWithDelay(ts, t)}</span><span class="jrn-dot"></span>` +
+        `<span class="jrn-time">${timeWithDelay(ts, t, rt)}</span><span class="jrn-dot"></span>` +
         `<span class="jrn-name${s.cancelled ? " stop-cancelled" : ""}">${escapeHtml(s.name)}` +
         `${s.cancelled ? " · entfällt" : ""}</span></div>`;
     };
@@ -1067,9 +1068,9 @@ function fillDetails(container, it) {
   const postWalk = legs.slice(lastIdx + 1).find(l => l.mode === "WALK");
   if (preWalk) parts.push(edgeWalk(preWalk, "pre"));
   T.forEach((l, i) => {
-    parts.push(stopRow(l.from, "dep"));
+    parts.push(stopRow(l.from, "dep", l.realTime));
     parts.push(segBlock(l));
-    parts.push(stopRow(l.to, "arr"));
+    parts.push(stopRow(l.to, "arr", l.realTime));
     if (i < T.length - 1) parts.push(transferBlock(l, T[i + 1]));
   });
   if (postWalk) parts.push(edgeWalk(postWalk, "post"));
@@ -1243,15 +1244,26 @@ function diffMin(scheduledIso, actualIso) {
   return Math.round((new Date(actualIso) - new Date(scheduledIso)) / 60000);
 }
 function delayText(min) { return (min >= 0 ? "+" : "") + min; }
-function delayBadge(min) {
+function delayBadge(min, realTime) {
+  if (realTime === false) return `<span class="t-plan badge-plan">Plan</span>`;
   const cls = min <= 0 ? "ok" : min < 6 ? "warn" : "bad";
   return `<span class="delay ${cls}">${delayText(min)}</span>`;
 }
-function timeWithDelay(scheduledIso, actualIso) {
+/* Zeitdarstellung nach Datenlage:
+   - ohne Echtzeitdaten → neutral grau (es ist nur der Sollfahrplan)
+   - Echtzeit bestätigt und pünktlich → grün
+   - Echtzeit mit Verspätung → Sollzeit grau durchgestrichen, Ist-Zeit rot
+   Der Unterschied ist wichtig: „+0“ aus reinen Plandaten heißt nur
+   „nichts Gegenteiliges bekannt“, nicht „bestätigt pünktlich“. */
+function timeWithDelay(scheduledIso, actualIso, realTime) {
   const d = diffMin(scheduledIso, actualIso);
-  if (d === 0) return fmtTime(actualIso || scheduledIso);
-  const cls = d <= 0 ? "ok" : d < 6 ? "warn" : "bad";
-  return `<span class="old-time">${fmtTime(scheduledIso)}</span><span class="t-real ${cls}">${fmtTime(actualIso)}</span>`;
+  if (!realTime) return `<span class="t-plan">${fmtTime(actualIso || scheduledIso)}</span>`;
+  if (d !== 0) {
+    const cls = d > 0 ? "bad" : "ok";
+    return `<span class="old-time">${fmtTime(scheduledIso)}</span>` +
+      `<span class="t-real ${cls}">${fmtTime(actualIso)}</span>`;
+  }
+  return `<span class="t-real ok">${fmtTime(actualIso || scheduledIso)}</span>`;
 }
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

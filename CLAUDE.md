@@ -98,6 +98,10 @@ drumherum noch existieren, z. B.:
   KEIN Ausfall des Anschlusses → als „⚠ Umstieg prüfen“ zeigen (`transferWarning`),
   nie als Ausfall. Echte Ausfälle: nur Transit-Leg-Flags (`cancelledTransitLegs`).
 - Kein Alert-/Meldungstext in den Daten (Spec+Live geprüft) — nur strukturierte Flags.
+- **`leg.realTime` unterscheidet Soll- von bestätigten Zeiten.** Nur wenn es `true` ist,
+  sind die Zeiten live bestätigt; sonst ist „+0“ bedeutungslos (nur Fahrplan). Deshalb:
+  grau ohne Echtzeit, grün bestätigt-pünktlich, rot bei Verspätung; das Abzeichen in der
+  Spaltenkachel zeigt dann „Plan“ statt „+0“. Zwischenhalte erben den Wert ihrer Fahrt.
 - `withScheduledSkippedStops=true` immer mitschicken (übersprungene Halte).
 - Tests per curl/node brauchen einen **eigenen User-Agent** — generische werden geblockt
   (Browser-PWA unbetroffen, Origin identifiziert die App).

@@ -462,7 +462,7 @@ function tlColumn(it, left, isDominated = false) {
   const head = document.createElement("button");
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
   head.innerHTML =
-    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${warn ? ` <span class="warn-tri">⚠</span>` : ""}</span>` +
+    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin, legs[0].realTime)}${warn ? ` <span class="warn-tri">⚠</span>` : ""}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
     `<small>${it.transfers} Umst.</small>`;
   head.addEventListener("click", () => {
