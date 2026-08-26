@@ -516,6 +516,30 @@ body[data-view="results"][data-mode="graph"] #timeline {
   text-align: center; font-size: .72rem; color: var(--muted);
   font-variant-numeric: tabular-nums; pointer-events: none;
 }
+/* Suchanzeige: Während gesucht wird, sind Liste UND Grafik ausgeblendet — es
+   soll lieber kurz nichts zu sehen sein als eine veraltete Verbindung. Der
+   Balken läuft ohne Prozentangabe: Wie lange es dauert, hängt an drei Anfragen
+   an einen fremden Dienst; eine ausgedachte Zahl wäre gelogen. Der TEXT nennt
+   dafür den Schritt, der gerade läuft. */
+.searching { margin: 1.4rem 0; }
+.searchbar {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.searchbar i {
+  display: block; height: 100%; width: 40%; border-radius: 999px;
+  background: var(--accent);
+  animation: searchslide 1.15s ease-in-out infinite;
+}
+@keyframes searchslide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .searchbar i { animation-duration: 2.4s; }
+}
+.searching .status { text-align: center; margin-top: .6rem; }
+
 /* Nachlade-Spinner am Rand (nur noch Fallback bei sehr schnellem Wischen) */
 .tl-edgeload {
   position: absolute; top: 50%; left: 10px; transform: translateY(-50%);

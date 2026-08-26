@@ -142,6 +142,15 @@ Was ansteht, steht in `TODO.md`.
   („was gäbe es sonst noch?“).
 - Verkehrsmittel-Filterung der **Anzeige** bleibt clientseitig (`hiddenCats` +
   `productClass`); die gefilterte Anfrage beschafft nur zusätzliche Kandidaten.
+- **Während einer frischen Suche ist ALLES Alte weg** (`showSearching`): Liste und
+  Grafik werden ausgeblendet und geleert, Hinweiszeilen zurückgesetzt. Vorher blieb der
+  vorherige Stand stehen, bis der neue kam — beim Wechsel zwischen „Jetzt“ und „Letzte“
+  sah man kurz die Verbindungen der anderen Ansicht. Lieber einen Moment nichts als
+  etwas Falsches. `renderResults` blendet die Anzeige wieder aus, der Fehlerzweig
+  ebenfalls (sonst läuft der Balken unter der Fehlermeldung weiter).
+- Der Suchbalken läuft **ohne Prozentangabe** — die Dauer hängt an bis zu drei Anfragen
+  an einen fremden Dienst, eine ausgedachte Zahl wäre gelogen. Stattdessen nennt der
+  Text den laufenden Schritt.
 - **Beschaffung und Darstellung sind getrennt:** `fetchPage()` holt und mischt nur
   Daten, `runPlan()` orchestriert (inkl. Bootstrap/„Letzte“-Schleife) und rendert
   **genau einmal**. Nie wieder rekursiv `runPlan` aus `runPlan` — das mehrfache

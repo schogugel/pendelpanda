@@ -116,6 +116,11 @@ wäre ein pauschaler Aufschlag verschenkte Zeit.
 Es fallen dadurch keine Verbindungen weg: Der Fahrplanrechner sucht andere, die dir
 Zeit lassen.
 
+### Während gesucht wird
+Ein laufender Balken und eine Zeile darunter zeigen, was gerade passiert — Verbindungen
+suchen, Umgebung prüfen, letzte Verbindung eingrenzen. Solange er läuft, ist die Ansicht
+leer: Lieber kurz nichts sehen als eine veraltete Verbindung aus der vorherigen Suche.
+
 ### Zeitpunkt wählen
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen
   stehen links daneben).

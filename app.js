@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.16.1";
+const APP_VERSION = "1.17.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -769,12 +769,24 @@ function lastFocusKey(visible) {
 }
 
 /* Orchestrierung: beschafft (ggf. mehrere Seiten) und rendert GENAU EINMAL. */
+/* Während einer frischen Suche ist ALLES Alte weg — Liste und Grafik werden
+   ausgeblendet und die Grafik geleert. Vorher blieb der vorherige Stand stehen,
+   bis der neue kam: Beim Wechsel zwischen „Jetzt“ und „Letzte“ sah man kurz die
+   Verbindungen der anderen Ansicht. Lieber einen Moment nichts als etwas
+   Falsches. */
+function showSearching(text) {
+  byId("searching-text").textContent = text;
+  byId("searching").hidden = false;
+  byId("timeline-wrap").hidden = true;
+  resultsList.hidden = true;
+  byId("timeline").innerHTML = "";
+  resultsList.innerHTML = "";
+  byId("last-note").hidden = true;
+  byId("around-note").hidden = true;
+}
+
 async function runPlan(direction = null, limit = 10) {
-  if (!direction) {
-    const loading = `<p class="status">Suche Verbindungen …</p>`;
-    resultsList.innerHTML = loading;
-    byId("timeline").innerHTML = loading;
-  }
+  if (!direction) showSearching("Verbindungen suchen …");
   try {
     const { params } = await fetchPage(direction, limit);
     if (!direction) {
@@ -782,6 +794,7 @@ async function runPlan(direction = null, limit = 10) {
       // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
       if (!app.itins.length && !app.aroundTried) {
         app.aroundTried = true;
+        showSearching("Nichts am Halt selbst – Umgebung prüfen …");
         const around = await planAround(params);
         const fresh2 = (around?.itineraries || []).filter(it => transitLegs(it).length);
         if (fresh2.length) {
@@ -793,6 +806,10 @@ async function runPlan(direction = null, limit = 10) {
           app.nextPageCursor = around.nextPageCursor || null;
         }
       }
+      if (app.itins.length) {
+        showSearching(app.searchTime.kind === "letzte"
+          ? "Letzte Verbindung eingrenzen …" : "Umgebung laden …");
+      }
       await loadContext();
     }
     renderResults();
@@ -800,6 +817,10 @@ async function runPlan(direction = null, limit = 10) {
   } catch (e) {
     if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
+      // Suchanzeige beenden, sonst läuft der Balken unter der Fehlermeldung weiter
+      byId("searching").hidden = true;
+      resultsList.hidden = app.viewMode === "graph";
+      byId("timeline-wrap").hidden = app.viewMode !== "graph";
       resultsList.innerHTML = msg;
       byId("timeline").innerHTML = msg;
     }
@@ -1065,6 +1086,7 @@ function renderLegend() {
 }
 
 function renderResults() {
+  byId("searching").hidden = true;   // ab hier steht echter Inhalt
   const graph = app.viewMode === "graph";
   // Die Grafikansicht ist bildschirmfüllend und darf nicht scrollen; das
   // steuert CSS über dieses Attribut (die Liste scrollt dagegen normal).
