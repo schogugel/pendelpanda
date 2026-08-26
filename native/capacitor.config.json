@@ -4,7 +4,8 @@
   "webDir": "www",
   "android": {
     "backgroundColor": "#0a0e18",
-    "allowMixedContent": false
+    "allowMixedContent": false,
+    "appendUserAgent": "PendelPanda (+https://schogugel.github.io/pendelpanda/)"
   },
   "plugins": {
     "StatusBar": {

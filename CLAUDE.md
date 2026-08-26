@@ -193,6 +193,14 @@ Was ansteht, steht in `TODO.md`.
   Gemessen an vier Strecken wächst der kürzeste Umstieg über die Stufen von 2–4 auf
   6–18, 11–18 und 18–22 min, bei unverändert 10 Ergebnissen je Strecke.
 - MOTIS kennt **keine Obergrenze** für Wartezeiten — die muss clientseitig bleiben.
+- **Transitous-Nutzungsbedingungen einhalten** (transitous.org/api):
+  1. Sichtbarer Link auf **transitous.org/sources** zur Nennung der Datenquellen — steht
+     im „Daten & Datenschutz“-Dialog und in der Hilfe. Nicht entfernen.
+  2. Anfragen sollen die App erkennbar machen (Name, Version, Kontakt). Im nativen Build
+     über `appendUserAgent` in der Capacitor-Konfiguration; im Browser lässt sich der
+     User-Agent nicht setzen, dort identifiziert der Origin die App.
+  3. „Not intended for commercial or for-profit purposes“ — bei Spendenlink oder
+     Ähnlichem vorher bei Transitous nachfragen, sie bitten ausdrücklich darum.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
 ## Transitous/MOTIS-Gotchas (teuer erarbeitet)

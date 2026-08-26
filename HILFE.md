@@ -244,5 +244,6 @@ Website-Daten entfernt sie. Vorbeugen: Übertragungs-Link aufheben.
 ## Datenquellen
 
 Fahrplan und Echtzeit: [Transitous](https://transitous.org) (offene DELFI/GTFS-Daten).
+Die vollständige Liste der Datenquellen samt Lizenzen: [transitous.org/sources](https://transitous.org/sources/).
 Weiterleitungen zur Buchung: bahn.de. PendelPanda speichert nichts auf fremden Servern —
 Kacheln und Einstellungen bleiben auf deinem Gerät.
