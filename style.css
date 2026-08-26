@@ -46,10 +46,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 [hidden] { display: none !important; }
-/* Kein Überziehen/Gummiband: Die App ist kein Dokument, das man weiterblättert.
-   Ohne das ließ sich die Startseite ein Stück verschieben, obwohl es gar nichts
-   zu scrollen gab. */
-html { -webkit-text-size-adjust: 100%; color-scheme: light dark; overscroll-behavior: none; }
+html { -webkit-text-size-adjust: 100%; color-scheme: light dark; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
@@ -61,12 +58,15 @@ body {
      ohne das hier läge die Überschrift unter den Statusleisten-Symbolen. */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
-  overscroll-behavior: none;
 }
-/* Passt die Abfahrtstafel ohnehin ganz aufs Bild, wird sie festgestellt —
-   gesetzt wird die Klasse erst NACH einer Messung (siehe lockGridScroll),
-   damit auf kleinen Geräten nichts abgeschnitten wird. */
-body[data-view="grid"].lockscroll { overflow: hidden; }
+
+/* Unter der letzten Kachelreihe soll NICHTS mehr kommen. Die 2rem Fußraum der
+   allgemeinen Ansicht sind für Ergebnislisten gedacht; auf der Startseite waren
+   sie zusammen mit einem seit v1.8.0 leeren Fußbereich rund 50 px Leerraum, über
+   den man scrollen konnte — die Überschrift wanderte dabei aus dem Bild.
+   Bewusst nur der Leerraum weg, KEINE Scroll-Sperre: Die hatte im Browser auch
+   das Ziehen zum Aktualisieren mitgenommen. */
+body[data-view="grid"] #view-grid { padding-bottom: .5rem; }
 
 .topbar {
   display: flex; align-items: center; gap: .6rem;
@@ -218,7 +218,6 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   outline: 2px solid var(--accent);
 }
 
-.footlinks { margin-top: 1.2rem; text-align: center; color: var(--muted); font-size: .9rem; }
 .linklike { background: none; border: none; color: var(--accent); font: inherit; font-size: .9rem; cursor: pointer; text-decoration: underline; padding: .4rem .2rem; }
 
 /* ---------- Kopfzeile der Unteransichten ---------- */

@@ -347,9 +347,12 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie
   Platz gleichmäßig, deshalb der doppelte Abzug. Ohne das schob sich der Dialogtext unter
   die Statusleisten-Symbole.
-- **Kein Gummiband-Scrollen** (`overscroll-behavior: none`). Die Abfahrtstafel wird
-  zusätzlich festgestellt (`.lockscroll`), aber erst NACH einer Messung — blind sperren
-  würde auf kleinen Geräten die untersten Kacheln abschneiden.
+- **Scrollen NICHT sperren.** `overscroll-behavior: none` am Dokument nimmt im Browser
+  auch das Ziehen zum Aktualisieren mit — das wurde einmal versucht und war falsch.
+  Soll unter einer Ansicht nichts mehr kommen, gehört der LEERRAUM weg, nicht das
+  Scrollen: Auf der Startseite waren es 2rem Fußraum plus ein seit v1.8.0 leerer
+  `<footer>`. `overscroll-behavior: contain` an der Grafik und an Dialogen ist etwas
+  anderes und bleibt — es verhindert nur das Durchreichen an die Seite dahinter.
 - **Systemzonen oben UND unten freihalten** (`env(safe-area-inset-*)` am `body`):
   Android zeichnet ab Version 15 randlos, die APK legte die Überschrift sonst unter die
   Statusleisten-Symbole. Im Browser und in der installierten PWA ist der Wert 0.

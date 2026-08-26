@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.11.0";
+const APP_VERSION = "1.11.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -135,27 +135,11 @@ document.querySelectorAll("[data-back]").forEach(b => b.addEventListener("click"
 
 const gridEl = byId("buttongrid");
 
-/* Feststellen statt scrollen lassen — aber nur, wenn wirklich alles ins Bild
-   passt. Blind zu sperren würde auf kleinen Geräten die untersten Kacheln
-   abschneiden, deshalb wird nachgemessen. */
-function lockGridScroll() {
-  const fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
-  document.body.classList.toggle("lockscroll", fits && slots.length <= BASE_SLOTS);
-}
-window.addEventListener("resize", () => {
-  if (document.body.dataset.view === "grid") {
-    document.body.classList.remove("lockscroll"); // erst freigeben, dann neu messen
-    requestAnimationFrame(lockGridScroll);
-  }
-});
-
 function renderGrid() {
   gridEl.innerHTML = "";
   // Bei >14 Kacheln muss das Grid scrollbar sein: „Nur Tippen“ deaktiviert das
   // Wisch-Verbinden komplett; „Hybrid“ deaktiviert es, sobald ein Start gewählt
   // ist (dann scrollt Wischen frei zum Ziel). Bearbeiten-Modus bleibt unberührt.
-  document.body.classList.remove("lockscroll");
-  requestAnimationFrame(lockGridScroll);
   const scrollGrid = slots.length > BASE_SLOTS;
   const dragOff = !app.editMode && scrollGrid &&
     (settings.connectMode === "tap" || app.selectedStart !== null);
