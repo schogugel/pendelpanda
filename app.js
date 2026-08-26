@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.9.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1334,21 +1334,63 @@ function dbLink(fromName, toName, depIso, arrIso) {
 
 /* ---------------- Konfiguration übertragen ---------------- */
 
+/* Der Link muss auf die ÖFFENTLICHE Adresse zeigen, nicht auf die des
+   laufenden Geräts: In der APK liegt die Seite unter localhost, ein daraus
+   gebauter Link wäre auf jedem anderen Gerät wertlos. */
+const WEB_BASE = "https://schogugel.github.io/pendelpanda/";
+
+function configLink() {
+  // v2: Kacheln UND Einstellungen wandern gemeinsam
+  const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
+                    fill: settings.fill, connect: settings.connectMode };
+  const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const base = PP.native ? WEB_BASE : `${location.origin}${location.pathname}`;
+  return `${base}#cfg=${cfg}`;
+}
+
 byId("btn-share-config").addEventListener("click", () => {
-  if (!slots.filter(Boolean).length) { alert("Noch keine Buttons belegt."); return; }
   // Unterseite der Einstellungen: Einstellungen schließen, danach zurückkehren
   if (byId("settings-dialog").open) {
     app.shareFromSettings = true;
     byId("settings-dialog").close();
   }
-  // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
-                    fill: settings.fill, connect: settings.connectMode };
-  const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
-  byId("share-native").hidden = !navigator.share;
+  /* Der Dialog dient auch dem EMPFANGEN — er muss sich deshalb auch dann
+     öffnen lassen, wenn hier noch nichts zu verschenken ist. Früher brach er
+     mit „Noch keine Buttons belegt“ ab; genau auf einem frischen Gerät will
+     man ihn aber am dringendsten. */
+  const has = slots.filter(Boolean).length > 0;
+  byId("share-url").value = has ? configLink() : "";
+  byId("share-url").placeholder = has ? "" : "Noch keine Kacheln belegt";
+  byId("share-copy").disabled = !has;
   byId("share-copy").textContent = "Link kopieren";
+  byId("share-native").hidden = !navigator.share || !has;
+  byId("share-in").value = "";
+  byId("share-msg").textContent = "";
   byId("share-dialog").showModal();
+});
+
+/* Eingabe großzügig auslegen: ganze URL, nur der Anker, `cfg=…` oder der
+   nackte Code. Wer etwas zwischen zwei Geräten hin- und herkopiert, verliert
+   schnell mal ein Stück — daran soll es nicht scheitern. */
+function cfgFromInput(raw) {
+  const t = String(raw || "").trim();
+  if (!t) return null;
+  const m = t.match(/[#?&]cfg=([^&\s]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  if (/^cfg=/.test(t)) return decodeURIComponent(t.slice(4));
+  return t.replace(/\s+/g, "");
+}
+
+byId("share-apply").addEventListener("click", () => {
+  const msg = byId("share-msg");
+  const cfg = cfgFromInput(byId("share-in").value);
+  if (!cfg) { msg.textContent = "Bitte erst den Link einfügen."; return; }
+  const res = applyConfig(cfg, { ask: true });
+  msg.textContent = res.ok ? res.text : `Das hat nicht geklappt: ${res.text}`;
+  if (res.ok) {
+    byId("share-in").value = "";
+    renderGrid();
+  }
 });
 
 byId("share-copy").addEventListener("click", async () => {
@@ -1372,27 +1414,41 @@ byId("share-dialog").addEventListener("close", () => {
   byId("settings-dialog").showModal();
 });
 
+/* EINE Stelle, die eine Konfiguration übernimmt — egal ob sie aus der Adresse
+   des Browsers kommt oder im Dialog eingefügt wurde. Getrennte Wege hätten
+   über kurz oder lang unterschiedlich viel übernommen. */
+function applyConfig(cfg, { ask = false } = {}) {
+  let imported;
+  try {
+    imported = JSON.parse(decodeURIComponent(escape(atob(cfg))));
+  } catch {
+    return { ok: false, text: "Der Link ist unvollständig oder beschädigt." };
+  }
+  // v1 = nur das Kachel-Array, v2 = {v, slots, show, …}
+  const newSlots = Array.isArray(imported) ? imported : imported.slots;
+  if (!Array.isArray(newSlots)) return { ok: false, text: "Darin steckt keine Konfiguration." };
+  if (ask && !confirm("Einstellungen übernehmen? Kacheln und Einstellungen dieses Geräts werden ersetzt.")) {
+    return { ok: false, text: "Abgebrochen." };
+  }
+  slots = newSlots.slice(0, MAX_SLOTS);
+  while (slots.length < BASE_SLOTS) slots.push(null);
+  saveSlots();
+  if (imported.show) {
+    for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
+    const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
+    if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
+    if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
+    if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
+    saveSettings();
+  }
+  const n = slots.filter(Boolean).length;
+  return { ok: true, text: `✓ ${n} Kachel${n === 1 ? "" : "n"}${imported.show ? " samt Einstellungen" : ""} übernommen.` };
+}
+
 function maybeImportConfig() {
   if (!location.hash.startsWith("#cfg=")) return;
-  try {
-    const imported = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(5)))));
-    // v1 = nur Button-Array, v2 = {v, slots, show}
-    const newSlots = Array.isArray(imported) ? imported : imported.slots;
-    if (Array.isArray(newSlots) && confirm("Buttons übernehmen? Die im Link gespeicherte Konfiguration ersetzt deine aktuelle.")) {
-      slots = newSlots.slice(0, MAX_SLOTS);
-      while (slots.length < BASE_SLOTS) slots.push(null);
-      saveSlots();
-      if (imported.show) {
-        for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
-        const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
-        if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
-        if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
-        if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
-        saveSettings();
-      }
-      alert(`${slots.filter(Boolean).length} Buttons${imported.show ? " samt Einstellungen" : ""} übernommen.`);
-    }
-  } catch { alert("Der Übertragungslink ist leider ungültig."); }
+  const res = applyConfig(location.hash.slice(5), { ask: true });
+  if (res.text && res.text !== "Abgebrochen.") alert(res.text);
   history.replaceState(null, "", location.pathname);
 }
 
@@ -1440,6 +1496,7 @@ function escapeHtml(s) {
 
 // Hilfe liegt in den Einstellungen; der Dialog legt sich über den offenen ⚙-Dialog
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
+byId("btn-legal").addEventListener("click", () => byId("legal-dialog").showModal());
 byId("app-version").textContent = `v${APP_VERSION} · ${PP.kind}`;
 
 /* --- Einstellungs-Dialog --- */

@@ -54,11 +54,23 @@ wählen → optional eine **eigene Beschriftung** vergeben („Zuhause“, „Ar
   Feldern; Lücken bleiben erhalten).
 - Abkürzung ohne Bearbeiten-Modus: Kachel **lange gedrückt halten**.
 
-### Buttons auf ein anderes Gerät übertragen
-**⚙ → „Buttons übertragen“** erzeugt einen Link, der deine komplette Konfiguration
-enthält — Kacheln, Reihenfolge, Beschriftungen und alle Einstellungen. Link kopieren
-oder teilen, auf dem anderen Gerät öffnen, Frage bestätigen. Es ist kein Server
-beteiligt: Die Daten stecken im Link selbst.
+### Einstellungen auf ein anderes Gerät übertragen
+**⚙ → „Einstellungen übertragen“** hat zwei Hälften.
+
+**Von hier weggeben:** Der Link enthält deine komplette Konfiguration — Kacheln,
+Reihenfolge, Beschriftungen und alle Einstellungen. Kopieren oder teilen.
+
+**Hierher übernehmen:** Den Link vom anderen Gerät in das Feld einfügen und
+„Übernehmen“ antippen. Das ist der Weg **in die App hinein**, wo es keine Adresszeile
+gibt, in die man einen Link tippen könnte. Es funktioniert in beide Richtungen: Web zu
+App, App zu Web, Gerät zu Gerät.
+
+Im Browser geht es weiterhin auch ohne das Feld — Link einfach öffnen und die Frage
+bestätigen. Eingefügt werden darf großzügig: ganze Adresse, nur der Teil ab `#cfg=`
+oder nur der Code; Zeilenumbrüche aus einem Messenger stören nicht.
+
+Es ist kein Server beteiligt, die Daten stecken im Link selbst. Genau deshalb gilt
+aber: Wer den Link hat, sieht deine Bahnhöfe.
 
 ---
 

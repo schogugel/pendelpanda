@@ -146,13 +146,17 @@
   </section>
 
   <section class="setgroup">
-    <h3>Übertragen &amp; Hilfe</h3>
+    <h3>Übertragen, Hilfe &amp; Rechtliches</h3>
     <button id="btn-share-config" class="menurow">
-      <span>Buttons übertragen<small>Kacheln und Einstellungen auf ein anderes Gerät</small></span>
+      <span>Einstellungen übertragen<small>Kacheln und Einstellungen zwischen Web und App</small></span>
       <span class="menurow-arrow">›</span>
     </button>
     <button id="btn-help" class="menurow">
       <span>Hilfe<small>Kurzanleitung zu Kacheln, Grafik und Zeitleiste</small></span>
+      <span class="menurow-arrow">›</span>
+    </button>
+    <button id="btn-legal" class="menurow">
+      <span>Daten &amp; Datenschutz<small>Was die App speichert und wen sie kontaktiert</small></span>
       <span class="menurow-arrow">›</span>
     </button>
   </section>
@@ -172,16 +176,58 @@
 
 <!-- BUTTONS ÜBERTRAGEN -->
 <dialog id="share-dialog">
-  <h2>Buttons übertragen</h2>
-  <ol class="steps">
-    <li>Diesen Link kopieren oder teilen (z.&nbsp;B. per Messenger an dich selbst schicken).</li>
-    <li>Den Link auf dem anderen Gerät im Browser öffnen.</li>
-    <li>Dort die Frage „Buttons übernehmen?“ bestätigen – fertig.</li>
-  </ol>
-  <input id="share-url" readonly aria-label="Übertragungslink">
-  <button id="share-copy" class="widebtn">Link kopieren</button>
-  <button id="share-native" class="widebtn" hidden>Teilen …</button>
+  <h2>Einstellungen übertragen</h2>
+
+  <section class="setgroup">
+    <h3>Von hier weggeben</h3>
+    <p class="hint">Enthält deine Kacheln und alle Einstellungen.</p>
+    <input id="share-url" readonly aria-label="Übertragungslink">
+    <button id="share-copy" class="widebtn">Link kopieren</button>
+    <button id="share-native" class="widebtn" hidden>Teilen …</button>
+    <p class="finequote">Im Browser genügt es, den Link auf dem anderen Gerät zu öffnen.
+      Für die App kopierst du ihn und fügst ihn dort unten ein.</p>
+  </section>
+
+  <section class="setgroup">
+    <h3>Hierher übernehmen</h3>
+    <p class="hint">Link vom anderen Gerät einfügen:</p>
+    <textarea id="share-in" rows="3" spellcheck="false" autocapitalize="off"
+      placeholder="https://…#cfg=… oder nur den Code einfügen"
+      aria-label="Übertragungslink einfügen"></textarea>
+    <button id="share-apply" class="widebtn">Übernehmen</button>
+    <p class="finequote" id="share-msg" role="status"></p>
+  </section>
+
   <form method="dialog"><button class="linklike">‹ Zurück</button></form>
+</dialog>
+
+<!-- DATEN & DATENSCHUTZ -->
+<dialog id="legal-dialog">
+  <h2>Daten &amp; Datenschutz</h2>
+  <p class="hint">Kurz gesagt: PendelPanda hat keinen eigenen Server und sammelt nichts.</p>
+  <ul>
+    <li><strong>Alles bleibt auf dem Gerät.</strong> Deine Kacheln und Einstellungen liegen
+      ausschließlich im Speicher deines Browsers bzw. deiner App. Es gibt keine Konten,
+      keine Anmeldung, keine Analyse, kein Tracking und keine Werbung.</li>
+    <li><strong>Fahrplandaten</strong> holt dein Gerät direkt bei
+      <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a>
+      (freies Projekt, DELFI-/GTFS-Daten). Dabei erfährt Transitous — wie bei jedem
+      Seitenaufruf — deine IP-Adresse und welche Halte du abfragst. Anders geht es nicht:
+      Ohne Anfrage keine Abfahrtszeiten.</li>
+    <li><strong>„Bei der DB öffnen“.</strong> Im Browser wird nur ein Link zu bahn.de
+      geöffnet. In der Android-App fragt dein Gerät zusätzlich direkt bei der Bahn nach,
+      um den Link auf genau deine Verbindung zu setzen — auch das ohne Umweg über einen
+      fremden Server.</li>
+    <li><strong>Karten-Symbole</strong> öffnen Google Maps. Der Kontakt entsteht erst,
+      wenn du eines antippst.</li>
+    <li><strong>Die Web-Version</strong> liegt auf GitHub Pages. GitHub verarbeitet beim
+      Abruf technische Zugriffsdaten (u.&nbsp;a. die IP-Adresse). Die Android-App lädt
+      nichts nach und kommt ohne das aus.</li>
+    <li><strong>Der Übertragungslink</strong> enthält deine Kacheln und Einstellungen im
+      Klartext. Wer ihn bekommt, sieht deine Bahnhöfe — schick ihn nur an dich selbst oder
+      an Menschen, denen du vertraust.</li>
+  </ul>
+  <form method="dialog"><button class="widebtn">Alles klar</button></form>
 </dialog>
 
 <!-- HILFE -->

@@ -687,6 +687,16 @@ dialog form { margin-top: 1rem; }
 .rangerow output { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
 .rangerow input[type="range"] { width: 100%; margin: .45rem 0 .1rem; accent-color: var(--accent); }
 .rangerow .finequote { margin-top: .1rem; }
+/* Eingabefeld für einen eingefügten Übertragungslink — der ist lang, deshalb
+   mehrzeilig und umbrechend statt einer Zeile, in der man nichts wiedererkennt. */
+#share-in {
+  width: 100%; font: inherit; font-size: .85rem; padding: .55rem .6rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text);
+  resize: vertical; word-break: break-all;
+}
+#share-msg:empty { display: none; }
+.widebtn[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* Gleis + Karten-Pin als eine Einheit (Koordinaten sind bahnsteiggenau) */
 .trackchip {

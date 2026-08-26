@@ -302,8 +302,16 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   unter belegte Kacheln.
 - Edit-Flow: Bearbeiten = nur Label + Löschen (Stationswechsel = löschen+neu);
   Neuanlage zweiphasig (Suche → `pendingStation` → Label optional → Speichern).
-- Übertragungs-Link `#cfg=` = Base64-JSON `{v:2, slots, show, cols, connect}`;
-  v1 (nur Array) bleibt lesbar. Alles Personalisierte muss hier hinein.
+- Übertragungs-Link `#cfg=` = Base64-JSON `{v:2, slots, show, cols, fill, connect}`;
+  v1 (nur Array) bleibt lesbar. **Alles Personalisierte muss hier hinein** — und in
+  `applyConfig()`, der EINEN Stelle, die eine Konfiguration übernimmt (Adresszeile wie
+  eingefügter Link). Getrennte Importwege hätten irgendwann unterschiedlich viel übernommen.
+- Der Link zeigt auf `WEB_BASE`, wenn nativ: In der APK liegt die Seite unter localhost,
+  ein daraus gebauter Link wäre anderswo wertlos. Die App braucht das Einfügefeld, weil
+  sie keine Adresszeile hat — `cfgFromInput()` nimmt ganze URL, Anker, `cfg=…` oder den
+  nackten Code, auch mit Umbrüchen (8 Eingabeformen geprüft).
+- Der Übertragungsdialog muss sich auch OHNE belegte Kacheln öffnen lassen — auf einem
+  frischen Gerät will man ihn zum Empfangen.
 
 ## Design-Tokens & Stil
 
