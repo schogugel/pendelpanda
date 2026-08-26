@@ -418,20 +418,26 @@ Was ansteht, steht in `TODO.md`.
 - **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
   Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
   nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
-- **Jede ANKUNFTSSUCHE blickt ans Ende des Zeitraums**, nicht an den Anfang
-  (`arrivalDeadline()`): „Letzte“ mit Betriebsschluss als Grenze, die Datumsauswahl mit
-  „an“ mit dem gewählten Zeitpunkt. Beide teilen sich Fokuswahl und Kontext-Nachladen.
-  Vorher galt das nur für „Letzte“, und eine Ankunftssuche zeigte die FRÜHESTE
-  zurückgelieferte Verbindung — bei „Ankunft bis 12:00“ also eine, die um 20:55 des
-  Vortages ankam, rund 15 Stunden daneben. Die Daten waren dabei immer richtig, nur die
-  Blickrichtung war falsch.
-- **Der Fokus wird VOR dem Nachladen des Kontexts festgelegt** (`lastFocusKey` in
+- **Jede gewählte Uhrzeit hat EINE Verbindung als Antwort** — die wird angesteuert
+  (zweite Spalte) und gestrichelt markiert. Welche das ist, hängt an der Richtung:
+  `arrivalDeadline()` bei „an“ (späteste, die es noch schafft — „Letzte“ ist derselbe
+  Fall mit Betriebsschluss als Grenze), `departureTarget()` bei „ab“ (erste ab dem
+  gewählten Zeitpunkt). `hasFocus()` bündelt beides, `findFocusItin()` wählt aus.
+  **„Jetzt“ hat bewusst KEINE Markierung**: Dort verschiebt sich die Antwort mit jeder
+  Minute, eine eingefrorene Markierung zeigte bald auf einen abgefahrenen Zug — diese
+  Aufgabe hat die Jetzt-Linie, und die läuft mit.
+  Beide Richtungen hatten denselben Fehler, nur verschieden groß: Die Ansicht begann an
+  der FRÜHESTEN geladenen Verbindung. Bei „Ankunft bis 12:00“ war das eine, die um 20:55
+  des Vortages ankam (~15 h daneben); bei „Abfahrt ab 14:00“ eine um 13:05 — denn
+  `loadContext` lädt zwei Verbindungen DAVOR als Kontext, und genau die standen dann
+  vorne. Die Daten waren immer richtig, nur die Blickrichtung war falsch.
+- **Der Fokus wird VOR dem Nachladen des Kontexts festgelegt** (`searchFocusKey` in
   `loadContext`). Danach zu bestimmen ist die Falle: Das Nachladen bringt spätere
   Verbindungen, die nächste Bestimmung nimmt eine davon, und dahinter ist wieder
   nichts — die Markierung rutscht zurück in die letzte Spalte. Inhaltlich ist das
   Einfrieren korrekt, weil die Ankunftssuche die spätesten Verbindungen VOR
   Betriebsschluss schon vollständig geliefert hat; was danach kommt, ist Kontext.
-- **Die „letzte Verbindung“ wird je Suche EINMAL bestimmt** (`app.lastFocusKey`) und
+- **Die gesuchte Verbindung wird je Suche EINMAL bestimmt** (`app.focusKey`) und
   festgehalten. Vorher rechnete jeder Neuaufbau sie neu, und weil der Pool zwischendurch
   wächst, kam dabei mal eine andere heraus — die Markierung sprang, mal zweite, mal
   letzte Spalte. Neu bestimmt wird nur, wenn die gemerkte Verbindung nicht mehr sichtbar

@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.26.0";
+const APP_VERSION = "1.27.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -525,7 +525,7 @@ function startSearch(from, to) {
   if (app.planAbort) app.planAbort.abort();
   app.planAbort = new AbortController();
   app.searchTag = (app.searchTag || 0) + 1;
-  app.lastFocusKey = null;   // die „letzte Verbindung“ wird je Suche EINMAL bestimmt
+  app.focusKey = null;       // die gesuchte Verbindung wird je Suche EINMAL bestimmt
   app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
@@ -830,7 +830,7 @@ async function refillLoadedRange() {
 async function loadContext() {
   if (!app.itins.length) return;
   if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
-  if (arrivalDeadline() === null) return;
+  if (!hasFocus()) return;
 
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
 
@@ -841,7 +841,7 @@ async function loadContext() {
      Ankunftssuche die spätesten Verbindungen VOR Betriebsschluss bereits
      vollständig geliefert hat; was danach kommt, kommt erst am nächsten Morgen
      und ist nur Kontext. Kostet keine zusätzliche Anfrage. */
-  const key = lastFocusKey(visibleItins());
+  const key = searchFocusKey(visibleItins());
   if (key === "end") return;
 
   /* Höchstens zwei Runden, und die zweite nur, wenn die erste nichts Sichtbares
@@ -870,17 +870,45 @@ function arrivalDeadline() {
   return null;
 }
 
-/* Die „letzte Verbindung“ wird je Suche EINMAL bestimmt und dann festgehalten.
+/* Ab wann will man LOSFAHREN? Das Gegenstück, ebenfalls mit Doppelrolle.
+   Bewusst NICHT für „Jetzt“: Dort verschiebt sich die Antwort mit jeder Minute,
+   und genau dafür gibt es die Jetzt-Linie — eine eingefrorene Markierung
+   zeigte irgendwann auf einen Zug, der längst weg ist. Ein gewählter Zeitpunkt
+   steht dagegen fest, da darf und soll die Antwort festgehalten werden. */
+function departureTarget() {
+  const t = app.searchTime;
+  if (t.kind === "custom" && !t.arriveBy && t.time) return +new Date(t.time);
+  return null;
+}
+
+/* Hat die Suche überhaupt eine bestimmte Verbindung als Antwort? Bei jeder
+   gewählten Uhrzeit ja — bei „Jetzt“ nicht (siehe departureTarget). */
+const hasFocus = () => arrivalDeadline() !== null || departureTarget() !== null;
+
+/* Die gesuchte Verbindung wird je Suche EINMAL bestimmt und dann festgehalten.
    Vorher rechnete sie jeder Neuaufbau neu — und weil der Pool zwischendurch
    wächst, konnte dabei eine andere Verbindung herauskommen: Die Markierung
    sprang, mal stand sie in der zweiten Spalte, mal in der letzten. Neu bestimmt
    wird nur, wenn die gemerkte Verbindung nicht mehr sichtbar ist (etwa weil ein
    Verkehrsmittel ausgeblendet wurde) — oder bei einer neuen Suche, und genau
    das passiert beim erneuten Tippen auf „Letzte“. */
-function lastFocusKey(visible) {
-  const known = app.lastFocusKey && visible.some(it => itKey(it) === app.lastFocusKey);
-  if (!known) app.lastFocusKey = findLastDecent(visible) || null;
-  return app.lastFocusKey || "end";
+function searchFocusKey(visible) {
+  const known = app.focusKey && visible.some(it => itKey(it) === app.focusKey);
+  if (!known) app.focusKey = findFocusItin(visible) || null;
+  return app.focusKey || "end";
+}
+
+/* Welche Verbindung beantwortet die Frage? Bei „an“ die späteste, die es noch
+   schafft; bei „ab“ die erste, die ab dem gewählten Zeitpunkt fährt. Die
+   frühere Ansicht zeigte bei „ab“ einfach die erste GELADENE — und weil für den
+   Kontext zwei Verbindungen davor mitgeladen werden, war das eine, die vor der
+   gewünschten Zeit abfährt. */
+function findFocusItin(visible) {
+  const from = departureTarget();
+  if (from === null) return findLastDecent(visible);
+  const list = gapList(visible);
+  if (!list.length) return null;
+  return (list.find(x => x.dep >= from) || list[list.length - 1]).key;
 }
 
 /* Orchestrierung: beschafft (ggf. mehrere Seiten) und rendert GENAU EINMAL. */
@@ -1257,8 +1285,9 @@ function renderResults() {
   }
   updateLastNote(visible);
   if (graph) {
-    // Ankunftssuche (Letzte oder Datumswahl mit „an“) blickt ans ENDE des Zeitraums
-    const focus = arrivalDeadline() !== null ? lastFocusKey(visible) : "start";
+    // Jede gewählte Uhrzeit hat eine Verbindung als Antwort — die wird angesteuert
+    // und markiert. Nur „Jetzt“ hat keine feste: das macht die Jetzt-Linie.
+    const focus = hasFocus() ? searchFocusKey(visible) : "start";
     renderTimeline(visible, focus);
   } else {
     resultsList.innerHTML = "";

@@ -127,9 +127,12 @@ Kacheln. Das kleine ‹ davor weist darauf hin. Die Zurück-Geste des Systems tu
 dasselbe.
 
 ### Zeitpunkt wählen
-Bei **„ab"** beginnt die Ansicht bei deiner Uhrzeit und geht vorwärts. Bei **„an"**
-blickt sie ans andere Ende: Gezeigt und markiert wird die späteste Verbindung, die
-deine Ankunftszeit noch schafft — davor und danach siehst du die Nachbarn.
+Bei **„ab“** beginnt die Ansicht bei deiner Uhrzeit und geht vorwärts. Bei **„an“**
+blickt sie ans andere Ende: Gezeigt wird die späteste Verbindung, die deine
+Ankunftszeit noch schafft. In beiden Fällen ist die passende Verbindung gestrichelt
+markiert und steht in der zweiten Spalte, damit du auch die Nachbarn siehst.
+Bei **„Jetzt“** gibt es keine Markierung — dort sagt dir die rote Jetzt-Linie, was du
+noch erreichst, und die wandert mit der Uhr weiter.
 
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen
   stehen links daneben).
