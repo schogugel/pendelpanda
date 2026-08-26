@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.29.0";
+const APP_VERSION = "1.30.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -718,7 +718,15 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
       : direction === "earlier" ? app.prevPageCursor : null,
   });
 
-  const modes = enabledModes();
+  /* Zweite Anfrage: entweder für die Filterung des Nutzers oder zur Entlastung
+     einer erdrückenden Kategorie (siehe relievedModes) — nie beides, es bleibt
+     bei höchstens zwei Anfragen je Seite. Die Entlastung sticht, weil sie den
+     engeren Modus-Satz stellt und die ausgeblendeten Kategorien bereits
+     berücksichtigt. Beim BLÄTTERN steht der Pool schon, die Entlastung kann
+     also sofort parallel losgehen; nur die allererste Seite einer Suche kennt
+     ihn noch nicht und holt sie in derselben Runde nach. */
+  const frisch = direction !== "later" && direction !== "earlier";
+  const modes = (frisch ? null : relievedModes()) || enabledModes();
   const filtered = modes
     ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`, { signal })
         .then(r => (r.ok ? r.json() : null)).catch(() => null)
@@ -756,7 +764,33 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
     // Spalten immer chronologisch nach Abfahrt (API-Reihenfolge ist teils
     // ein Qualitäts-Ranking und würde die Kaskade der Grafik brechen)
     app.itins.sort((a, b) => depOf(a) - depOf(b));
-    return { added: add.length, params };
+
+    /* Die erste Seite einer Suche kann die Entlastung nicht vorab planen — vor
+       ihr steht noch der Pool der VORHERIGEN Suche, und danach zu urteilen
+       hieße, die falsche Frage zu beantworten. Also erst jetzt, mit dem
+       frischen Ergebnis in der Hand, und nur wenn es tatsächlich schief liegt.
+       Kostet die eine Anfrage nur auf der ersten Seite; beim Blättern läuft sie
+       oben schon parallel mit. */
+    let extra = 0;
+    if (frisch) {
+      const rel = relievedModes(app.itins);
+      if (rel) {
+        const r = await fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(rel)}`, { signal })
+          .then(x => (x.ok ? x.json() : null)).catch(() => null);
+        if (myTag !== app.searchTag) return { added: add.length, params };
+        for (const it of r?.itineraries || []) {
+          const k = itKey(it);
+          if (known.has(k)) continue;
+          known.add(k);
+          app.itins.push(it);
+          extra++;
+        }
+        // Cursor bleiben unangetastet — die Entlastung ist ein Seitenweg,
+        // kein Blättern (dieselbe Regel wie bei refillLoadedRange).
+        if (extra) app.itins.sort((a, b) => depOf(a) - depOf(b));
+      }
+    }
+    return { added: add.length + extra, params };
   }
 }
 
@@ -1179,6 +1213,55 @@ function enabledModes() {
   const enabled = CATS.filter(c => !app.hiddenCats.has(c));
   if (enabled.length === CATS.length) return null;
   return enabled.map(c => CAT_MODES[c]).join(",");
+}
+
+/* Ab welchem Anteil eine Kategorie als „erdrückend“ gilt. 0,6 ist gemessen:
+   Bei den Strecken, wo etwas fehlte, lag der Anteil bei 80–100 %; bei denen,
+   wo nichts fehlte (Frankfurt Hbf → Süd 48 %, Köln Hbf → Deutz 55 %), darunter. */
+const CROWD_SHARE = 0.6;
+
+/* Welche Kategorie ist das Rückgrat einer Verbindung? Die, die die meisten
+   ihrer Abschnitte stellt — bei Gleichstand die des ersten. */
+function mainCat(it) {
+  const zahl = new Map();
+  for (const l of transitLegs(it)) {
+    const c = productClass(l.mode);
+    zahl.set(c, (zahl.get(c) || 0) + 1);
+  }
+  let best = null, n = 0;
+  for (const [c, v] of zahl) if (v > n) { best = c; n = v; }
+  return best;
+}
+
+/* Erdrückt EINE Kategorie das Ergebnis, verschwinden alle anderen dahinter —
+   und zwar nicht, weil sie schlechter wären, sondern weil der Router
+   Pareto-optimal antwortet: Sichtbar bleibt nur, wer später losfährt UND
+   früher ankommt. In einer Stadt mit dichtem Takt gewinnt damit fast immer
+   dasselbe Verkehrsmittel.
+
+   Gemessen München Hbf → Ost, 10 Uhr: Die U5 braucht 11 Minuten, die S-Bahn 15.
+   Also verdrängt jede U5 die S-Bahn, die kurz davor fährt — von 20 Verbindungen
+   waren 16 U5 und 4 S6, während in Wirklichkeit alle zwei Minuten eine S-Bahn
+   nach Ostbahnhof fährt (S1, S2, S3, S4, S8 fehlten vollständig).
+
+   Deshalb: Ist eine Kategorie erdrückend, wird sie in der ZWEITEN Anfrage
+   ausgeschlossen, damit dahinter sichtbar wird, was es sonst noch gibt. Das
+   kostet KEINE zusätzliche Anfrage — es ist dieselbe zweite Anfrage, die bei
+   ausgeblendeten Kategorien ohnehin läuft, nur mit engerem Modus-Satz. */
+function relievedModes(pool) {
+  const cand = pool && pool.length ? pool : app.itins;
+  if (cand.length < 4) return null;
+  const zahl = new Map();
+  for (const it of cand) {
+    const c = mainCat(it);
+    if (c) zahl.set(c, (zahl.get(c) || 0) + 1);
+  }
+  let top = null, n = 0;
+  for (const [c, v] of zahl) if (v > n) { top = c; n = v; }
+  if (!top || n / cand.length < CROWD_SHARE) return null;
+  const rest = CATS.filter(c => c !== top && !app.hiddenCats.has(c));
+  // Bleibt nichts übrig, gäbe die Anfrage garantiert nichts her
+  return rest.length ? rest.map(c => CAT_MODES[c]).join(",") : null;
 }
 
 // Reicht es nach dem Filtern noch nicht für die Spaltenzahl,

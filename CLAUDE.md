@@ -143,6 +143,25 @@ Was ansteht, steht in `TODO.md`.
   vollständig; mit `transitModes` erscheinen 10 Stück. Die beiden Antworten waren im
   Test **disjunkt**. Ungefiltert braucht es trotzdem — es speist die Legende
   („was gäbe es sonst noch?“).
+- **Erdrückt EINE Kategorie das Ergebnis, wird sie in der zweiten Anfrage
+  AUSGESCHLOSSEN** (`relievedModes`, Schwelle `CROWD_SHARE = 0,6`). Das ist derselbe
+  Pareto-Effekt wie oben, nur innerhalb der Stadt und viel häufiger: Sichtbar bleibt
+  nur, wer später losfährt UND früher ankommt — bei dichtem Takt gewinnt damit immer
+  dasselbe Verkehrsmittel. Gemessen München Hbf → Ost um 10 Uhr: U5 braucht 11 min,
+  die S-Bahn 15, also verdrängt jede U5 die S-Bahn kurz davor. Von 20 Verbindungen
+  waren 16 U5 und 4 S6 — während in Wirklichkeit alle zwei Minuten eine S-Bahn zum
+  Ostbahnhof fährt. S1, S2, S3, S4 und S8 fehlten VOLLSTÄNDIG.
+  Nachgemessen an acht Strecken: Die Regel greift bei sechs und verdoppelt dort die
+  Trefferzahl (München 20→37, Berlin Alex→Zoo 20→40, Hamburg Hbf→Altona 20→40,
+  Nürnberg Hbf→Erlenstegen 20→36). Wo nichts fehlt, greift sie nicht — Frankfurt
+  Hbf→Süd (48 %) und Köln Hbf→Deutz (55 %) liegen unter der Schwelle und lösen keine
+  Anfrage aus. Die Schwelle ist genau dazwischen gewählt, nicht geraten.
+  **Beim BLÄTTERN kostet das nichts**: Es ist dieselbe zweite Anfrage, die bei
+  ausgeblendeten Kategorien ohnehin läuft, nur mit engerem Modus-Satz. Nur die ERSTE
+  Seite einer Suche muss sie nachholen (eine Anfrage mehr), weil vor ihr noch der Pool
+  der vorherigen Suche steht — nach dem zu urteilen hieße, die falsche Frage zu
+  beantworten. Suche kostet damit 5 statt 4 Anfragen, „Letzte“ 7 statt 6.
+  Die Cursor bleiben dabei unangetastet — Entlastung ist ein Seitenweg, kein Blättern.
 - Verkehrsmittel-Filterung der **Anzeige** bleibt clientseitig (`hiddenCats` +
   `productClass`); die gefilterte Anfrage beschafft nur zusätzliche Kandidaten.
 - **Einblenden über die Legende lädt nach** (`refillLoadedRange`) — es MUSS, weil die

@@ -247,6 +247,20 @@ Alle Einstellungen wandern über „Buttons übertragen“ mit.
 
 ---
 
+## Warum manchmal Verbindungen fehlten
+
+Der Fahrplanrechner antwortet mit den *besten* Verbindungen, nicht mit allen: Eine
+Verbindung fällt weg, sobald eine andere später losfährt und trotzdem früher ankommt.
+In der Stadt gewinnt damit fast immer dasselbe Verkehrsmittel — zwischen München Hbf
+und Ostbahnhof verdrängte die U-Bahn praktisch die ganze S-Bahn, obwohl die alle zwei
+Minuten fährt.
+
+Seit Version 1.30.0 merkt PendelPanda, wenn ein Verkehrsmittel das Ergebnis so
+erdrückt, und fragt gezielt nach dem nach, was dahinter liegt. In dichten Städten
+verdoppelt das die Zahl der angezeigten Verbindungen.
+
+---
+
 ## Wenn etwas nicht stimmt
 
 **Änderung fehlt / alte Ansicht** → zweimal neu laden; installierte App einmal
