@@ -67,15 +67,29 @@ body {
    im Browser auch das Ziehen zum Aktualisieren mit (einmal versucht, war falsch).
    Der Boden von 64 px verhindert Briefmarken auf sehr flachen Bildschirmen; wird
    er unterschritten, darf gescrollt werden — dann ist Scrollen richtig. */
-body[data-view="grid"] { display: flex; flex-direction: column; }
+/* `height`, NICHT `min-height`: Ein `1fr` in grid-auto-rows verteilt nur dann
+   Platz, wenn die Höhe des Rasters FESTSTEHT. Mit `min-height: 100dvh` am body
+   blieb die Höhenkette offen, die Reihen bemaßen sich nach ihrem Inhalt und die
+   letzte Reihe hing unten über — genau der Fehler in v1.12.0.
+   Kein `overflow: hidden` am body: Das hatte im Browser schon einmal das Ziehen
+   zum Aktualisieren mitgenommen. Nötig ist es auch nicht, denn was hineinpasst,
+   erzeugt keinen Überlauf. Nur für sehr flache Bildschirme, wo selbst der Boden
+   von 44 px nicht mehr aufgeht, darf das RASTER scrollen — nie die Seite. */
+body[data-view="grid"] {
+  display: flex; flex-direction: column;
+  height: 100dvh;
+}
 body[data-view="grid"] #view-grid {
   flex: 1 1 auto; display: flex; flex-direction: column;
   min-height: 0; padding-bottom: .5rem;
 }
 body[data-view="grid"].fitgrid #buttongrid {
-  flex: 1 1 auto; min-height: 0; grid-auto-rows: minmax(64px, 1fr);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  grid-auto-rows: minmax(44px, 1fr);
 }
-body[data-view="grid"].fitgrid .stationbtn { min-height: 0; padding: .9rem .6rem .7rem; }
+body[data-view="grid"].fitgrid .stationbtn {
+  min-height: 0; padding: .7rem .55rem .6rem; overflow: hidden;
+}
 
 /* Markanter Seitentitel (Screenshot-Design) mit ⚙ rechtsbündig */
 .pagehead {

@@ -108,6 +108,7 @@ Was ansteht, steht in `TODO.md`.
 
 - `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
 - `tools/check.mjs` — **der Prüfbefehl vor jedem Commit** (statisch + Ladetest)
+- `tools/layout.mjs` — misst die Startseite in einem echten Browser (bei Layoutänderungen)
 - `tools/smoke.mjs`, `tools/eslint.config.mjs` — die beiden Prüfungen dahinter
   (Dev-Werkzeug, gehört NICHT in die APK und steht nicht in der Allowlist)
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
@@ -363,8 +364,16 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   die Statusleisten-Symbole.
 - **Startseite passt immer auf eine Seite** (`.fitgrid`): Bis 14 Kacheln ist
   `#view-grid` eine Flex-Spalte und das Raster teilt die Resthöhe auf
-  (`grid-auto-rows: minmax(64px, 1fr)`). Boden 64 px; darunter darf gescrollt werden.
-  Ab 15 Kacheln behält das Raster die feste Kachelhöhe, dort ist Scrollen gewollt.
+  (`grid-auto-rows: minmax(44px, 1fr)`). Ab 15 Kacheln bleibt die feste Kachelhöhe.
+  **Am `body` muss `height: 100dvh` stehen, NICHT `min-height`** — `1fr` verteilt nur
+  Platz, wenn die Höhe feststeht; mit `min-height` bemaßen sich die Reihen nach ihrem
+  Inhalt und die letzte hing über (v1.13.0, gemessen: 15 px bei 393×740).
+  **Kein `overflow: hidden` am `body`** (nimmt das Ziehen zum Aktualisieren mit);
+  für sehr flache Bildschirme darf stattdessen das RASTER scrollen, nie die Seite.
+- **Layout nicht schätzen, messen: `node tools/layout.mjs`.** Lädt die echte Seite in
+  Firefox, misst `scrollHeight` gegen `innerHeight` bei fünf Bildschirmgrößen und legt
+  `layout-messung.png` ab. Jede Kachel muss „PASST“ zeigen. Bei jeder Änderung an der
+  Startseiten-Höhe ausführen — dieselbe Fehlerklasse ist dreimal ausgeliefert worden.
 - **Die Fokus-Markierung gehört in `tlBuild`, nicht in `renderTimeline`.** Jede
   Zoomänderung ruft `tlBuild` erneut auf und wirft alle Spalten weg — eine Ebene höher
   gesetzt, verschwand die Markierung beim ersten Scrollen von selbst.
