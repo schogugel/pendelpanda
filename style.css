@@ -6,6 +6,7 @@
   --accent: #b97800;
   --accent-soft: #f6e8cf;
   --border: #d6dde8;
+  --tl-link: #5b6b80;   /* Verbindungslinie zwischen den Balken-Segmenten */
   --ok: #1e7d32;
   --warn: #b26a00;
   --bad: #c62828;
@@ -31,6 +32,7 @@
     --accent: #f0a63a;
     --accent-soft: #35280f;
     --border: #273246;
+    --tl-link: #c3cede;
     --ok: #7cc47f;
     --warn: #ffb74d;
     --bad: #ef7070;
@@ -466,10 +468,14 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .tl-bar {
   position: absolute; left: 8px; width: calc(100% - 16px);
   border: none; padding: 0; cursor: pointer; border-radius: 8px;
-  /* dünne Verbindungslinie hinter den Segmenten (Umstiegs-Lücken) */
+  /* Dünne Verbindungslinie hinter den Segmenten (Umstiegs-Lücken). Eigener
+     Farbwert statt `--border`: Der ist auf ruhige Trennlinien ausgelegt und kam
+     hier auf 1,4:1 gegen den Kartengrund — sichtbar nur, wenn man weiß, wo man
+     hinsehen muss. Die Linie trägt aber Bedeutung (hier wird gewartet), also
+     gehört sie deutlich sichtbar: rund 11:1 im dunklen, 5,4:1 im hellen Design. */
   background: linear-gradient(to right,
-    transparent calc(50% - 1px), var(--border) calc(50% - 1px),
-    var(--border) calc(50% + 1px), transparent calc(50% + 1px));
+    transparent calc(50% - 1px), var(--tl-link) calc(50% - 1px),
+    var(--tl-link) calc(50% + 1px), transparent calc(50% + 1px));
 }
 .tl-seg {
   position: absolute; left: 0; width: 100%;

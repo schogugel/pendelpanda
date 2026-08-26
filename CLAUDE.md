@@ -466,6 +466,10 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - **Systemzonen oben UND unten freihalten** (`env(safe-area-inset-*)` am `body`):
   Android zeichnet ab Version 15 randlos, die APK legte die Überschrift sonst unter die
   Statusleisten-Symbole. Im Browser und in der installierten PWA ist der Wert 0.
+- Die Verbindungslinie zwischen den Balken-Segmenten hat einen EIGENEN Farbwert
+  (`--tl-link`), nicht `--border`. Der ist auf ruhige Trennlinien ausgelegt und kam hier
+  auf 1,4:1 gegen den Kartengrund — die Linie trägt aber Bedeutung („hier wird
+  gewartet“) und gehört sichtbar: jetzt 11:1 dunkel, 5,4:1 hell.
 - Dark-first. bg `#0a0e18`, card `#131928`, Akzent Amber `#f0a63a` (hell `#b97800`).
   Status semantisch: ok grün, warn orange, bad rot — nie als Deko missbrauchen.
 - Formen: Kacheln 4 px (Farbbalken INNEN an der Oberkante, eingerückt), Karten/Chips 8 px,
