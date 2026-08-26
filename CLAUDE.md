@@ -388,6 +388,12 @@ Was ansteht, steht in `TODO.md`.
   gesuchte Verbindung in der zweiten Spalte steht und rechts Nachbarn hat, statt am
   Rand zu kleben. Markiert wird sie gestrichelt an Kachel UND Balken (`.tl-focus`).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
+- **Selbst gezoomt schlägt automatisch** (`tl.manualZoom`, gesetzt in `tlSetZoom`, also
+  bei Pinch und Strg+Rad). Ein Spaltenwechsel überschreibt den Maßstab dann NICHT mehr;
+  die Y-Ausrichtung läuft davon unabhängig weiter. Zurück auf automatisch nur bei einer
+  neuen FRAGE: neue Suche oder Zeitwahl (`!sameSearch`) sowie ein-/ausgeblendete
+  Verkehrsmittel und die Einstellung „Höhe der vordersten Verbindung“ — beide setzen
+  dafür `tl.forceAutoZoom`. Blättern innerhalb derselben Suche zählt ausdrücklich nicht.
 - **Die Fokusspalte bestimmt den Zoom.** `startIdx` MUSS bei „Letzte“/Datumsauswahl
   auf die fokussierte Verbindung zeigen, sonst zoomt `tlAutoZoom` auf die erste
   geladene, während der Blick auf der letzten liegt — man scrollt seitwärts hin und

@@ -149,6 +149,13 @@ Deutschlandticket-Sicht ohne Fernzug und Fernbus). Ausblenden entfernt immer die
 Zeitpunkt oder Richtung änderst; erst eine neue Verbindung von der Startseite setzt
 sie zurück.
 
+### Selbst zoomen
+Zwei Finger (oder Strg + Mausrad) stellen den Maßstab von Hand ein. Ab dann bleibt er
+beim Blättern erhalten — die Ansicht rastet weiterhin sauber auf die Spalten und richtet
+sich oben aus, ändert aber die Zoomstufe nicht mehr von selbst. Auf automatisch
+zurück geht es, sobald du etwas anderes fragst: Jetzt, Letzte, ein Datum oder ein
+anderes Verkehrsmittel in der Legende.
+
 ### Was die Balken zeigen
 
 Über und unter jedem Balken steht klein die Abfahrts- und die Ankunftszeit. Suchst du

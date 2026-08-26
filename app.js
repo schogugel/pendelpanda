@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.24.1";
+const APP_VERSION = "1.25.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1173,6 +1173,7 @@ function renderLegend() {
       if (!b || app.refilling) return;
       const c = b.dataset.cat;
       app.autoLoads = 0;
+      tl.forceAutoZoom = true;   // andere Verkehrsmittel = andere Frage
       if (!app.hiddenCats.has(c)) {          // ausblenden kostet keine Anfrage
         app.hiddenCats.add(c);
         renderResults();
@@ -1934,6 +1935,7 @@ byId("set-fill").addEventListener("input", (e) => {
   // sofort sichtbar machen: neuer Zoom gilt für die laufende Ansicht
   if (app.viewMode === "graph" && tl.itins.length) {
     tl.lastZoomIdx = null;
+    tl.forceAutoZoom = true;   // die Einstellung steuert genau diesen Automatismus
     renderResults();
   }
 });

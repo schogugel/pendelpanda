@@ -29,6 +29,8 @@ const tl = {
   followTimer: null,
   animFrame: 0,      // laufende Verfahrbewegung (Zoom + Position in einem)
   tickStepFest: null, // Linienraster während der Bewegung eingefroren
+  manualZoom: false,  // hat der Nutzer selbst gezoomt? dann nicht überschreiben
+  forceAutoZoom: false, // einmalig zurück auf automatisch (Legende, Einstellung)
 };
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
@@ -371,12 +373,16 @@ function renderTimeline(itins, focus = "start") {
     startIdx = focusIdx;
   }
 
-  // Neuer Suchlauf: Y-Zoom dynamisch aus den Verbindungen ab der Startspalte
-  if (!sameSearch) {
+  /* Zoom automatisch bestimmen — bei einer neuen Suche und immer dann, wenn
+     sich die Frage geändert hat (Zeitwahl, ein-/ausgeblendete Verkehrsmittel).
+     Blättern innerhalb derselben Suche zählt NICHT dazu. */
+  if (!sameSearch || tl.forceAutoZoom) {
     tl.ppm = tlAutoZoom(scroller, startIdx);
     tl.lastZoomIdx = startIdx;
-    tl.userMoved = false; // erst nach echter Nutzer-Geste vorausladen
+    tl.manualZoom = false;
+    tl.forceAutoZoom = false;
   }
+  if (!sameSearch) tl.userMoved = false; // erst nach echter Nutzer-Geste vorausladen
 
   // Kopffreiheit: über dem FRÜHESTEN geladenen Balken (und im „Jetzt“-Modus
   // zusätzlich über der Jetzt-Linie) muss immer Platz für die Kopf-Kachel
@@ -837,7 +843,12 @@ function tlColumn(it, left, isDominated = false) {
 // Zoom-Anker ist die OBERKANTE der Ansicht: die dort eingerastete
 // Verbindung/Zeitmarke bleibt beim Zoomen stehen, die Skala streckt
 // bzw. staucht sich nur nach unten.
+/* Von Hand zoomen (Pinch, Strg+Rad). Das merkt sich die Ansicht: Ab dann
+   bestimmt der Nutzer den Maßstab, und ein Spaltenwechsel setzt ihn nicht mehr
+   zurück. Zurück auf automatisch geht es nur bei einer NEUEN Frage — andere
+   Zeitwahl, neue Suche, geänderte Verkehrsmittel. */
 function tlSetZoom(newPpm) {
+  tl.manualZoom = true;
   const sc = byId("timeline");
   newPpm = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, newPpm));
   if (Math.abs(newPpm - tl.ppm) < 0.01) return;
@@ -882,8 +893,10 @@ function tlInitInteractions() {
     let ppm = tl.ppm;
     if (idx0 !== tl.lastZoomIdx) {
       tl.lastZoomIdx = idx0;
-      const dyn = tlAutoZoom(sc, idx0);
-      if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
+      if (!tl.manualZoom) {           // selbst gewählter Maßstab bleibt stehen
+        const dyn = tlAutoZoom(sc, idx0);
+        if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
+      }
     }
 
     /* Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
@@ -1127,8 +1140,10 @@ function tlAlign(sc) {
   let ppm = tl.ppm;
   if (idx0 !== tl.lastZoomIdx) {
     tl.lastZoomIdx = idx0;
-    const dyn = tlAutoZoom(sc, idx0);
-    if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
+    if (!tl.manualZoom) {             // selbst gewählter Maßstab bleibt stehen
+      const dyn = tlAutoZoom(sc, idx0);
+      if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
+    }
   }
 
   const needH = Math.abs(sc.scrollLeft - targetLeft) > 2;
