@@ -24,6 +24,29 @@ const DB_WEB = "https://www.bahn.de/web/api";
 const DB_MOB = "https://app.services-bahn.de/mob";
 const DB_MEDIA_TEILEN = "application/x.db.vendo.mob.verbindungteilen.v1+json";
 
+/* Wie weit ein DB-Halt von der bekannten Position entfernt sein darf. Großzügig,
+   weil ein Bahnhof ein Gelände ist und die beiden Datenquellen den Mittelpunkt
+   verschieden setzen — gemessen 1–160 m bei richtigen Treffern, während der
+   falsche Ort (Rathaus in Lauf statt in Vorra) 5 km daneben lag. */
+const DB_NEAR_M = 600;
+
+/* Wie viele Minuten die DB von unserer Sollzeit abweichen darf. Große
+   Busbahnhöfe haben mehrere Steige, und die beiden Datenquellen führen
+   denselben Halt an verschiedenen davon: Gemessen in Regensburg fährt Bus 7
+   laut Transitous um 22:30 und laut DB um 22:32 — dieselbe Fahrt, dieselbe
+   Ankunft 22:48. Ohne Toleranz gäbe es dafür keinen Link. */
+const DB_SHIFT_MIN = 5;
+
+/* Verkehrsmittel von MOTIS auf die Produktgattung der DB. Damit lässt sich unter
+   mehreren Halten an derselben Stelle der richtige wählen — am Hamburger Hbf
+   liegen S-Bahn- und Fernbahnhalt wenige Meter auseinander. */
+const DB_PRODUCT = {
+  HIGHSPEED_RAIL: "ICE", LONG_DISTANCE: "EC_IC", NIGHT_RAIL: "EC_IC",
+  REGIONAL_FAST_RAIL: "REGIONAL", REGIONAL_RAIL: "REGIONAL",
+  METRO: "SBAHN", SUBWAY: "UBAHN", TRAM: "TRAM",
+  BUS: "BUS", COACH: "BUS", FERRY: "SCHIFF",
+};
+
 async function dbHttp(opts) {
   const res = await PP.http.request(opts);
   if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
@@ -32,13 +55,51 @@ async function dbHttp(opts) {
   return typeof res.data === "string" ? JSON.parse(res.data) : res.data;
 }
 
-async function dbResolveStop(name) {
+// Luftlinie in Metern (Haversine)
+function dbMeters(aLat, aLon, bLat, bLon) {
+  const R = 6371000, p = Math.PI / 180;
+  const dLat = (bLat - aLat) * p, dLon = (bLon - aLon) * p;
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(aLat * p) * Math.cos(bLat * p) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/* Den DB-Halt über die KOORDINATEN finden, nicht über den Namen.
+   Der Name taugt dafür nicht: DB schreibt Nahverkehrshalte als
+   „Haltestelle, Ort“ („Rathaus, Vorra“), Transitous liefert oft nur die nackte
+   Haltestelle („Rathaus“). Die Namenssuche nahm dann den ersten Treffer
+   irgendwo in Deutschland — „Vorra a.d. Pegnitz Rathaus“ landete auf
+   „Rathaus, Lauf a.d. Pegnitz“, 20 km entfernt. Fernbahnhöfe heißen in beiden
+   Systemen gleich, deshalb fiel es dort nie auf.
+
+   Die Namenssuche bleibt als Rückfall, falls keine Koordinaten vorliegen oder
+   die Umkreissuche nicht antwortet (sie ist merklich strenger begrenzt). */
+async function dbResolveStop(place) {
+  if (Number.isFinite(place?.lat) && Number.isFinite(place?.lon)) {
+    try {
+      const nah = await dbHttp({
+        url: `${DB_WEB}/reiseloesung/orte/nearby?lat=${place.lat}&long=${place.lon}`
+           + `&radius=${DB_NEAR_M}&maxNo=10`,
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+      const cand = (Array.isArray(nah) ? nah : [])
+        .filter(x => x?.type === "ST" && x.id && Number.isFinite(x.lat))
+        .map(x => ({ ...x, d: dbMeters(place.lat, place.lon, x.lat, x.lon) }))
+        .filter(x => x.d <= DB_NEAR_M)
+        .sort((a, b) => a.d - b.d);
+      const want = DB_PRODUCT[place.mode];
+      const hit = (want && cand.find(x => (x.products || []).includes(want))) || cand[0];
+      if (hit) return hit;
+    } catch { /* weiter mit der Namenssuche */ }
+  }
   const orte = await dbHttp({
-    url: `${DB_WEB}/reiseloesung/orte?suchbegriff=${encodeURIComponent(name)}&typ=ALL&limit=1`,
+    url: `${DB_WEB}/reiseloesung/orte?suchbegriff=${encodeURIComponent(place?.name || "")}`
+       + `&typ=ALL&limit=1`,
     method: "GET",
     headers: { Accept: "application/json" },
   });
-  return orte?.[0]?.id || null;
+  return orte?.[0]?.id ? orte[0] : null;
 }
 
 async function dbFahrplan(fromId, toId, dep) {
@@ -65,17 +126,34 @@ async function dbFahrplan(fromId, toId, dep) {
 
 /* Die DB-Suche liefert mehrere Verbindungen; gesucht ist die, die PendelPanda
    anzeigt. Gematcht wird über Soll-Abfahrt UND Soll-Ankunft — die Ist-Zeiten
-   wandern mit der Verspätung und taugen nicht als Schlüssel. */
-function dbFindConnection(verbindungen, dep, arr) {
+   wandern mit der Verspätung und taugen nicht als Schlüssel.
+
+   Stimmt beides auf die Minute, ist die Sache klar. Sonst wird EIN kleiner
+   Versatz zugelassen, aber nur unter Auflagen: gleich viele Abschnitte, höchstens
+   DB_SHIFT_MIN Minuten Unterschied, und eines der beiden Enden muss exakt
+   passen. Zwei verschiedene Fahrten, die am selben Halt zur selben Minute
+   ankommen und deren Abfahrt weniger als fünf Minuten auseinanderliegt, gibt es
+   praktisch nicht — die Toleranz macht also keine falsche Verbindung auf, sie
+   fängt nur ab, dass die beiden Datenquellen verschiedene Bussteige meinen. */
+function dbFindConnection(verbindungen, dep, arr, legCount) {
+  const min = s => +new Date(`${s}:00Z`) / 60000;
+  const soll = (halt, key) => halt?.[key]?.sollzeit?.slice(0, 16) || "";
+  let best = null;
   for (const v of verbindungen) {
     const legs = (v.verbindungsAbschnitte || []).filter(a => a?.verkehrsmittel?.typ === "PUBLICTRANSPORT");
     if (!legs.length) continue;
-    const soll = (halt, key) => halt?.[key]?.sollzeit?.slice(0, 16) || "";
     const vDep = soll(legs[0].halte?.[0], "abfahrt");
     const vArr = soll(legs[legs.length - 1].halte?.at(-1), "ankunft");
-    if (vDep === dep && (!arr || vArr === arr)) return v;
+    if (!vDep) continue;
+    if (vDep === dep && (!arr || vArr === arr)) return v;   // exakt
+    if (!arr || !vArr || legs.length !== legCount) continue;
+    const dDep = Math.abs(min(vDep) - min(dep));
+    const dArr = Math.abs(min(vArr) - min(arr));
+    if (dDep > DB_SHIFT_MIN || dArr > DB_SHIFT_MIN) continue;
+    if (dDep && dArr) continue;                              // ein Ende muss sitzen
+    if (!best || dDep + dArr < best.score) best = { v, score: dDep + dArr };
   }
-  return null;
+  return best?.v || null;
 }
 
 async function dbMintVbid(ctxRecon, dep, from, to) {
@@ -111,14 +189,17 @@ function dbBerlinOffset(dep) {
 /* Liefert den Link auf genau diese Verbindung — oder null, wenn irgendein
    Schritt nicht klappt. Nie werfen: Der Aufrufer soll ohne Sonderbehandlung
    auf den Suchlink zurückfallen können. */
-async function dbExactLink({ from, to, dep, arr }) {
+async function dbExactLink({ from, to, dep, arr, legCount }) {
   if (!PP.native || !PP.http) return null;
   try {
-    const [fromId, toId] = await Promise.all([dbResolveStop(from), dbResolveStop(to)]);
-    if (!fromId || !toId) return null;
-    const match = dbFindConnection(await dbFahrplan(fromId, toId, dep), dep, arr);
+    const [a, b] = await Promise.all([dbResolveStop(from), dbResolveStop(to)]);
+    if (!a?.id || !b?.id) return null;
+    const match = dbFindConnection(await dbFahrplan(a.id, b.id, dep), dep, arr, legCount);
     if (!match?.ctxRecon) return null;
-    const vbid = await dbMintVbid(match.ctxRecon, dep, from, to);
+    /* Für den Teilen-Aufruf die DB-eigene Schreibweise nehmen: Transitous
+       liefert im Nahverkehr oft nur „Bismarckplatz“, die DB nennt denselben
+       Halt „Bismarckplatz, Regensburg“. */
+    const vbid = await dbMintVbid(match.ctxRecon, dep, a.name || from?.name, b.name || to?.name);
     return vbid ? `https://www.bahn.de/buchung/start?vbid=${encodeURIComponent(vbid)}` : null;
   } catch {
     return null;
@@ -129,7 +210,14 @@ async function dbExactLink({ from, to, dep, arr }) {
    als Suchlink stehen und ist damit gleichzeitig der Rückfall: Wenn die vbid
    nicht zustande kommt, wird einfach er geöffnet. Die vier Anfragen dauern
    einen Moment, deshalb sagt der Knopf solange, dass er arbeitet. */
-function enableExactDbLink(a, fromName, toName, depIso, arrIso) {
+/* `von`/`bis` sind die ECHTEN Ein- und Ausstiegshalte dieser Verbindung
+   (`{name, lat, lon, mode}`), nicht die vom Nutzer gewählten Kacheln. Der
+   Unterschied ist der Kern der Sache: Beginnt eine Verbindung mit einem Fußweg
+   zu einem anderen Halt — im Nahverkehr der Normalfall —, dann gehört die
+   Abfahrtszeit gar nicht zum Startbahnhof. Die DB suchte dann ab Arnulfsplatz
+   nach einer Fahrt, die um 21:50 am Bismarckplatz losfährt, fand sie nicht und
+   fiel auf den Suchlink zurück. */
+function enableExactDbLink(a, von, bis, depIso, arrIso, legCount) {
   const fallback = a.href;
   const label = a.textContent;
   a.addEventListener("click", async (e) => {
@@ -138,7 +226,7 @@ function enableExactDbLink(a, fromName, toName, depIso, arrIso) {
     a.dataset.busy = "1";
     a.textContent = "Verbindung wird geöffnet …";
     const url = await dbExactLink({
-      from: fromName, to: toName,
+      from: von, to: bis, legCount,
       dep: localMinuteIso(depIso), arr: localMinuteIso(arrIso),
     });
     a.textContent = label;

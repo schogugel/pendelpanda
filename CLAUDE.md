@@ -605,6 +605,34 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## DB-Integration
 
+- **Der exakte Link braucht die HALTE DER VERBINDUNG, nicht die Kacheln.** Das war die
+  Ursache dafür, dass Nahverkehr fast nie funktionierte und Fern-/Regionalverkehr immer:
+  Beginnt eine Verbindung mit einem Fußweg zu einem anderen Halt — im Nahverkehr der
+  Normalfall —, gehört die Abfahrtszeit gar nicht zur Startkachel. Die DB suchte dann ab
+  „Arnulfsplatz“ eine Fahrt, die um 21:50 am **Bismarckplatz** losfährt, fand nichts und
+  fiel auf den Suchlink zurück. Übergeben werden deshalb `T[0].from` und `T.at(-1).to`
+  samt Koordinaten und `mode`. Der SUCHLINK daneben nennt weiterhin die Kacheln — danach
+  hat der Nutzer gefragt.
+- **DB-Halte über KOORDINATEN auflösen** (`reiseloesung/orte/nearby?lat=&long=&radius=`),
+  nicht über den Namen. Die Namen passen im Nahverkehr grundsätzlich nicht zusammen: DB
+  schreibt „Haltestelle, Ort“ („Rathaus, Vorra“), Transitous liefert oft nur „Rathaus“.
+  Die alte Namenssuche mit `limit=1` nahm dann irgendeinen Treffer in Deutschland —
+  gemessen landete „Vorra a.d. Pegnitz Rathaus“ auf „Rathaus, Lauf a.d. Pegnitz“, 20 km
+  daneben. Unter mehreren Halten an derselben Stelle entscheidet die Produktgattung
+  (`DB_PRODUCT`), sonst die Entfernung; die Namenssuche bleibt als Rückfall.
+  **`nearby` ist merklich strenger begrenzt als die übrigen Endpunkte** — beim Ausmessen
+  kam nach rund 40 Anfragen in Folge dauerhaft 429. Im Betrieb sind es zwei pro Klick,
+  die Gesamtzahl bleibt bei vier.
+- **Beim Vergleich der Zeiten ist EIN kleiner Versatz erlaubt** (`DB_SHIFT_MIN = 5`).
+  Große Busbahnhöfe haben mehrere Steige, und die beiden Datenquellen führen denselben
+  Halt an verschiedenen davon: Gemessen fährt Bus 7 in Regensburg laut Transitous um
+  22:30 ab „Hauptbahnhof“, laut DB um 22:32 ab „HBF Süd/Arcaden“ — gleiche Linie, gleiche
+  Ankunft 22:48, gleiche Fahrt. Die Toleranz greift nur mit Auflagen: gleiche Zahl an
+  Abschnitten UND eines der beiden Enden muss exakt sitzen. Zwei verschiedene Fahrten,
+  die am selben Halt zur selben Minute ankommen und deren Abfahrt keine fünf Minuten
+  auseinanderliegt, gibt es praktisch nicht.
+  **Nachgemessen an 18 echten Verbindungen: vorher 15, jetzt 18** — die drei Gewinne sind
+  genau die Nahverkehrsfälle (zweimal Fußweg zum Nachbarhalt, einmal Steig-Versatz).
 - **Zeiten im DB-Link immer in Europe/Berlin** (`localMinuteIso`), NIE in der Zeitzone
   des Geräts. Wer aus einer anderen Zeitzone plant, bekäme sonst die falsche Minute —
   die Suche landet daneben, der Worker findet die Verbindung überhaupt nicht.

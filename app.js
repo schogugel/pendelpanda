@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.28.0";
+const APP_VERSION = "1.29.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1507,8 +1507,15 @@ function fillDetails(container, it) {
   );
   a.textContent = "Bei der DB öffnen";
   if (PP.native) {
-    enableExactDbLink(a, app.search.from.name, app.search.to.name,
-      T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival);
+    /* Der Suchlink oben nennt die KACHELN — danach hat der Nutzer gefragt.
+       Der exakte Link braucht dagegen die tatsächlichen Ein- und Ausstiegshalte
+       dieser Verbindung samt Koordinaten: Fängt sie mit einem Fußweg zu einem
+       anderen Halt an, gehört die Abfahrtszeit zu diesem, nicht zur Kachel. */
+    const ein = T[0].from, aus = T[T.length - 1].to;
+    enableExactDbLink(a,
+      { name: ein.name, lat: ein.lat, lon: ein.lon, mode: T[0].mode },
+      { name: aus.name, lat: aus.lat, lon: aus.lon, mode: T[T.length - 1].mode },
+      ein.scheduledDeparture, aus.scheduledArrival, T.length);
   }
   container.appendChild(a);
 }
