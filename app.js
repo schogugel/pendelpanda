@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.9.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -646,7 +646,7 @@ async function runPlan(direction = null, limit = 10) {
          ausgerechnet die gesuchte Verbindung am äußersten Rand und man sieht
          nicht, was danach noch käme (meist erst am nächsten Morgen).
          findLastDecent bleibt davon unberührt, es misst am Betriebsschluss. */
-      if (t.kind === "letzte" && app.itins.length && app.nextPageCursor) {
+      if (app.searchTime.kind === "letzte" && app.itins.length && app.nextPageCursor) {
         await fetchPage("later", 4);
       }
       // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
