@@ -81,6 +81,21 @@ if (!version) {
 const [maj, min, pat] = version.split(".").map(Number);
 const code = maj * 10000 + min * 100 + pat;
 
+/* Transitous bittet darum, dass Anfragen die App erkennbar machen: Name,
+   VERSION und eine Kontaktmöglichkeit. Die Version steht nur hier zur
+   Verfügung, deshalb wird sie in die Capacitor-Konfiguration geschrieben —
+   von Hand gepflegt liefe sie garantiert irgendwann der echten hinterher. */
+{
+  const cfgPath = join(HERE, "capacitor.config.json");
+  const cfg = JSON.parse(await readFile(cfgPath, "utf8"));
+  const ua = `PendelPanda/${version} (+https://schogugel.github.io/pendelpanda/)`;
+  if (cfg.android?.appendUserAgent !== ua) {
+    cfg.android = { ...cfg.android, appendUserAgent: ua };
+    await writeFile(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+  }
+  console.log(`✓ Kennung der Anfragen: ${ua}`);
+}
+
 const gradlePath = join(HERE, "android", "app", "build.gradle");
 let gradle;
 try {

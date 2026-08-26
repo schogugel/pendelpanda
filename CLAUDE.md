@@ -196,8 +196,9 @@ Was ansteht, steht in `TODO.md`.
 - **Transitous-Nutzungsbedingungen einhalten** (transitous.org/api):
   1. Sichtbarer Link auf **transitous.org/sources** zur Nennung der Datenquellen — steht
      im „Daten & Datenschutz“-Dialog und in der Hilfe. Nicht entfernen.
-  2. Anfragen sollen die App erkennbar machen (Name, Version, Kontakt). Im nativen Build
-     über `appendUserAgent` in der Capacitor-Konfiguration; im Browser lässt sich der
+  2. Anfragen sollen die App erkennbar machen (Name, **Version**, Kontakt). Im nativen
+     Build über `appendUserAgent`; den Wert schreibt **`sync.mjs`** aus `APP_VERSION` —
+     von Hand gepflegt liefe er der echten Version hinterher. Im Browser lässt sich der
      User-Agent nicht setzen, dort identifiziert der Origin die App.
   3. „Not intended for commercial or for-profit purposes“ — bei Spendenlink oder
      Ähnlichem vorher bei Transitous nachfragen, sie bitten ausdrücklich darum.

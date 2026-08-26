@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.19.1";
+const APP_VERSION = "1.20.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1627,9 +1627,9 @@ const KONTAKT_MAIL = "pendelpanda@gmx.de";
    eine Pflichtangabe vortäuscht, die es nicht erfüllt. Name und ladungsfähige
    Anschrift eintragen, dann erscheint es von selbst. */
 const IMPRESSUM = {
-  name: "",
-  strasse: "",
-  ort: "",
+  name: "Jonas Seyfried",
+  strasse: "Keplerstraße 16",
+  ort: "93047 Regensburg",
 };
 
 function configLink() {

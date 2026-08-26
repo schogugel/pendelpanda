@@ -5,7 +5,7 @@
   "android": {
     "backgroundColor": "#0a0e18",
     "allowMixedContent": false,
-    "appendUserAgent": "PendelPanda (+https://schogugel.github.io/pendelpanda/)"
+    "appendUserAgent": "PendelPanda/1.20.0 (+https://schogugel.github.io/pendelpanda/)"
   },
   "plugins": {
     "StatusBar": {
