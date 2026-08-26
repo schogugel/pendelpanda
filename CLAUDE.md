@@ -387,6 +387,13 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Hinweiszeile da war: Bei „Letzte“ kommt eine dazu, und die Seite wurde scrollbar,
   während „Jetzt“ und die Datumsauswahl fest standen (gemessen: 187 px Überlauf,
   Legende 155 px unter dem Rand).
+- **Für bildschirmfüllende Ansichten `svh`, NIEMALS `dvh` oder `vh`.** `dvh` ist die
+  aktuelle Höhe: Solange die Adressleiste eines mobilen Browsers ausgefahren ist, ist
+  sie klein — der Browser lässt aber trotzdem genau um deren Höhe scrollen, weil das
+  die Geste zum Einklappen ist. Genau dieses Stück ließ sich die Seite verschieben.
+  `svh` ist die KLEINSTE Höhe; passt der Inhalt hinein, gibt es in keinem Zustand
+  etwas zu scrollen. **In der APK fällt das nicht auf** (keine Adressleiste) — dieser
+  Unterschied ist der Grund, warum ein Fehler nur im Browser auftreten kann.
 - **Layout nicht schätzen, messen: `node tools/layout.mjs`.** Lädt die echte Seite in
   Firefox und misst zwei Ansichten (Startseite und Ergebnis-Grafik) bei vier
   Bildschirmgrößen; die Ergebnisansicht bewusst im UNGÜNSTIGSTEN Fall, mit beiden

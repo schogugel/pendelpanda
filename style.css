@@ -51,7 +51,15 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100dvh;
+  /* `svh`, nicht `dvh`: `dvh` ist die AKTUELLE Höhe. Solange die Adressleiste
+     eines mobilen Browsers ausgefahren ist, ist sie klein — der Browser lässt
+     einen aber trotzdem genau um deren Höhe scrollen, weil das die Geste ist,
+     mit der man sie einklappt. Genau dieses Stück ließ sich die Seite noch
+     verschieben, und die Überschrift wanderte weg. `svh` ist die KLEINSTE
+     Höhe; passt der Inhalt da hinein, gibt es in keinem Zustand etwas zu
+     scrollen. In der APK gibt es keine Adressleiste, deshalb fiel es dort
+     nicht auf. */
+  min-height: 100svh;
   /* Oben wie unten die Systemzonen freihalten. Im Browser und in der
      installierten PWA ist der Wert 0 (dort setzt Chrome eine eigene Leiste
      davor); in der APK zeichnet Android ab Version 15 zwingend randlos, und
@@ -77,7 +85,7 @@ body {
    von 44 px nicht mehr aufgeht, darf das RASTER scrollen — nie die Seite. */
 body[data-view="grid"] {
   display: flex; flex-direction: column;
-  height: 100dvh;
+  height: 100svh;
 }
 body[data-view="grid"] #view-grid {
   flex: 1 1 auto; display: flex; flex-direction: column;
@@ -121,7 +129,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
    später weitere Zeilen dazukommen. */
 body[data-view="results"][data-mode="graph"] {
   display: flex; flex-direction: column;
-  height: 100dvh;
+  height: 100svh;
 }
 body[data-view="results"][data-mode="graph"] #view-results {
   flex: 1 1 auto; display: flex; flex-direction: column;
@@ -372,7 +380,7 @@ body[data-view="results"][data-mode="graph"] #timeline {
 /* ---------- Grafische Fahrplan-Ansicht ---------- */
 .timeline-wrap { position: relative; }
 .timeline {
-  height: min(calc(74dvh - env(safe-area-inset-top)), 640px);
+  height: min(calc(74svh - env(safe-area-inset-top)), 640px);
   overflow: auto;
   border: 1.5px solid var(--border);
   border-radius: 14px;
@@ -696,7 +704,7 @@ body[data-view="results"][data-mode="graph"] #timeline {
 dialog {
   border: none; border-radius: 16px; background: var(--card); color: var(--text);
   max-width: 480px; width: calc(100vw - 3rem); padding: 1.2rem; margin: auto;
-  max-height: calc(100dvh - 2rem -
+  max-height: calc(100svh - 2rem -
     2 * max(env(safe-area-inset-top), env(safe-area-inset-bottom)));
   overflow-y: auto;
   overscroll-behavior: contain;

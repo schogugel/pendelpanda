@@ -42,7 +42,8 @@ const VIEWS = {
     document.getElementById("timeline-wrap").hidden = false;
     document.getElementById("timeline").innerHTML = '<div style="width:2000px;height:3000px"></div>';
     document.getElementById("tl-legend").innerHTML =
-      Array.from({length: 8}, (_, i) => '<button class="tl-key on"><i class="dot"></i>Kat' + i + '</button>').join("");
+      ["Fernzug","Regionalzug","S-Bahn","U-Bahn","Tram","Bus","Sonstige","Fernbus"]
+        .map(n => '<button class="tl-key on"><i class="dot"></i>' + n + '</button>').join("");
   `,
 };
 
