@@ -760,7 +760,11 @@ function tlColumn(it, left, isDominated = false) {
      Balkens, unten am Ende; was gemeint ist, sagt die Position. */
   const t0lbl = document.createElement("span");
   t0lbl.className = "tl-dep";
-  t0lbl.style.top = (top - 15) + "px";
+  /* Beide Zeiten bekommen denselben Abstand von 3 px zum Balken. Oben wird
+     dafür die UNTERkante gesetzt (per translateY(-100%) im Stylesheet) — mit
+     einem festen Versatz nach oben hinge der Abstand an der Texthöhe und wäre
+     in den engen Spaltenstufen wieder ein anderer. */
+  t0lbl.style.top = (top - 3) + "px";
   t0lbl.textContent = fmtTime(dep.departure);
 
   const t1lbl = document.createElement("span");

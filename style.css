@@ -534,6 +534,10 @@ body[data-view="results"][data-mode="graph"] #timeline {
   text-align: center; font-size: .72rem; color: var(--muted);
   font-variant-numeric: tabular-nums; pointer-events: none;
 }
+/* Die Abfahrtszeit wird an ihrer UNTERkante ausgerichtet: Der Versatz um die
+   eigene Höhe hält den Abstand zum Balken gleich, egal wie groß die Schrift in
+   der jeweiligen Spaltenbreite gerade ist. */
+.tl-dep { transform: translateY(-100%); }
 /* Suchanzeige: Während gesucht wird, sind Liste UND Grafik ausgeblendet — es
    soll lieber kurz nichts zu sehen sein als eine veraltete Verbindung. Der
    Balken läuft ohne Prozentangabe: Wie lange es dauert, hängt an drei Anfragen

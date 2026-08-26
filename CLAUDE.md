@@ -542,7 +542,11 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Ein Sonderzustand „Plan“ war ausdrücklich unerwünscht — die Datenlage steckt in der
   Textfarbe der Uhrzeit, nicht im Abzeichen.
 - An beiden Balkenenden steht die Uhrzeit (`.tl-dep` / `.tl-arr`), klein und ohne
-  „ab“/„an“ — die Position sagt, was gemeint ist. `TL.DEP_LBL` reserviert den Platz
+  „ab“/„an“ — die Position sagt, was gemeint ist. **Beide mit 3 px Abstand zum Balken.**
+  Oben wird dafür die UNTERkante gesetzt (`transform: translateY(-100%)`), nicht ein
+  fester Versatz nach oben: Sonst hängt der Abstand an der Texthöhe und ist in den engen
+  Spaltenstufen (`.narrow`, `.tiny`) wieder ein anderer. Gemessen war es vorher −1 px,
+  die Abfahrtszeit berührte den Balken also. `TL.DEP_LBL` reserviert den Platz
   dafür; wer am Einrasten oder an der Kopffreiheit rechnet, muss ihn mit einrechnen,
   sonst verschwindet die Abfahrtszeit unter der Kopf-Kachel.
 - Fahrdauern: <60 min „42 min“, sonst „1:40 h“ (`fmtDur`). Ist-Zeiten farbcodiert,
