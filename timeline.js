@@ -27,6 +27,7 @@ const tl = {
   pinchBase: null,
   autoScrolling: false,
   followTimer: null,
+  animFrame: 0,      // laufende Verfahrbewegung (Zoom + Position in einem)
 };
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
@@ -819,34 +820,31 @@ function tlInitInteractions() {
     const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
     const targetLeft = Math.min(maxLeft, Math.max(0, colScrollLeft(Math.max(0, colIndexFor(sc.scrollLeft)))));
 
-    // Dynamischen Y-Zoom nur bei Spaltenwechsel anwenden (Pinch in derselben
-    // Spalte bleibt unangetastet); baut ggf. neu, Bildmitte bleibt verankert
+    // Zielzoom bestimmen (Pinch in derselben Spalte bleibt unangetastet),
+    // aber NOCH NICHT setzen — er wird gleich mitanimiert
     const idx0 = Math.min(tl.itins.length - 1, Math.max(0, colIndexFor(targetLeft)));
+    let ppm = tl.ppm;
     if (idx0 !== tl.lastZoomIdx) {
       tl.lastZoomIdx = idx0;
       const dyn = tlAutoZoom(sc, idx0);
-      if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) tlSetZoom(dyn);
+      if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
     }
 
-    const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-    let targetTop = Math.min(maxTop, Math.max(0, sc.scrollTop));
-
-    // Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
-    // sichtbaren Balken leicht unter die Kopf-Kachel legen — bzw. bei der
-    // nächsten erreichbaren Verbindung an der Jetzt-Linie andocken
+    /* Y-Regel: nach Spaltenwechsel (oder wenn nichts im Bild wäre) den linkesten
+       sichtbaren Balken leicht unter die Kopf-Kachel legen — bzw. bei der
+       nächsten erreichbaren Verbindung an der Jetzt-Linie andocken */
     const clear = tlHeadClear();
     const vx0 = targetLeft + TL.AXIS_W, vx1 = targetLeft + sc.clientWidth;
     const visible = tl.bars.filter(b => b.colLeft + tl.colW > vx0 && b.colLeft < vx1);
+    let topTime = tl.t0 + (sc.scrollTop / tl.ppm) * 60000;   // sonst bleibt die Zeit stehen
     if (visible.length) {
       const horizChanged = Math.abs(targetLeft - (tl.lastAlignLeft ?? targetLeft)) > 2;
       const anyInView = visible.some(b =>
-        b.top < targetTop + sc.clientHeight - 20 && b.top + b.height > targetTop + clear + 20);
-      if (horizChanged || !anyInView) targetTop = tlAlignTopFor(visible[0], sc);
+        b.top < sc.scrollTop + sc.clientHeight - 20 && b.top + b.height > sc.scrollTop + clear + 20);
+      if (horizChanged || !anyInView) topTime = tlTopTimeFor(sc, idx0, ppm);
     }
 
-    tl.autoScrolling = true;
-    sc.scrollTo({ left: targetLeft, top: targetTop, behavior: "smooth" });
-    setTimeout(() => { tl.autoScrolling = false; tlEdgeCheck(sc); }, 450);
+    tlGlideTo(sc, { ppm, left: targetLeft, topTime });
     tl.lastAlignLeft = targetLeft;
   }
 
@@ -946,6 +944,61 @@ function tlInitInteractions() {
   });
 }
 
+/* ---------------------------------------------------------------------------
+   EINE Verfahrbewegung statt zwei
+
+   Vorher wurde beim Spaltenwechsel erst der Zoom gesetzt — ein Neuaufbau, also
+   ein sichtbarer Sprung — und DANACH sanft gescrollt. Zwei getrennte
+   Bewegungen, die besonders auffielen, wenn sich der Maßstab stark änderte:
+   erst zuckte die Höhe, dann glitt das Bild.
+
+   Jetzt läuft beides in derselben Schleife. Der Maßstab wandert von der alten
+   zur neuen Zoomstufe, und die Ansicht folgt in ZEIT-Koordinaten statt in
+   Pixeln — sonst zöge der wachsende Maßstab das Ziel unter der Bewegung weg.
+   Ein vollständiger Neuaufbau kostet gemessen 1,8 ms (10 Spalten) bis 5,6 ms
+   (40 Spalten) und passt damit in ein Bild von 16 ms.
+   --------------------------------------------------------------------------- */
+function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
+  cancelAnimationFrame(tl.animFrame);
+  const p0 = tl.ppm, l0 = sc.scrollLeft;
+  const tTop0 = tl.t0 + (sc.scrollTop / p0) * 60000;
+  const p1 = ppm || p0;
+  const start = performance.now();
+  tl.autoScrolling = true;
+
+  const schritt = (jetzt) => {
+    // Fasst der Nutzer die Ansicht an, gehört sie ihm — Bewegung sofort aufgeben
+    if (tl.pointers.size) { tl.autoScrolling = false; return; }
+    const k = Math.min(1, (jetzt - start) / ms);
+    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // weich rein und raus
+    if (p1 !== p0) { tl.ppm = p0 + (p1 - p0) * e; tlBuild(sc); }
+    sc.scrollLeft = l0 + (left - l0) * e;
+    sc.scrollTop = Math.max(0, tlY(tTop0 + (topTime - tTop0) * e));
+    if (k < 1) { tl.animFrame = requestAnimationFrame(schritt); return; }
+
+    tl.ppm = p1;
+    if (p1 !== p0) { tlBuild(sc); tlEnsureTail(sc); }
+    sc.scrollLeft = left;
+    sc.scrollTop = Math.max(0, tlY(topTime));
+    tl.autoScrolling = false;
+    tlEdgeCheck(sc);
+  };
+  tl.animFrame = requestAnimationFrame(schritt);
+}
+
+/* Wo soll die Oberkante am ENDE stehen — ausgedrückt als Zeit, damit die
+   Bewegung unabhängig vom Maßstab ist. Ermittelt wird sie, indem kurz auf die
+   Zielstufe gebaut, gemessen und wieder zurückgebaut wird: zwei Neuaufbauten,
+   dafür bleibt die Docking-Regel an EINER Stelle statt hier nachgebaut. */
+function tlTopTimeFor(sc, idx, ppm) {
+  const p0 = tl.ppm, l = sc.scrollLeft, o = sc.scrollTop;
+  if (ppm !== p0) { tl.ppm = ppm; tlBuild(sc); sc.scrollLeft = l; }
+  const bar = tl.bars[idx] || tl.bars[0];
+  const zeit = bar ? tl.t0 + (tlAlignTopFor(bar, sc) / tl.ppm) * 60000 : tl.t0;
+  if (ppm !== p0) { tl.ppm = p0; tlBuild(sc); sc.scrollLeft = l; sc.scrollTop = o; }
+  return zeit;
+}
+
 /* Sanftes Einrasten nach dem Scrollen:
    - horizontal: auf die nächste Spaltengrenze (mehr als die halbe Spalte
      sichtbar → voll einblenden, sonst rausschieben), keine abgeschnittenen
@@ -959,12 +1012,13 @@ function tlAlign(sc) {
   const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
   const targetLeft = Math.min(maxLeft, Math.max(0, colScrollLeft(Math.max(0, colIndexFor(sc.scrollLeft)))));
 
-  // Dynamischer Y-Zoom nur bei Spaltenwechsel (Maus-/Trackpad-Pfad)
+  // Zielzoom bestimmen, aber noch nicht setzen — er wird mitanimiert
   const idx0 = Math.min(tl.itins.length - 1, Math.max(0, colIndexFor(targetLeft)));
+  let ppm = tl.ppm;
   if (idx0 !== tl.lastZoomIdx) {
     tl.lastZoomIdx = idx0;
     const dyn = tlAutoZoom(sc, idx0);
-    if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) tlSetZoom(dyn);
+    if (Math.abs(dyn - tl.ppm) / tl.ppm > 0.05) ppm = dyn;
   }
 
   const needH = Math.abs(sc.scrollLeft - targetLeft) > 2;
@@ -977,15 +1031,15 @@ function tlAlign(sc) {
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
   const targetTop = tlAlignTopFor(visible[0], sc);
   const needV = (horizMoved || !anyInView) && Math.abs(sc.scrollTop - targetTop) > 8;
+  const needZoom = Math.abs(ppm - tl.ppm) > 0.01;
 
-  if (needH || needV) {
-    tl.autoScrolling = true;
-    sc.scrollTo({
+  if (needH || needV || needZoom) {
+    tlGlideTo(sc, {
+      ppm,
       left: needH ? targetLeft : sc.scrollLeft,
-      top: needV ? targetTop : sc.scrollTop,
-      behavior: "smooth",
+      topTime: needV ? tlTopTimeFor(sc, idx0, ppm)
+                     : tl.t0 + (sc.scrollTop / tl.ppm) * 60000,
     });
-    setTimeout(() => { tl.autoScrolling = false; }, 650);
   }
   tl.lastAlignLeft = needH ? targetLeft : sc.scrollLeft;
 }

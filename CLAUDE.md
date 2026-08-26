@@ -312,6 +312,17 @@ Was ansteht, steht in `TODO.md`.
   unter dem ausblendenden Rand der Zeitachse durch. Es gibt ZWEI Einrast-Stellen —
   `releaseGlide()` (Touch) und `tlAlign()` (Maus/Trackpad); der Fehler steckte in beiden.
   Die Achse ist deshalb zusätzlich fast durchgehend deckend (Verlauf erst ab 94 %).
+- **Zoom und Position bewegen sich GEMEINSAM** (`tlGlideTo`), nicht nacheinander.
+  Vorher setzte der Spaltenwechsel erst den Zoom (`tlSetZoom` → Neuaufbau, sichtbarer
+  Sprung) und scrollte danach sanft — zwei Bewegungen, die gegeneinander liefen.
+  Jetzt eine `requestAnimationFrame`-Schleife: Maßstab interpoliert, Position folgt in
+  **Zeit-Koordinaten** statt in Pixeln (sonst zieht der wachsende Maßstab das Ziel unter
+  der Bewegung weg). Pro Bild ein voller Neuaufbau — gemessen 1,8 ms bei 10 und 5,6 ms
+  bei 40 Spalten, passt in 16 ms. Greift der Nutzer die Ansicht an (`tl.pointers.size`),
+  bricht die Bewegung sofort ab. `tlSetZoom` bleibt für den Pinch.
+- `tlTopTimeFor` ermittelt das vertikale Ziel für die ZIEL-Zoomstufe, indem kurz dorthin
+  gebaut und wieder zurückgebaut wird — zwei Neuaufbauten, dafür bleibt die Docking-Regel
+  an einer Stelle statt dort nachgebaut zu werden.
 - Docking: Einrasten auf Spaltengrenzen (Halbe-Spalte-Regel); vertikal an Balkenstart —
   bei der nächsten erreichbaren Verbindung an der **Jetzt-Linie**, außer <40 % des ersten
   Segments wären sichtbar (dann Balken). `tlAlignTopFor` ist die eine Wahrheit dafür.
