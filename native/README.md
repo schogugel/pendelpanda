@@ -56,34 +56,61 @@ Versionsnummer aus `app.js` nach `build.gradle` — **die Version wird nie von
 Hand in Android gepflegt**, sonst zeigen App und Systemeinstellungen
 irgendwann Verschiedenes an.
 
-## Signaturschlüssel
+## Eine teilbare APK bauen
 
-Für Release-Builds:
+Die Debug-APK ist zum Ausprobieren gedacht, **nicht zum Weitergeben**: Sie trägt
+das `debuggable`-Flag (jeder mit einem USB-Kabel kann sich in die laufende App
+einklinken) und ist mit Androids öffentlich bekanntem Debug-Schlüssel signiert,
+den jeder besitzt. Der Launcher zeigt zwar schon „PendelPanda“ — das ist nicht
+der Unterschied.
 
-    keytool -genkey -v -keystore pendelpanda.keystore \
+### 1. Signaturschlüssel anlegen (einmalig)
+
+    cd native
+    keytool -genkeypair -v -keystore pendelpanda.keystore \
       -alias pendelpanda -keyalg RSA -keysize 2048 -validity 10000
 
-**Diesen Schlüssel und sein Passwort niemals verlieren.** Ohne ihn kann keine
-neue Version über eine bestehende Installation gelegt werden — die Nutzer
-müssten deinstallieren und verlören ihre Kacheln. Der Keystore gehört *nicht*
-ins Repo (steht im `.gitignore`), sondern in ein Backup.
+**Diesen Schlüssel und sein Passwort niemals verlieren.** Ohne ihn lässt sich
+keine neue Version über eine bestehende Installation legen — die Nutzer müssten
+deinstallieren und verlören ihre Kacheln. Der Keystore gehört *nicht* ins Repo
+(steht im `.gitignore`), sondern in ein Backup, das den Rechner überlebt.
 
-Signaturdaten kommen in `android/keystore.properties` (ebenfalls ignoriert):
+### 2. Passwörter hinterlegen
 
-    storeFile=../../pendelpanda.keystore
+`native/keystore.properties` (ebenfalls ignoriert):
+
+    storeFile=pendelpanda.keystore
     storePassword=…
     keyAlias=pendelpanda
     keyPassword=…
 
-## Verteilen und aktualisieren
+Der Pfad ist relativ zu `native/`. `sync.mjs` schreibt die Signatur-Einstellung
+bei jedem Lauf ins erzeugte Gradle-Projekt — von Hand dort zu editieren wäre
+zwecklos, `android/` wird jederzeit neu erzeugt.
 
-Ohne Store, ohne Server: APK an ein **GitHub Release** hängen. Wer
-[Obtainium](https://github.com/ImranR98/Obtainium) nutzt, trägt einmal die
-Repo-URL ein und bekommt Updates automatisch — dieselbe Bequemlichkeit wie ein
-Store, aber ohne einen.
+### 3. Bauen
 
-Sonst: APK weitergeben, drüberinstallieren. Solange derselbe Schlüssel
-signiert, bleiben alle Einstellungen erhalten.
+    npm run apk
+
+Ergebnis: `android/app/build/outputs/apk/release/pendelpanda-<version>-release.apk`.
+Der Dateiname trägt die Version, damit Obtainium Updates zuverlässig erkennt.
+
+Ohne `keystore.properties` läuft der Build zwar durch, die APK ist dann aber
+**unsigniert und nicht installierbar** — das ist der Normalzustand eines frischen
+Capacitor-Projekts, kein Fehler in diesem Repo.
+
+### Was die Empfänger erleben werden
+
+- **„Unbekannte Apps installieren“** muss einmal für die App erlaubt werden, aus
+  der sie die Datei öffnen (Dateimanager, Browser, Messenger).
+- **Play Protect warnt** bei jeder sideloadbaren App („unbekannter Entwickler“).
+  Das ist normal und lässt sich nur über einen Store vermeiden.
+- **Wer schon die Debug-APK hat, muss sie zuerst deinstallieren.** Debug- und
+  Release-Signatur passen nicht zusammen; Android verweigert das Drüberinstallieren
+  mit einer wenig hilfreichen Fehlermeldung. Ab der ersten Release-Version laufen
+  Updates dann normal.
+- **Einstellungen wandern nicht automatisch mit.** Vor dem Deinstallieren den
+  Übertragungslink aus ⚙ sichern, danach in der neuen App einfügen.
 
 ## Was NICHT in die APK wandert
 

@@ -82,13 +82,71 @@ const [maj, min, pat] = version.split(".").map(Number);
 const code = maj * 10000 + min * 100 + pat;
 
 const gradlePath = join(HERE, "android", "app", "build.gradle");
+let gradle;
 try {
-  const gradle = await readFile(gradlePath, "utf8");
-  const patched = gradle
-    .replace(/versionCode\s+\d+/, `versionCode ${code}`)
-    .replace(/versionName\s+"[^"]*"/, `versionName "${version}"`);
-  if (patched !== gradle) await writeFile(gradlePath, patched);
-  console.log(`✓ APK-Version ${version} (versionCode ${code})`);
+  gradle = await readFile(gradlePath, "utf8");
 } catch {
-  console.log("· android/ noch nicht angelegt — Version wird beim nächsten Lauf gesetzt");
+  console.log("· android/ noch nicht angelegt — `npx cap add android` ausführen");
+  process.exit(0);
+}
+
+let patched = gradle
+  .replace(/versionCode\s+\d+/, `versionCode ${code}`)
+  .replace(/versionName\s+"[^"]*"/, `versionName "${version}"`);
+console.log(`✓ APK-Version ${version} (versionCode ${code})`);
+
+/* ---------------------------------------------------------------------------
+   Signatur und Dateiname für Release-Builds
+
+   `android/` ist ein ERZEUGNIS und steht im .gitignore — was dort von Hand
+   editiert wird, ist beim nächsten `cap add android` weg. Beides wird deshalb
+   hier bei jedem Lauf hineingeschrieben, aus Quellen, die im Repo bzw. neben
+   ihm liegen.
+
+   Ohne Signatur erzeugt `assembleRelease` eine APK, die sich NICHT installieren
+   lässt — das ist kein Randfall, sondern der Normalzustand eines frischen
+   Capacitor-Projekts.
+   --------------------------------------------------------------------------- */
+const MARK = "// pendelpanda:signing";
+if (!patched.includes(MARK)) {
+  patched = patched.replace(/(\n\s*buildTypes\s*\{)/,
+`
+    ${MARK} — Werte kommen aus native/keystore.properties (nicht im Repo)
+    signingConfigs {
+        release {
+            def propsFile = rootProject.file("../keystore.properties")
+            if (propsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(propsFile))
+                storeFile rootProject.file("../" + props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+$1`);
+  patched = patched.replace(/(release\s*\{\s*\n\s*)minifyEnabled/,
+    "$1signingConfig rootProject.file(\"../keystore.properties\").exists() ? signingConfigs.release : null\n            minifyEnabled");
+
+  // Dateiname trägt die Version — Obtainium erkennt Updates daran zuverlässig
+  patched += `
+${MARK} — sprechender Dateiname statt app-debug.apk
+android.applicationVariants.all { variant ->
+    variant.outputs.all { output ->
+        outputFileName = "pendelpanda-\${variant.versionName}-\${variant.buildType.name}.apk"
+    }
+}
+`;
+}
+
+if (patched !== gradle) await writeFile(gradlePath, patched);
+
+const ksProps = join(HERE, "keystore.properties");
+try {
+  await access(ksProps);
+  console.log("✓ Signaturschlüssel gefunden — `npm run apk` erzeugt eine teilbare APK");
+} catch {
+  console.log("· Kein keystore.properties — Release-Builds blieben unsigniert.");
+  console.log("  Anleitung: native/README.md, Abschnitt „Signaturschlüssel“");
 }

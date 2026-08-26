@@ -10,16 +10,16 @@ Release, [Obtainium](https://github.com/ImranR98/Obtainium) zieht sie von dort
 und meldet neue Versionen automatisch. Wer es nutzt, trägt einmal die Repo-URL
 ein und hat danach dieselbe Bequemlichkeit wie mit einem Store.
 
-Dafür nötig:
+Vorbereitet ist inzwischen alles: `sync.mjs` schreibt Signatur-Einstellung und
+versionshaltigen Dateinamen ins Gradle-Projekt, die Kette ist mit einem
+Wegwerf-Schlüssel einmal komplett durchgebaut (signiert, nicht debuggbar, nur
+INTERNET-Berechtigung).
 
-- Signaturschlüssel anlegen und **sichern** (Befehl in `native/README.md`).
-  Ohne ihn lässt sich später keine neue Version über eine bestehende
-  Installation legen — Nutzer müssten deinstallieren und verlören ihre Kacheln.
-- `android/keystore.properties` + Signaturblock in `build.gradle`, damit
-  `npm run apk` eine signierte Release-APK erzeugt.
-- Release je Version anlegen, APK anhängen. Der Dateiname sollte die Version
-  tragen (`pendelpanda-1.5.3.apk`), sonst erkennt Obtainium den Wechsel nicht
-  zuverlässig.
+Offen bleibt:
+
+- **Signaturschlüssel anlegen und sichern** — nur du kannst das, weil das
+  Passwort dir gehört. Befehl in `native/README.md`.
+- Release je Version anlegen, APK anhängen.
 - Einmal mit Obtainium gegen das echte Repo prüfen — inklusive Update von einer
   älteren auf eine neuere Version, nicht nur Erstinstallation.
 

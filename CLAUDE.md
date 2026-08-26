@@ -112,7 +112,11 @@ Was ansteht, steht in `TODO.md`.
   (Dev-Werkzeug, gehört NICHT in die APK und steht nicht in der Allowlist)
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
 - `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
-- `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README
+- `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README.
+  **`sync.mjs` schreibt Version, Signatur-Einstellung und Dateinamen ins erzeugte
+  Gradle-Projekt** — `android/` ist ein Erzeugnis, von Hand dort zu editieren ist
+  zwecklos. Release-APK nur mit `native/keystore.properties`; ohne sie ist das
+  Ergebnis unsigniert und nicht installierbar.
 - `index.html` — alle Views/Dialoge (Grid, Edit, Ergebnisse, Settings, Zeit, Teilen, Hilfe, Trip-Details)
 - `app.js` — Zustand, Grid/Gesten, Suche/Laden, Legende, Details, Settings, Link-Transfer
 - `timeline.js` — Grafik (Canvas-Aufbau, Zoom, Panning, Einrasten, Prefetch, Kategorien)
