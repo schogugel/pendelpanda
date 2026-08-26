@@ -24,10 +24,14 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
 
 ## Arbeitsritual (bei jeder Änderung)
 
-1. Code ändern → **`node tools/smoke.mjs`** (Pflicht, nicht optional).
-   `node --check` prüft nur Syntax und übersieht Ladefehler. Der Ladetest führt
-   platform/dblink/app/timeline in der Reihenfolge aus index.html aus und ruft die
-   zentralen Funktionen einmal auf.
+1. Code ändern → **`node tools/check.mjs`** (Pflicht, nicht optional).
+   Prüft zweierlei, weil beide Fehlerklassen schon je einmal ausgeliefert wurden:
+   **statisch** (ESLint `no-undef`) findet Namen, die es nicht gibt — auch in Zweigen,
+   die erst bei einer echten Suche laufen (v1.9.0: `t.kind` nach weggefallenem
+   `const t`); **dynamisch** (`smoke.mjs`) führt die Dateien in der Reihenfolge aus
+   index.html aus und findet Abstürze beim Laden (v1.7.0: `const` vor Deklaration
+   benutzt). **`node --check` findet KEINEN von beiden** — beide waren syntaktisch
+   einwandfrei. Einmalig vorher: `cd tools && npm install`.
 2. **`APP_VERSION` erhöhen und `CACHE` in `sw.js` angleichen** (siehe oben).
    Neue Shell-Dateien zusätzlich in `SHELL` eintragen.
 3. Commit deutsch, Was+Warum, Version in der ersten Zeile, Trailer
@@ -103,7 +107,9 @@ Was ansteht, steht in `TODO.md`.
 ## Dateien
 
 - `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
-- `tools/smoke.mjs` — Ladetest (gehört NICHT in die APK, steht nicht in der Allowlist)
+- `tools/check.mjs` — **der Prüfbefehl vor jedem Commit** (statisch + Ladetest)
+- `tools/smoke.mjs`, `tools/eslint.config.mjs` — die beiden Prüfungen dahinter
+  (Dev-Werkzeug, gehört NICHT in die APK und steht nicht in der Allowlist)
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
 - `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
 - `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README

@@ -6,6 +6,7 @@ Thumbs.db
 # Sie im Repo zu führen hieße, denselben Code zweimal zu pflegen — genau das,
 # was diese Architektur vermeiden soll.
 native/node_modules/
+tools/node_modules/
 native/www/
 native/android/
 native/assets/
