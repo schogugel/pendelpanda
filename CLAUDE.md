@@ -320,6 +320,12 @@ Was ansteht, steht in `TODO.md`.
 - **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
   Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
   nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
+- **Der Fokus wird VOR dem Nachladen des Kontexts festgelegt** (`lastFocusKey` in
+  `loadContext`). Danach zu bestimmen ist die Falle: Das Nachladen bringt spätere
+  Verbindungen, die nächste Bestimmung nimmt eine davon, und dahinter ist wieder
+  nichts — die Markierung rutscht zurück in die letzte Spalte. Inhaltlich ist das
+  Einfrieren korrekt, weil die Ankunftssuche die spätesten Verbindungen VOR
+  Betriebsschluss schon vollständig geliefert hat; was danach kommt, ist Kontext.
 - **Die „letzte Verbindung“ wird je Suche EINMAL bestimmt** (`app.lastFocusKey`) und
   festgehalten. Vorher rechnete jeder Neuaufbau sie neu, und weil der Pool zwischendurch
   wächst, kam dabei mal eine andere heraus — die Markierung sprang, mal zweite, mal

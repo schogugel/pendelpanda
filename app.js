@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.16.0";
+const APP_VERSION = "1.16.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -729,16 +729,30 @@ async function loadContext() {
   if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
   if (app.searchTime.kind !== "letzte") return;
 
-  /* EINE Nachladerunde, passend bemessen — keine Schleife. Jede weitere Runde
-     kostet eine volle Umlaufzeit, und mit der größeren Erstanfrage ist meist
-     ohnehin schon genug da. */
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
-  const visible = visibleItins();
-  const key = findLastDecent(visible);
-  if (!key || !app.nextPageCursor) return;
-  const focusDep = depOf(visible.find(it => itKey(it) === key));
-  const behind = visible.filter(it => depOf(it) > focusDep).length;
-  if (behind < need) await fetchPage("later", need - behind + 2);
+
+  /* Den Fokus JETZT festlegen — VOR dem Nachladen. Sonst passiert genau das,
+     was die Markierung immer wieder nach rechts rutschen ließ: Das Nachladen
+     bringt spätere Verbindungen, die nächste Bestimmung nimmt eine davon, und
+     dahinter ist wieder nichts. Inhaltlich ist das Einfrieren korrekt, weil die
+     Ankunftssuche die spätesten Verbindungen VOR Betriebsschluss bereits
+     vollständig geliefert hat; was danach kommt, kommt erst am nächsten Morgen
+     und ist nur Kontext. Kostet keine zusätzliche Anfrage. */
+  const key = lastFocusKey(visibleItins());
+  if (key === "end") return;
+
+  /* Höchstens zwei Runden, und die zweite nur, wenn die erste nichts Sichtbares
+     gebracht hat (etwa weil alles Nachgeladene ausgeblendet ist). Jede Runde
+     kostet eine volle Umlaufzeit — im Normalfall bleibt es bei einer. */
+  for (let round = 0; round < 2; round++) {
+    const visible = visibleItins();
+    const focus = visible.find(it => itKey(it) === key);
+    if (!focus) return;
+    const behind = visible.filter(it => depOf(it) > depOf(focus)).length;
+    if (behind >= need || !app.nextPageCursor) return;
+    const { added } = await fetchPage("later", need - behind + 2);
+    if (!added) return;
+  }
 }
 
 /* Die „letzte Verbindung“ wird je Suche EINMAL bestimmt und dann festgehalten.
