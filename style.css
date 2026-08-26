@@ -87,9 +87,14 @@ body[data-view="grid"] {
   display: flex; flex-direction: column;
   height: 100svh;
 }
+/* `width: 100%` ist hier PFLICHT: `.view` hat `margin: 0 auto`, und in einer
+   Flex-Spalte schaltet ein automatischer Seitenrand das Dehnen auf die
+   Containerbreite ab — die Ansicht nimmt dann ihre INHALTSBREITE an und kann
+   breiter werden als der Bildschirm. Mit `width: 100%` bleibt sie gedeckelt,
+   `max-width` und die Zentrierung wirken weiter wie vorher. */
 body[data-view="grid"] #view-grid {
   flex: 1 1 auto; display: flex; flex-direction: column;
-  min-height: 0; padding-bottom: .5rem;
+  min-height: 0; min-width: 0; width: 100%; padding-bottom: .5rem;
 }
 body[data-view="grid"].fitgrid #buttongrid {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
@@ -105,9 +110,13 @@ body[data-view="grid"].fitgrid .stationbtn {
   margin-top: .75rem;
 }
 .pagetitle {
-  font-size: 1.55rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .3em;
-  margin: .55rem 0 .1rem;
+  /* Mit .3em Sperrung ist „ABFAHRTSTAFEL“ ein einziges, unteilbares Wort von
+     rund 290 px — auf einem 360-px-Gerät passt das neben dem ⚙ nicht mehr und
+     schob die Seite ein paar Pixel nach rechts. Größe und Sperrung wachsen
+     deshalb mit der Bildbreite mit. */
+  font-size: clamp(1.05rem, 5vw, 1.55rem); font-weight: 800;
+  text-transform: uppercase; letter-spacing: clamp(.12em, 1vw, .3em);
+  margin: .55rem 0 .1rem; min-width: 0;
 }
 /* Scroll-Modus bei vielen Kacheln: Wisch-Verbinden aus → normales Scrollen */
 .buttongrid.no-drag .stationbtn { touch-action: manipulation; }
@@ -133,13 +142,18 @@ body[data-view="results"][data-mode="graph"] {
 }
 body[data-view="results"][data-mode="graph"] #view-results {
   flex: 1 1 auto; display: flex; flex-direction: column;
-  min-height: 0; padding-bottom: .4rem;
+  min-height: 0; min-width: 0; width: 100%; padding-bottom: .4rem;
 }
+/* Der Rahmen bekommt die Resthöhe, die Grafik füllt ihn aus. BEWUSST kein
+   `display: flex` am Rahmen: Ein Flex-Element hat `min-width: auto` und kann
+   dadurch nicht schmaler werden als sein Inhalt — und der Inhalt der Grafik ist
+   tausende Pixel breit. Sie sprengte damit die Seite nach rechts und machte
+   alles scrollbar. Mit einem gewöhnlichen Block gibt es das Problem nicht. */
 body[data-view="results"][data-mode="graph"] #timeline-wrap {
-  flex: 1 1 auto; min-height: 0; display: flex;
+  flex: 1 1 auto; min-height: 0; min-width: 0;
 }
 body[data-view="results"][data-mode="graph"] #timeline {
-  flex: 1 1 auto; min-height: 0; height: auto;
+  height: 100%; max-width: 100%;
 }
 
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }

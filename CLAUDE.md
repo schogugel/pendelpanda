@@ -400,11 +400,19 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   `svh` ist die KLEINSTE Höhe; passt der Inhalt hinein, gibt es in keinem Zustand
   etwas zu scrollen. **In der APK fällt das nicht auf** (keine Adressleiste) — dieser
   Unterschied ist der Grund, warum ein Fehler nur im Browser auftreten kann.
+- **Flex-Fallstricke, die diese App zweimal zerlegt haben:**
+  Ein Flex-Element hat `min-width: auto` und kann deshalb NICHT schmaler werden als
+  sein Inhalt — bei der Grafik sind das tausende Pixel, sie sprengte die Seite nach
+  rechts. Der Rahmen der Grafik ist deshalb bewusst KEIN Flex-Container.
+  Und `.view` hat `margin: 0 auto`; in einer Flex-Spalte schaltet ein automatischer
+  Seitenrand das Dehnen ab, die Ansicht nimmt ihre INHALTSBREITE an. Deshalb braucht
+  sie dort ausdrücklich `width: 100%`.
 - **Layout nicht schätzen, messen: `node tools/layout.mjs`.** Lädt die echte Seite in
   Firefox und misst zwei Ansichten (Startseite und Ergebnis-Grafik) bei vier
   Bildschirmgrößen; die Ergebnisansicht bewusst im UNGÜNSTIGSTEN Fall, mit beiden
-  Hinweiszeilen sichtbar. Gemessen wird `scrollHeight` gegen `innerHeight` und die
-  Unterkante des letzten sichtbaren BLOCKS — nicht dessen Inhalt, denn die Grafik ist
+  Hinweiszeilen sichtbar. Gemessen wird `scrollHeight`/`scrollWidth` gegen `innerHeight`/`innerWidth` und die
+  Unterkante des letzten sichtbaren BLOCKS. **Die Breite gehört dazu** — sie fehlte
+  zuerst, und genau dadurch ging eine über den Rand ragende Grafik als „PASST“ durch — nicht dessen Inhalt, denn die Grafik ist
   ein eigenes Scrollfeld und ragt innen absichtlich darüber hinaus. Alle Kacheln in
   `layout-messung.png` müssen „PASST“ zeigen. Dieselbe Fehlerklasse ist inzwischen
   viermal ausgeliefert worden — ohne Messung geht es offensichtlich nicht.

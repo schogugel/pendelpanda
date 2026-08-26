@@ -61,6 +61,9 @@ addEventListener("load", () => {
   ${setup}
   const de = document.documentElement;
   const over = Math.max(0, de.scrollHeight - window.innerHeight);
+  // Auch die BREITE prüfen: Genau hier ist ein Fehler durchgerutscht, weil das
+  // Werkzeug nur die Höhe maß, während die Grafik die Seite nach rechts sprengte.
+  const overX = Math.max(0, de.scrollWidth - window.innerWidth);
   /* Nur die BLÖCKE der Ansicht messen, nicht deren Inhalt: Die Grafik ist ein
      eigenes Scrollfeld, ihr Inneres ragt absichtlich darüber hinaus. Gemessen
      wird also die Unterkante des letzten sichtbaren Blocks (die Legende). */
@@ -74,9 +77,10 @@ addEventListener("load", () => {
   box.textContent = [
     "${name}",
     "Fenster      " + window.innerWidth + "x" + window.innerHeight,
-    "UEBERLAUF    " + over + " px",
+    "UEBERLAUF Y  " + over + " px",
+    "UEBERLAUF X  " + overX + " px",
     "unterste Kante " + Math.round(letzte),
-    "", (over <= 1 && letzte <= window.innerHeight + 1) ? "PASST" : "PASST NICHT"
+    "", (over <= 1 && overX <= 1 && letzte <= window.innerHeight + 1) ? "PASST" : "PASST NICHT"
   ].join("\\n");
   document.body.appendChild(box);
 });
