@@ -1,6 +1,11 @@
 .DS_Store
 Thumbs.db
 
+# Persönliche Notizen — dieses Repo ist ÖFFENTLICH, und was einmal committet
+# wurde, bleibt in der Historie lesbar, auch nach dem Löschen. Für versionierte
+# Notizen ein eigenes PRIVATES Repo in diesen Ordner klonen (siehe Notizen/README).
+Notizen/
+
 # --- Android-Hülle: alles Erzeugte und alle Geheimnisse ---
 # www/ und android/ entstehen aus der Repo-Wurzel (native/sync.mjs, cap add).
 # Sie im Repo zu führen hieße, denselben Code zweimal zu pflegen — genau das,
