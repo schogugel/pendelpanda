@@ -110,6 +110,38 @@
   </section>
 
   <section class="setgroup">
+    <h3>„Letzte Verbindung“</h3>
+    <label class="countrow">Ankunft spätestens
+      <input type="time" id="set-lastarr" step="300">
+    </label>
+    <p class="finequote">Bis wann du ankommen willst. „Letzte“ sucht die späteste
+      Verbindung, die das noch schafft.</p>
+    <div class="countrow">Nachts von – bis
+      <span class="timepair">
+        <input type="time" id="set-nightfrom" step="900" aria-label="Nacht beginnt">
+        <input type="time" id="set-nightto" step="900" aria-label="Nacht endet">
+      </span>
+    </div>
+    <label class="countrow">Nachts höchstens warten
+      <input type="number" id="set-nightwait" min="5" max="240" step="5" inputmode="numeric">
+    </label>
+    <p class="finequote">Minuten am Stück an <em>einem</em> Halt, nicht über alle Umstiege
+      zusammengerechnet. Nur Wartezeiten im Nachtfenster zählen — eine Stunde Aufenthalt
+      am Nachmittag ist harmlos, um drei Uhr früh nicht.</p>
+  </section>
+
+  <section class="setgroup">
+    <h3>Umsteigen</h3>
+    <label class="countrow">Zusätzliche Umstiegszeit
+      <input type="number" id="set-xfer" min="0" max="30" step="1" inputmode="numeric">
+    </label>
+    <p class="finequote">Minuten, die über die planmäßige Umsteigezeit hinaus reserviert
+      werden — für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option ist. Der
+      Fahrplanrechner sucht daraufhin passende Verbindungen, es werden also keine
+      weggelassen, sondern andere gefunden.</p>
+  </section>
+
+  <section class="setgroup">
     <h3>Verkehrsmittel</h3>
     <p class="hint">Diese standardmäßig anzeigen:</p>
     <div class="checklist" id="settings-cats">

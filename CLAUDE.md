@@ -156,6 +156,12 @@ Was ansteht, steht in `TODO.md`.
   tatsächlich gescrollt wird, und erst nach echter Nutzer-Geste (`tl.userMoved`).
   Sonst löst schon das Positionieren beim Öffnen ein Nachladen aus. Rand-Spinner nur,
   wenn wirklich am Rand.
+- **`additionalTransferTime`** (`settings.xferExtra`, Minuten) geht direkt in die
+  Anfrage — kostet KEINE zusätzliche Anfrage. Besser als nachträgliches Filtern: Der
+  Router sucht andere Verbindungen, die die Bedingung erfüllen, statt dass wir welche
+  wegwerfen. Nachgemessen an Nürnberg→Bayreuth: 0 → kürzester Umstieg 6 min,
+  10 → 18 min, 20 → 24 min, bei jeweils gleich vielen Ergebnissen.
+- MOTIS kennt **keine Obergrenze** für Wartezeiten — die muss clientseitig bleiben.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
 ## Transitous/MOTIS-Gotchas (teuer erarbeitet)
@@ -253,8 +259,16 @@ Was ansteht, steht in `TODO.md`.
   Die frühere Konstruktion (Suche ab Morgen + rückwärts blättern + Lücken-Heuristik)
   war langsam und traf oft die falsche Verbindung — **nicht wieder einführen.**
   `findLastDecent()` wählt daraus nur noch die FOKUS-Spalte: späteste mit
-  Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium) **und Ankunft vor
-  `nextServiceEnd()`**. Diese Schranke ist nötig, seit für den Kontext auch
+  **nächtlicher** Wartezeit ≤ `settings.nightWait` (Gesamtdauer bewusst kein Kriterium)
+  **und Ankunft vor `nextServiceEnd()`** (= `settings.lastArrival`, einstellbar).
+  **Nur Wartezeiten im Nachtfenster zählen** (`waitTouchesNight`), am Stück an EINEM
+  Halt, nicht summiert: Eine Stunde Aufenthalt um 15 Uhr ist harmlos, um 3 Uhr nicht.
+  Die alte Regel galt rund um die Uhr und verwarf dadurch echte letzte Verbindungen —
+  Regensburg→Neustrelitz lieferte 16:53 statt der tatsächlich letzten um 17:48, weil
+  deren 49-min-Wartezeit nur zu 24 min in die Nacht fällt.
+  `waitTouchesNight` prüft NICHT nur Anfang und Ende der Wartezeit: Wer um 20 Uhr
+  ankommt und um 8 Uhr weiterfährt, wartet die ganze Nacht, obwohl beide Enden
+  außerhalb liegen. Diese Schranke ist nötig, seit für den Kontext auch
   Verbindungen NACH der letzten geladen werden — ohne sie wanderte der Fokus einfach
   mit und beantwortete eine andere Frage.
 - Bei „Letzte“ werden bewusst 4 Verbindungen NACH dem Fokus nachgeladen, damit die

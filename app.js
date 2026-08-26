@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.12.0";
+const APP_VERSION = "1.13.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -46,6 +46,18 @@ function loadSettings() {
             bus: true, sonstige: true, fernbus: false },
     cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
     fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
+    /* „Letzte“: Bis wann will ich ankommen, und wie lange darf ich NACHTS an
+       einem einzelnen Umstieg warten? Die Wartegrenze galt früher rund um die
+       Uhr — eine Stunde Aufenthalt um 15 Uhr ist aber harmlos, um 3 Uhr nicht. */
+    lastArrival: "04:00",
+    nightFrom: "22:00",
+    nightTo: "06:00",
+    nightWait: 45,   // Minuten am Stück, nicht über die Umstiege summiert
+    /* Zusätzliche Umstiegszeit, direkt an MOTIS weitergereicht
+       (`additionalTransferTime`). Kostet KEINE zusätzliche Anfrage und ist
+       besser als nachträgliches Filtern: Der Router sucht dann andere
+       Verbindungen, die die Bedingung erfüllen. */
+    xferExtra: 0,    // Minuten
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
@@ -62,6 +74,11 @@ function loadSettings() {
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(7, Math.max(3, Math.round(n)));
     if (Number.isFinite(s?.fill)) def.fill = Math.min(90, Math.max(40, Math.round(s.fill / 5) * 5));
+    for (const k of ["lastArrival", "nightFrom", "nightTo"]) {
+      if (typeof s?.[k] === "string" && /^\d{2}:\d{2}$/.test(s[k])) def[k] = s[k];
+    }
+    if (Number.isFinite(s?.nightWait)) def.nightWait = Math.min(240, Math.max(5, Math.round(s.nightWait)));
+    if (Number.isFinite(s?.xferExtra)) def.xferExtra = Math.min(30, Math.max(0, Math.round(s.xferExtra)));
     if (s && (s.connectMode === "tap" || s.connectMode === "hybrid")) def.connectMode = s.connectMode;
   } catch { /* Default behalten */ }
   if (!def.connectMode) def.connectMode = "hybrid"; // Verbinde-Modus bei >14 Kacheln
@@ -537,11 +554,45 @@ byId("btn-swap").addEventListener("click", () => {
 });
 
 // Nächstes Betriebstag-Ende (~04:00 lokal) als Grenze für „Letzte“
+const hhmmToMin = v => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || ""));
+  return m ? Math.min(1439, Number(m[1]) * 60 + Number(m[2])) : 0;
+};
+
+/* Nächster Zeitpunkt der eingestellten Spät-Ankunft („Betriebsschluss“).
+   Früher fest 04:00 — jetzt einstellbar, weil die Grenze je nach Strecke und
+   Gewohnheit ganz verschieden liegt. */
 function nextServiceEnd() {
+  const mins = hhmmToMin(settings.lastArrival || "04:00");
   const d = new Date();
-  d.setHours(4, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  d.setMinutes(mins);
   if (d <= new Date()) d.setDate(d.getDate() + 1);
   return d;
+}
+
+// Liegt dieser Zeitpunkt im eingestellten Nachtfenster? (darf über Mitternacht gehen)
+function inNightWindow(ms) {
+  const d = new Date(ms);
+  const m = d.getHours() * 60 + d.getMinutes();
+  const a = hhmmToMin(settings.nightFrom), b = hhmmToMin(settings.nightTo);
+  return a <= b ? (m >= a && m < b) : (m >= a || m < b);
+}
+
+/* Berührt eine Wartezeit die Nacht? Es genügt NICHT, Anfang und Ende zu prüfen:
+   Wer um 20 Uhr ankommt und um 8 Uhr weiterfährt, wartet die ganze Nacht,
+   obwohl beide Enden außerhalb liegen. Deshalb zusätzlich prüfen, ob ein
+   Nachtbeginn INNERHALB der Wartezeit liegt. */
+function waitTouchesNight(startMs, endMs) {
+  if (inNightWindow(startMs) || inNightWindow(endMs)) return true;
+  const a = hhmmToMin(settings.nightFrom);
+  const d = new Date(startMs);
+  const days = Math.ceil((endMs - startMs) / 86400000) + 1;
+  for (let k = 0; k <= days; k++) {
+    const start = +new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, 0, a);
+    if (start >= startMs && start <= endMs) return true;
+  }
+  return false;
 }
 
 function itKey(it) {
@@ -586,6 +637,10 @@ async function fetchPage(direction, limit = 10) {
     params.set("maxPreTransitTime", "1800");
     params.set("maxPostTransitTime", "1800");
   }
+  /* Mehr Zeit zum Umsteigen geht direkt in die Anfrage. Der Router sucht dann
+     ANDERE Verbindungen, die das einhalten, statt dass wir hinterher welche
+     wegwerfen — und es kostet keine zusätzliche Anfrage. */
+  if (settings.xferExtra > 0) params.set("additionalTransferTime", String(settings.xferExtra));
   if (arriveBy) params.set("arriveBy", "true");
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
@@ -805,12 +860,15 @@ function gapList(itins) {
   return itins.map(it => {
     const legs = transitLegs(it);
     if (!legs.length) return null;
-    let maxGap = 0;
+    let maxGap = 0, nightGap = 0;
     for (let i = 1; i < legs.length; i++) {
-      maxGap = Math.max(maxGap, +new Date(legs[i].from.departure) - +new Date(legs[i - 1].to.arrival));
+      const s0 = +new Date(legs[i - 1].to.arrival), s1 = +new Date(legs[i].from.departure);
+      const gap = s1 - s0;
+      maxGap = Math.max(maxGap, gap);
+      if (waitTouchesNight(s0, s1)) nightGap = Math.max(nightGap, gap);
     }
     return { key: itKey(it), dep: +new Date(legs[0].from.departure),
-             arr: +new Date(legs[legs.length - 1].to.arrival), maxGap };
+             arr: +new Date(legs[legs.length - 1].to.arrival), maxGap, nightGap };
   }).filter(Boolean).sort((a, b) => a.dep - b.dep);
 }
 
@@ -824,9 +882,12 @@ function findLastDecent(itins) {
   const all = gapList(itins);
   const list = all.filter(x => x.arr <= limit);
   if (!list.length) return all.length ? all[0].key : null;
-  const DECENT_WAIT = 45 * 60000; // kein Stranden am Umstieg
+  /* Gemessen wird nur die Wartezeit, die tatsächlich in die Nacht fällt — und
+     zwar am Stück an EINEM Halt, nicht über die Umstiege summiert. Zwei kurze
+     Aufenthalte sind kein Stranden, einer von zwei Stunden um 3 Uhr schon. */
+  const limitMs = (settings.nightWait || 45) * 60000;
   for (let i = list.length - 1; i >= 0; i--) {
-    if (list[i].maxGap <= DECENT_WAIT) return list[i].key;
+    if (list[i].nightGap <= limitMs) return list[i].key;
   }
   return list[list.length - 1].key;
 }
@@ -1381,7 +1442,10 @@ const WEB_BASE = "https://schogugel.github.io/pendelpanda/";
 function configLink() {
   // v2: Kacheln UND Einstellungen wandern gemeinsam
   const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
-                    fill: settings.fill, connect: settings.connectMode };
+                    fill: settings.fill, connect: settings.connectMode,
+                    lastArrival: settings.lastArrival, nightFrom: settings.nightFrom,
+                    nightTo: settings.nightTo, nightWait: settings.nightWait,
+                    xferExtra: settings.xferExtra };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const base = PP.native ? WEB_BASE : `${location.origin}${location.pathname}`;
   return `${base}#cfg=${cfg}`;
@@ -1483,6 +1547,11 @@ function applyConfig(cfg, { ask = false } = {}) {
     if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
     if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
     if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
+    for (const k of ["lastArrival", "nightFrom", "nightTo"]) {
+      if (typeof imported[k] === "string" && /^\d{2}:\d{2}$/.test(imported[k])) settings[k] = imported[k];
+    }
+    if (Number.isFinite(imported.nightWait)) settings.nightWait = Math.min(240, Math.max(5, Math.round(imported.nightWait)));
+    if (Number.isFinite(imported.xferExtra)) settings.xferExtra = Math.min(30, Math.max(0, Math.round(imported.xferExtra)));
     saveSettings();
   }
   const n = slots.filter(Boolean).length;
@@ -1553,6 +1622,11 @@ byId("btn-settings").addEventListener("click", () => {
   renderColsControl();
   byId("set-fill").value = settings.fill;
   byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
+  byId("set-lastarr").value = settings.lastArrival;
+  byId("set-nightfrom").value = settings.nightFrom;
+  byId("set-nightto").value = settings.nightTo;
+  byId("set-nightwait").value = settings.nightWait;
+  byId("set-xfer").value = settings.xferExtra;
   byId("settings-dialog").showModal();
 });
 
@@ -1564,6 +1638,42 @@ function renderColsControl() {
   document.querySelectorAll("#set-cols button").forEach(b =>
     b.classList.toggle("active", Number(b.dataset.cols) === settings.cols));
 }
+
+/* Diese Einstellungen ändern die ANFRAGE oder die Auswahl der letzten
+   Verbindung — eine bereits geladene Trefferliste passt danach nicht mehr
+   dazu. Deshalb wird bei offenen Ergebnissen frisch gesucht statt nur neu
+   gezeichnet; ein halb altes, halb neues Ergebnis wäre schlimmer als warten. */
+function applySearchSetting() {
+  saveSettings();
+  if (app.search && document.body.dataset.view === "results") startSearch(app.search.from, app.search.to);
+}
+
+byId("set-lastarr").addEventListener("change", (e) => {
+  if (!/^\d{2}:\d{2}$/.test(e.target.value)) return;
+  settings.lastArrival = e.target.value;
+  applySearchSetting();
+});
+for (const [id, key] of [["set-nightfrom", "nightFrom"], ["set-nightto", "nightTo"]]) {
+  byId(id).addEventListener("change", (e) => {
+    if (!/^\d{2}:\d{2}$/.test(e.target.value)) return;
+    settings[key] = e.target.value;
+    applySearchSetting();
+  });
+}
+byId("set-nightwait").addEventListener("change", (e) => {
+  const v = Number(e.target.value);
+  if (!Number.isFinite(v)) return;
+  settings.nightWait = Math.min(240, Math.max(5, Math.round(v)));
+  e.target.value = settings.nightWait;
+  applySearchSetting();
+});
+byId("set-xfer").addEventListener("change", (e) => {
+  const v = Number(e.target.value);
+  if (!Number.isFinite(v)) return;
+  settings.xferExtra = Math.min(30, Math.max(0, Math.round(v)));
+  e.target.value = settings.xferExtra;
+  applySearchSetting();
+});
 
 byId("set-fill").addEventListener("input", (e) => {
   settings.fill = Number(e.target.value);

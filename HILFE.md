@@ -92,6 +92,23 @@ beginnen, entsteht die typische Treppe nach rechts unten.
 - **Antippen** eines Balkens öffnet die Details.
 - **☰ / ▦** oben rechts wechselt zwischen Grafik und Liste.
 
+### Wann ist die „letzte“ Verbindung?
+Zwei Dinge entscheiden das, beide unter **⚙ → „Letzte Verbindung“**:
+
+- **Ankunft spätestens** (Standard 04:00): Bis wann du da sein willst. Gesucht wird die
+  späteste Verbindung, die das noch schafft.
+- **Nachts höchstens warten** (Standard 45 Minuten zwischen 22:00 und 06:00): Wie lange
+  du bereit bist, nachts an *einem* Halt zu stehen. Gemeint ist die Wartezeit am Stück,
+  nicht die Summe über alle Umstiege — zweimal zwanzig Minuten sind kein Stranden.
+
+Wartezeiten außerhalb des Nachtfensters zählen nicht mit. Eine Stunde Aufenthalt am
+Nachmittag ist unangenehm, aber harmlos; um drei Uhr früh ist sie etwas anderes.
+
+### Mehr Zeit zum Umsteigen
+**⚙ → „Umsteigen“** reserviert zusätzliche Minuten je Umstieg — für schweres Gepäck,
+Kinderwagen oder wenn Hetzen keine Option ist. Es werden dadurch keine Verbindungen
+weggelassen: Der Fahrplanrechner sucht stattdessen andere, die zu dir passen.
+
 ### Zeitpunkt wählen
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen
   stehen links daneben).

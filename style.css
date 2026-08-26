@@ -702,6 +702,9 @@ dialog form { margin-top: 1rem; }
 .rangerow output { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
 .rangerow input[type="range"] { width: 100%; margin: .45rem 0 .1rem; accent-color: var(--accent); }
 .rangerow .finequote { margin-top: .1rem; }
+.timepair { display: flex; gap: .4rem; }
+.countrow input[type="time"] { width: 6.2rem; }
+.timepair input[type="time"] { width: 5.6rem; }
 /* Eingabefeld für einen eingefügten Übertragungslink — der ist lang, deshalb
    mehrzeilig und umbrechend statt einer Zeile, in der man nichts wiedererkennt. */
 #share-in {
