@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.15.7";
+const APP_VERSION = "1.16.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -512,9 +512,14 @@ function startSearch(from, to) {
   app.aroundUsed = false;
   app.aroundPlaces = null;
   app.searchTag = (app.searchTag || 0) + 1;
+  app.lastFocusKey = null;   // die „letzte Verbindung“ wird je Suche EINMAL bestimmt
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
   navigate("results");
+  /* Bewusst KEINE größere Erstanfrage bei „Letzte“: nachgemessen bringt sie
+     nichts. Eine Ankunftssuche liefert bei höherem `numItineraries` weitere
+     FRÜHERE Verbindungen, nicht spätere — der Kontext hinter der letzten
+     Verbindung muss so oder so einmal nachgeladen werden. */
   runPlan();
 }
 
@@ -724,17 +729,29 @@ async function loadContext() {
   if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
   if (app.searchTime.kind !== "letzte") return;
 
+  /* EINE Nachladerunde, passend bemessen — keine Schleife. Jede weitere Runde
+     kostet eine volle Umlaufzeit, und mit der größeren Erstanfrage ist meist
+     ohnehin schon genug da. */
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
-  for (let round = 0; round < 3; round++) {
-    const visible = visibleItins();
-    const key = findLastDecent(visible);
-    if (!key) break;
-    const focusDep = depOf(visible.find(it => itKey(it) === key));
-    const behind = visible.filter(it => depOf(it) > focusDep).length;
-    if (behind >= need || !app.nextPageCursor) break;
-    const { added } = await fetchPage("later", need - behind + 2);
-    if (!added) break;
-  }
+  const visible = visibleItins();
+  const key = findLastDecent(visible);
+  if (!key || !app.nextPageCursor) return;
+  const focusDep = depOf(visible.find(it => itKey(it) === key));
+  const behind = visible.filter(it => depOf(it) > focusDep).length;
+  if (behind < need) await fetchPage("later", need - behind + 2);
+}
+
+/* Die „letzte Verbindung“ wird je Suche EINMAL bestimmt und dann festgehalten.
+   Vorher rechnete sie jeder Neuaufbau neu — und weil der Pool zwischendurch
+   wächst, konnte dabei eine andere Verbindung herauskommen: Die Markierung
+   sprang, mal stand sie in der zweiten Spalte, mal in der letzten. Neu bestimmt
+   wird nur, wenn die gemerkte Verbindung nicht mehr sichtbar ist (etwa weil ein
+   Verkehrsmittel ausgeblendet wurde) — oder bei einer neuen Suche, und genau
+   das passiert beim erneuten Tippen auf „Letzte“. */
+function lastFocusKey(visible) {
+  const known = app.lastFocusKey && visible.some(it => itKey(it) === app.lastFocusKey);
+  if (!known) app.lastFocusKey = findLastDecent(visible) || null;
+  return app.lastFocusKey || "end";
 }
 
 /* Orchestrierung: beschafft (ggf. mehrere Seiten) und rendert GENAU EINMAL. */
@@ -1060,7 +1077,7 @@ function renderResults() {
   }
   updateLastNote(visible);
   if (graph) {
-    const focus = app.searchTime.kind === "letzte" ? (findLastDecent(visible) || "end") : "start";
+    const focus = app.searchTime.kind === "letzte" ? lastFocusKey(visible) : "start";
     renderTimeline(visible, focus);
   } else {
     resultsList.innerHTML = "";

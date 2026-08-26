@@ -313,8 +313,21 @@ Was ansteht, steht in `TODO.md`.
   finden (Erlenstegen → Vorra: Direktsuche liefert 0), war der Pool zu dem Zeitpunkt
   leer und das Nachladen wurde stillschweigend übersprungen. Ergebnis: Die gesuchte
   letzte Verbindung klebte ohne Nachbarn am rechten Rand.
-- Nach hinten wird geladen, bis **`settings.cols − 1`** Verbindungen hinter dem Fokus
-  liegen (max. 3 Runden), nicht pauschal vier: Bei sieben Spalten braucht es sechs.
+- Nach hinten wird **in EINER Runde** geladen, bemessen auf `settings.cols − 1`
+  Verbindungen hinter dem Fokus. Vorher bis zu drei Runden — jede kostet eine volle
+  Umlaufzeit (gemessen ~225 ms, bei schlechter Verbindung deutlich mehr). „Letzte“
+  braucht damit 3 statt bis zu 5 Runden.
+- **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
+  Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
+  nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
+- **Die „letzte Verbindung“ wird je Suche EINMAL bestimmt** (`app.lastFocusKey`) und
+  festgehalten. Vorher rechnete jeder Neuaufbau sie neu, und weil der Pool zwischendurch
+  wächst, kam dabei mal eine andere heraus — die Markierung sprang, mal zweite, mal
+  letzte Spalte. Neu bestimmt wird nur, wenn die gemerkte Verbindung nicht mehr sichtbar
+  ist (ausgeblendetes Verkehrsmittel) oder bei einer neuen Suche.
+- `nextServiceEnd()` rechnet **immer von JETZT** aus (nächstes Auftreten der
+  eingestellten Uhrzeit). Mehrfaches Tippen auf „Letzte“ wandert also nicht in den
+  nächsten Tag.
 
 ## Verbindungs-Detailansicht (`fillDetails` + `updateJourneyLine`)
 
