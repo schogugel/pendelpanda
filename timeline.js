@@ -395,6 +395,7 @@ function renderTimeline(itins, focus = "start") {
       tlBuild(scroller);
     }
   }
+  tlEnsureTail(scroller);
 
   if (keepScroll && anchor) {
     // Ankerspalte an derselben Bildschirmposition halten; Zeit-Anker für oben
@@ -493,6 +494,26 @@ function tlMarkFocus() {
   if (i < 0 || !tl.bars[i]) return;
   tl.bars[i].head?.classList.add("tl-focus");
   tl.bars[i].el?.classList.add("tl-focus");
+}
+
+/* Auch die LETZTE Spalte muss sich oben andocken lassen. Dafür braucht es unter
+   dem spätesten Balken genug Leinwand, um ihn bis unter die Kopf-Kachel
+   hochzuschieben — die Leinwand endete aber 14 Minuten nach der letzten Ankunft.
+   Bei kurzen Verbindungen am rechten Rand reichte das nicht: Der Browser klemmt
+   das Scrollen ab, der Balken bleibt auf halber Höhe stehen, und das Einrasten
+   sieht aus, als hätte es aufgehört zu funktionieren. Genau deshalb trat es erst
+   auf, je weiter man nach rechts kam.
+
+   Es wird nur ANGEHÄNGT, nie gekürzt — an der Zeitskala oben ändert sich nichts. */
+function tlEnsureTail(sc) {
+  if (!tl.bars.length || !sc.clientHeight) return;
+  const clear = tlHeadClear() + TL.DEP_LBL;
+  const maxTop = tl.bars.reduce((m, b) => Math.max(m, b.top), 0);
+  const needed = Math.max(0, maxTop - clear) + sc.clientHeight;
+  const have = tlY(tl.t1);
+  if (have >= needed - 1) return;
+  tl.t1 += ((needed - have) / tl.ppm) * 60000;
+  tlBuild(sc);
 }
 
 function tlBuild(scroller) {
@@ -754,6 +775,7 @@ function tlSetZoom(newPpm) {
     tl.t0 -= ((clear - tl.bars[0].top) / tl.ppm) * 60000;
     tlBuild(sc);
   }
+  tlEnsureTail(sc);
   sc.scrollLeft = left;
   sc.scrollTop = Math.max(0, tlY(anchorTime));
 }

@@ -246,6 +246,13 @@ Was ansteht, steht in `TODO.md`.
   werden chronologisch auch MITTEN einsortiert — ein Index-Anker verschiebt dann alles)
   plus Zeit-Anker für die Vertikale; `tl.lastZoomIdx` mitziehen, sonst zoomt das
   Einrasten die Spalte neu. Die Ansicht darf sich durch Nachladen NIE bewegen.
+- **Fußfreiheit (`tlEnsureTail`) ist das Gegenstück zur Kopffreiheit** und genauso
+  nötig: Die Leinwand endete 14 min nach der letzten Ankunft, dadurch ließ sich ein
+  kurzer Balken am rechten Rand gar nicht bis unter die Kopf-Kachel hochschieben — der
+  Browser klemmt das Scrollen ab. Das Einrasten sah aus, als hätte es aufgehört zu
+  funktionieren, und zwar UMSO MEHR, je weiter rechts man war (gerechnet: 8 px
+  Fehlbetrag in einer frühen Spalte, über 300 px in der letzten). Nach jedem `tlBuild`
+  aufrufen — auch nach `tlSetZoom`, weil sich mit der Zoomstufe alles verschiebt.
 - Kopffreiheit: `tlHeadClear()` misst die HÖCHSTE Kopf-Kachel; t0 wird vorab + per
   Nachkorrektur (auch in `tlSetZoom`) so erweitert, dass der früheste Balken und die
   Jetzt-Linie nie hinter den Kacheln verschwinden.
