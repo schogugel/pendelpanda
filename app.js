@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.22.0";
+const APP_VERSION = "1.23.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -653,7 +653,13 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
 /* Gemeinsamer Bau der Suchparameter — von fetchPage UND vom Nachfüllen der
    Legende benutzt. Eine zweite, eigene Zusammenstellung hätte über kurz oder
    lang andere Werte gehabt (Umsteigezeit, Umkreis-Modus, Ankunftssuche). */
-function planParams({ time = null, limit = 10, cursor = null } = {}) {
+/* Seitengröße. 10 war zu wenig: Was eine Seite an ZEIT abdeckt, hängt völlig
+   von der Strecke ab — gemessen 30 Minuten zwischen München Hbf und Ost, aber
+   285 Minuten zwischen Nürnberg und Bayreuth. In der Stadt sah man dadurch
+   deutlich weniger als in der DB-App, obwohl keine Halte fehlten. */
+const PAGE_SIZE = 20;
+
+function planParams({ time = null, limit = PAGE_SIZE, cursor = null } = {}) {
   const { from, to } = app.search;
   const t = app.searchTime;
   /* „Letzte“ nutzt die ANKUNFTSSUCHE bis Betriebsschluss: Der Router liefert
@@ -671,6 +677,12 @@ function planParams({ time = null, limit = 10, cursor = null } = {}) {
     numItineraries: String(limit),
     language: "de",
     withScheduledSkippedStops: "true", // auch übersprungene Halte mitnehmen
+    /* Ohne Streckengeometrie und Wegbeschreibungen: Die App zeichnet keine
+       Karte und liest weder das eine noch das andere. Gemessen spart das 60 %
+       der Antwortgröße (168 → 67 KB) und macht die Anfrage schneller. Damit
+       kosten 20 Verbindungen (133 KB) weniger als vorher 10 (168 KB).
+       Gegengeprüft: kein einziges Feld fehlt, das die App verwendet. */
+    detailedLegs: "false",
   });
   /* Läuft die Suche im Umkreis-Modus (Ersatzverkehr), muss auch das BLÄTTERN
      mit Koordinaten laufen. Sonst werden die Cursor der Umkreis-Antwort mit
@@ -695,7 +707,7 @@ function planParams({ time = null, limit = 10, cursor = null } = {}) {
   return params;
 }
 
-async function fetchPage(direction, limit = 10) {
+async function fetchPage(direction, limit = PAGE_SIZE) {
   const myTag = app.searchTag;
   const signal = app.planAbort?.signal;
   const params = planParams({
@@ -874,7 +886,7 @@ function showSearching(text) {
   byId("around-note").hidden = true;
 }
 
-async function runPlan(direction = null, limit = 10) {
+async function runPlan(direction = null, limit = PAGE_SIZE) {
   if (!direction) showSearching("Verbindungen suchen …");
   try {
     const { params } = await fetchPage(direction, limit);

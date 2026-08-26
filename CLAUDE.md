@@ -214,6 +214,21 @@ Was ansteht, steht in `TODO.md`.
   Prüfung konnte eine langsame Antwort den Pool der neuen Suche ÜBERSCHREIBEN, man sah
   dann Verbindungen der vorher gewählten Strecke.
 - `AbortError` in `runPlan` still schlucken — ein Abbruch ist kein Fehler.
+- **Seitengröße `PAGE_SIZE = 20`, nicht 10.** Was eine Seite an ZEIT abdeckt, hängt
+  völlig von der Strecke ab — gemessen 30 min zwischen München Hbf und Ost, aber 285 min
+  zwischen Nürnberg und Bayreuth. Mit 10 sah man in der Stadt deutlich weniger als in der
+  DB-App, obwohl keine Halte fehlten.
+- **`detailedLegs: "false"` immer mitschicken.** Die App zeichnet keine Karte und liest
+  weder `legGeometry` noch `steps`. Gemessen spart das 60 % der Antwort (168 → 67 KB);
+  20 Verbindungen kosten damit 133 KB, also WENIGER als vorher 10 mit 168 KB, und die
+  Anfrage ist schneller. Gegengeprüft: kein von der App benutztes Feld fehlt.
+  (`detailedTransfers` allein bringt nichts — die Geometrie kommt trotzdem.)
+- **München Hbf ist KEIN Sonderfall.** MOTIS fasst den Komplex bereits zusammen: Unter
+  einer Kennung erscheinen `de:09162:100` (Fernbahn), `:6` (U/Tram), `:5000` (Süd) und
+  `:7000` (Nord) — samt der tiefen S-Bahn. „München Hbf (tief)“ existiert nicht als Halt,
+  nur als OSM-Ort. Elternstationen gibt es (ID mit `P` vor der Nummer, z. B. München Ost),
+  aber nicht überall und nicht immer routingfähig — beim Hbf antwortet die Elternform 404.
+  Eine Auswahl beim Einrichten einer Kachel wäre also eine Lösung ohne Problem.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
 ## Transitous/MOTIS-Gotchas (teuer erarbeitet)
