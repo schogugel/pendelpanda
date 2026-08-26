@@ -512,6 +512,16 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Design-Tokens & Stil
 
+- **Erweiterte Einstellungen sind eingeklappt** (`<details class="setgroup setfold">`,
+  ohne JS): „Umsteigen“ und „Letzte Verbindung“ stellt man einmal ein. Gemessen ist der
+  Dialog dadurch 1576 statt 2113 px hoch, ein Viertel kürzer. Das `h3` steckt dabei im
+  `<summary>` — der Selektor `.setgroup > h3` trifft es NICHT mehr, `.setfold > summary >
+  h3` muss danebenstehen, sonst steht dort eine große Serifen-Überschrift zwischen lauter
+  kleinen Versalzeilen.
+- **Rechtliches gehört zu Kontakt, nicht zu Hilfe:** „Daten & Datenschutz“ steht zwischen
+  „Schreib mir“ und „Impressum“ unter **Kontakt & Rechtliches**; darüber steht
+  **Übertragen & Hilfe**. Vorher hing der Datenschutz im Hilfe-Abschnitt und zwang dessen
+  Überschrift zu „Übertragen, Hilfe & Rechtliches“.
 - **Dialoge sind Fenster, keine Vollbildseiten**: `max-height` mit `2 * max(inset-top,
   inset-bottom)` Abzug, innen `overflow-y: auto`. Sie liegen in der obersten Ebene und
   erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie

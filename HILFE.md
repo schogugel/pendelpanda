@@ -237,6 +237,12 @@ Gerät den aktuellen Stand hat (nach einem Update ggf. zweimal neu laden).
   - **Nur Tippen** — Verbinden ausschließlich per Antippen, Wischen scrollt immer.
 - **Grafik: Verbindungen nebeneinander** — 3, 4 oder 5 Spalten.
 
+**Umsteigen** und **„Letzte Verbindung“** sind eingeklappt — antippen öffnet sie. Das
+sind Sachen, die man einmal einstellt und danach lange nicht mehr anfasst.
+
+Ganz unten: **Übertragen & Hilfe**, darunter **Kontakt & Rechtliches** (Schreib mir,
+Daten & Datenschutz, Impressum).
+
 Alle Einstellungen wandern über „Buttons übertragen“ mit.
 
 ---

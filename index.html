@@ -145,8 +145,8 @@
       <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
     </div>
   </section>
-  <section class="setgroup">
-    <h3>Umsteigen</h3>
+  <details class="setgroup setfold">
+    <summary><h3>Umsteigen</h3></summary>
     <div class="rangerow">
       <label for="set-xfer">Zeit zum Umsteigen
         <output id="set-xfer-val">Normal</output>
@@ -158,9 +158,9 @@
         Bahnsteig. Es fallen dabei keine Verbindungen weg: Der Fahrplanrechner sucht
         andere, die dir Zeit lassen.</p>
     </div>
-  </section>
-  <section class="setgroup">
-    <h3>„Letzte Verbindung“</h3>
+  </details>
+  <details class="setgroup setfold">
+    <summary><h3>„Letzte Verbindung“</h3></summary>
     <label class="countrow">Ankunft spätestens
       <input type="time" id="set-lastarr" step="300">
     </label>
@@ -178,9 +178,9 @@
     <p class="finequote">Minuten am Stück an <em>einem</em> Halt, nicht über alle Umstiege
       zusammengerechnet. Nur Wartezeiten im Nachtfenster zählen — eine Stunde Aufenthalt
       am Nachmittag ist harmlos, um drei Uhr früh nicht.</p>
-  </section>
+  </details>
   <section class="setgroup">
-    <h3>Übertragen, Hilfe &amp; Rechtliches</h3>
+    <h3>Übertragen &amp; Hilfe</h3>
     <button id="btn-share-config" class="menurow">
       <span>Einstellungen übertragen<small>Kacheln und Einstellungen zwischen Web und App</small></span>
       <span class="menurow-arrow">›</span>
@@ -189,16 +189,16 @@
       <span>Hilfe<small>Kurzanleitung zu Kacheln, Grafik und Zeitleiste</small></span>
       <span class="menurow-arrow">›</span>
     </button>
-    <button id="btn-legal" class="menurow">
-      <span>Daten &amp; Datenschutz<small>Was die App speichert und wen sie kontaktiert</small></span>
-      <span class="menurow-arrow">›</span>
-    </button>
   </section>
 
   <section class="setgroup">
-    <h3>Kontakt &amp; Impressum</h3>
+    <h3>Kontakt &amp; Rechtliches</h3>
     <button id="btn-contact" class="menurow">
       <span>Schreib mir<small>Fehler melden, Wünsche, Rückfragen</small></span>
+      <span class="menurow-arrow">›</span>
+    </button>
+    <button id="btn-legal" class="menurow">
+      <span>Daten &amp; Datenschutz<small>Was die App speichert und wen sie kontaktiert</small></span>
       <span class="menurow-arrow">›</span>
     </button>
     <button id="btn-imprint" class="menurow" hidden>

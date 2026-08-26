@@ -805,11 +805,44 @@ dialog form { margin-top: 1rem; }
    suchen. Jetzt Abschnitte mit Überschrift, sichtbar voneinander getrennt. */
 .setgroup { margin: 1.1rem 0; padding-top: .9rem; border-top: 1px solid var(--border); }
 .setgroup:first-of-type { border-top: none; padding-top: 0; margin-top: .6rem; }
-.setgroup > h3 {
+/* Auch die eingeklappten Abschnitte tragen diese Überschrift — ihr h3 steckt
+   nur eine Ebene tiefer im <summary>. Ohne den zweiten Selektor stand dort
+   plötzlich eine große Serifen-Überschrift zwischen lauter kleinen
+   Versalzeilen, und die Abschnitte sahen aus wie zwei verschiedene Dinge. */
+.setgroup > h3,
+.setfold > summary > h3 {
   font-size: .78rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .09em; color: var(--muted); margin-bottom: .5rem;
 }
 .setgroup .hint { margin-top: 0; }
+/* Erweiterte Abschnitte sind eingeklappt (<details>, ohne JS): Umsteigezeit und
+   „Letzte Verbindung“ stellt man einmal ein und danach lange nicht mehr. Offen
+   stehen sie gleichberechtigt neben dem, was man wirklich anfasst, und lassen
+   das Menü doppelt so lang wirken, wie es ist. Die Überschrift bleibt dieselbe
+   h3 wie in den offenen Abschnitten — der Pfeil rechts ist der ganze
+   Unterschied, damit nichts wie eine andere Art von Sache aussieht. */
+.setfold > summary {
+  display: flex; align-items: center; gap: .5rem;
+  cursor: pointer; list-style: none; padding: .2rem 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.setfold > summary::-webkit-details-marker { display: none; }
+.setfold > summary > h3 { margin: 0; }
+.setfold > summary::after {
+  content: "›"; margin-left: auto;
+  color: var(--muted); font-size: 1.3rem; line-height: 1;
+  transition: transform .18s ease;
+}
+.setfold[open] > summary::after { transform: rotate(90deg); }
+.setfold > summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px;
+}
+/* Ohne das klebt der erste Regler direkt unter der Überschrift, sobald
+   aufgeklappt wird — offene Abschnitte haben denselben Abstand über h3. */
+.setfold[open] > summary { margin-bottom: .5rem; }
+@media (prefers-reduced-motion: reduce) {
+  .setfold > summary::after { transition: none; }
+}
 /* Unterpunkt innerhalb eines Abschnitts — leiser als die Abschnitts-Überschrift,
    aber deutlich genug, dass man den Bruch sieht. */
 .setgroup > h4 {
