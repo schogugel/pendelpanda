@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.23.1";
+const APP_VERSION = "1.23.2";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -138,6 +138,8 @@ function showView(name) {
   // Bearbeitung beim Verlassen übernehmen (Zurück-Knopf, Android-Geste):
   // eine getroffene Bahnhofswahl darf nicht verloren gehen.
   if (document.body.dataset.view === "edit" && name !== "edit") commitEdit();
+  // Die Ergebnisansicht verlassen heißt: Die Grafik hat nichts mehr zu tun.
+  if (document.body.dataset.view === "results" && name !== "results") tlStop();
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
   document.body.dataset.view = name; // steuert u. a. die Kopfzeile per CSS
   if (name === "grid") {
@@ -876,6 +878,7 @@ function lastFocusKey(visible) {
    Verbindungen der anderen Ansicht. Lieber einen Moment nichts als etwas
    Falsches. */
 function showSearching(text) {
+  tlStop();   // nichts aus der vorherigen Suche darf weiterzeichnen
   byId("searching-text").textContent = text;
   byId("searching").hidden = false;
   byId("timeline-wrap").hidden = true;

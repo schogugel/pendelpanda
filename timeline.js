@@ -290,6 +290,7 @@ function productClass(mode) {
 }
 function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
+  tlStop();   // eine noch laufende Verfahrbewegung gehört zur vorherigen Ansicht
   const sameSearch = tl.searchTag === app.searchTag;
   /* Welche Verbindung markiert ist, gehört zur SUCHE, nicht zum Neuaufbau.
      Vorher wurde die Markierung nur im Fokus-Zweig gesetzt; sobald ein
@@ -962,6 +963,24 @@ function tlInitInteractions() {
    Ein vollständiger Neuaufbau kostet gemessen 1,8 ms (10 Spalten) bis 5,6 ms
    (40 Spalten) und passt damit in ein Bild von 16 ms.
    --------------------------------------------------------------------------- */
+/* Alles anhalten, was noch an der Grafik arbeitet: die Verfahrbewegung, der
+   verzögerte Einrast-Aufruf und die Sperren dazu. Ohne das lief die
+   Bildschleife nach einem Wechsel weiter und baute die ALTE Grafik immer
+   wieder neu auf — auch in eine Ansicht hinein, die längst geleert war. Genau
+   daher die Reste der vorherigen Suche.
+
+   Aufgerufen bei jeder neuen Suche, bei jedem Wechsel des Zeitraums und beim
+   Verlassen der Ergebnisansicht. Jede dieser Handlungen ist unabhängig von
+   dem, was vorher lief. */
+function tlStop() {
+  cancelAnimationFrame(tl.animFrame);
+  tl.animFrame = 0;
+  clearTimeout(tl.followTimer);
+  clearTimeout(tl.focusHold);
+  tl.followTimer = null;
+  tl.autoScrolling = false;
+}
+
 function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
   cancelAnimationFrame(tl.animFrame);
   const p0 = tl.ppm, l0 = sc.scrollLeft;
@@ -971,8 +990,10 @@ function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
   tl.autoScrolling = true;
 
   const schritt = (jetzt) => {
-    // Fasst der Nutzer die Ansicht an, gehört sie ihm — Bewegung sofort aufgeben
-    if (tl.pointers.size) { tl.autoScrolling = false; return; }
+    // Fasst der Nutzer die Ansicht an, gehört sie ihm — Bewegung sofort aufgeben.
+    // Ebenso, wenn inzwischen eine andere Suche läuft: Dann gehört die Grafik
+    // schon zu einer anderen Frage.
+    if (tl.pointers.size || tl.searchTag !== app.searchTag) { tl.autoScrolling = false; return; }
     const k = Math.min(1, (jetzt - start) / ms);
     const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // weich rein und raus
     if (p1 !== p0) { tl.ppm = p0 + (p1 - p0) * e; tlBuild(sc); }
@@ -1012,7 +1033,6 @@ function tlTopTimeFor(sc, idx, ppm) {
      Hoch-/Runterscrollen bleibt unangetastet, außer kein Balken ist im Bild */
 function tlAlign(sc) {
   if (!tl.bars.length || tl.autoScrolling || tl.pointers.size) return;
-  const step = tlStep();
   const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
   const targetLeft = Math.min(maxLeft, Math.max(0, colScrollLeft(Math.max(0, colIndexFor(sc.scrollLeft)))));
 

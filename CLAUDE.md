@@ -159,6 +159,14 @@ Was ansteht, steht in `TODO.md`.
   das weiß man erst NACH einer eigenen Anfrage für diese Kategorie. Vorher stand dort
   „Keine … im Zeitraum“, obwohl nur niemand danach gefragt hatte. Chips sind deshalb
   immer anklickbar; Ausblenden kostet weiterhin keine Anfrage.
+- **`tlStop()` beendet alles, was noch an der Grafik arbeitet** — Verfahrbewegung,
+  verzögerter Einrast-Aufruf, Sperren. Aufrufen bei jeder neuen Suche
+  (`showSearching`), beim Verlassen der Ergebnisansicht (`showView`) und vor jedem
+  Neuaufbau (`renderTimeline`). Ohne das lief die Bildschleife weiter und baute die ALTE
+  Grafik immer wieder neu auf — auch in eine längst geleerte Ansicht hinein. Die
+  Schleife prüft zusätzlich `tl.searchTag !== app.searchTag` und gibt von selbst auf.
+  **Wer eine neue Schleife oder einen Zeitgeber an der Grafik einführt, trägt ihn hier
+  ein** — sonst kommt genau diese Fehlerklasse zurück.
 - **Während einer frischen Suche ist ALLES Alte weg** (`showSearching`): Liste und
   Grafik werden ausgeblendet und geleert, Hinweiszeilen zurückgesetzt. Vorher blieb der
   vorherige Stand stehen, bis der neue kam — beim Wechsel zwischen „Jetzt“ und „Letzte“
