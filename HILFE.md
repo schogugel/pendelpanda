@@ -121,6 +121,11 @@ Ein laufender Balken und eine Zeile darunter zeigen, was gerade passiert — Ver
 suchen, Umgebung prüfen, letzte Verbindung eingrenzen. Solange er läuft, ist die Ansicht
 leer: Lieber kurz nichts sehen als eine veraltete Verbindung aus der vorherigen Suche.
 
+### Zurück zur Abfahrtstafel
+Der Streckenname oben links ist ein Knopf — antippen bringt dich zurück zu den
+Kacheln. Das kleine ‹ davor weist darauf hin. Die Zurück-Geste des Systems tut
+dasselbe.
+
 ### Zeitpunkt wählen
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen
   stehen links daneben).

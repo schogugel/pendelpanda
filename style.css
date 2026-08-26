@@ -285,7 +285,19 @@ body[data-view="results"][data-mode="graph"] #timeline {
 /* ---------- Kopfzeile der Unteransichten ---------- */
 .viewhead { display: flex; align-items: center; gap: .6rem; margin: .2rem 0 .9rem; }
 .viewhead h2 { font-size: 1.1rem; flex: 1; min-width: 0; }
-.results-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Der Titel IST der Weg zurück — ein echter Knopf, nicht ein klickbarer Text:
+   Nur so greifen Tastatur und Screenreader. Das Winkelzeichen davor ist die
+   einzige Einladung, es überhaupt zu versuchen; ohne sie findet die Funktion
+   niemand. Es steht per CSS davor und wird deshalb vom Abschneiden des langen
+   Streckennamens nicht mitgenommen. */
+.results-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block; width: 100%; max-width: 100%;
+  background: none; border: none; padding: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.results-title::before { content: "‹"; color: var(--accent); font-weight: 700; margin-right: .35rem; }
+.results-title:active { opacity: .6; }
 .backbtn, .iconbtn {
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   border-radius: 10px; min-width: 42px; height: 42px; font-size: 1.15rem; cursor: pointer;

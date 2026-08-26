@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.20.0";
+const APP_VERSION = "1.21.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -575,6 +575,11 @@ async function loadMore(direction) {
 }
 byId("list-earlier").addEventListener("click", () => loadMore("earlier"));
 byId("list-later").addEventListener("click", () => loadMore("later"));
+
+/* Zurück zur Abfahrtstafel über den Streckennamen. Bewusst über `navigate`
+   und nicht direkt: Damit läuft es über denselben Weg wie die Zurück-Geste
+   des Systems, und der Anker in der Adresse bleibt in Ordnung. */
+byId("results-title").addEventListener("click", () => navigate("grid"));
 
 byId("btn-swap").addEventListener("click", () => {
   if (app.search) startSearch(app.search.to, app.search.from);

@@ -4,7 +4,7 @@ Neuauflage von pendelpanda.de: Deine Pendelverbindung in 2 Taps – mit Echtzeit
 
 - Statische PWA ohne Backend: HTML + CSS + Vanilla-JS, kein Build-Schritt.
 - Daten: [Transitous](https://transitous.org) (MOTIS 2, DELFI/GTFS inkl. Echtzeit), direkt vom Gerät abgefragt.
-- Buttons liegen im `localStorage`; Übertragung auf andere Geräte per Konfigurations-Link („Buttons übertragen“).
+- Buttons liegen im `localStorage`; Übertragung auf andere Geräte per Konfigurations-Link („Einstellungen übertragen“) — auch von der App in den Browser und zurück.
 - „Bei der DB öffnen“ verlinkt die Verbindung auf bahn.de (Wagenreihung, Tickets).
 
 **Weiterführend:** [HILFE.md](HILFE.md) — Bedienung für Nutzer ·
@@ -51,7 +51,7 @@ python3 -m http.server 8080
   landet man im Leeren, zieht die Ansicht automatisch zum nächsten Balken. Zoom per Pinch,
   Strg+Mausrad zur Feinjustierung – der Grund-Zoom stellt sich automatisch ein. Balken antippen öffnet die Details. ☰/▦ wechselt zur Listenansicht.
 - ⇄ tauscht die Richtung, „Spätere Verbindungen“ blättert weiter.
-- „Buttons übertragen“: Link kopieren/teilen, auf dem anderen Gerät öffnen und
+- „Einstellungen übertragen“: Link kopieren/teilen, auf dem anderen Gerät öffnen und
   „Buttons übernehmen?“ bestätigen.
 
 ## Architektur & Personalisierung
@@ -66,29 +66,37 @@ python3 -m http.server 8080
 - **Blättern über API-Cursor.** „Frühere“/„Spätere“ nutzen `previousPageCursor`/
   `nextPageCursor` der MOTIS-API (verbindungsweise, nicht zeitfensterbasiert).
 - **Personalisierung lebt in `localStorage` und reist per URL.** Gespeichert werden
-  `pp.buttons.v1` (Bahnhofs-Buttons), `pp.settings` (Standard-Verkehrsmittel) und `pp.view`
-  (Listen-/Grafikansicht). „Buttons übertragen“ kodiert Buttons **und** Einstellungen als
-  Base64-JSON in den Link: `#cfg=` → `{v: 2, slots: […], show: {fern: false, …}}`.
+  `pp.buttons.v1` (Bahnhofs-Buttons), `pp.settings` (alle Einstellungen) und `pp.view`
+  (Listen-/Grafikansicht). „Einstellungen übertragen“ kodiert Buttons **und** Einstellungen
+  als Base64-JSON in den Link: `#cfg=` → `{v: 2, slots: […], show: {…}, cols, fill,
+  connect, lastArrival, nightFrom, nightTo, nightWait, xferLevel}`. Weil die App keine
+  Adresszeile hat, gibt es dort zusätzlich ein Feld zum Einfügen desselben Links.
   Beim Öffnen eines solchen Links fragt die App, ob die Konfiguration übernommen werden
   soll. Alte v1-Links (nur Button-Array) werden weiterhin verstanden.
 
-## „Bei der DB öffnen“ mit exakter Verbindung (optional, empfohlen)
+## „Bei der DB öffnen“
 
-Ohne weitere Einrichtung öffnet der DB-Button eine vorbefüllte bahn.de-Suche zur exakten
-Abfahrtszeit (die gewünschte Verbindung steht oben). Für den **echten Verbindungs-Link**
-(vbid) – der exakt die eine Verbindung zeigt und auf dem Handy den **DB Navigator** mit
-„Zu meinen Reisen hinzufügen“ öffnet – braucht es einen Mini-Proxy, weil die DB-Endpunkte
-Browser-Anfragen per CORS blocken:
+Der Knopf verhält sich in den beiden Auslieferungen unterschiedlich — ohne dass
+irgendetwas einzurichten wäre:
 
-1. Kostenloses Konto bei [Cloudflare Workers](https://workers.cloudflare.com) anlegen.
-2. Im Dashboard einen neuen Worker erstellen und den Inhalt von
-   `db-link-worker/worker.js` einfügen (oder per `wrangler deploy`).
-3. Die Worker-URL (z. B. `https://pendelpanda-db.<name>.workers.dev`) in `app.js`
-   bei `DB_LINK_PROXY` eintragen und neu deployen.
+- **Android-App:** öffnet **genau diese Verbindung**. Das Gerät holt sich dafür
+  selbst einen Teilen-Link (`vbid`) bei der DB und übergibt ihn an den DB
+  Navigator, wo die Fahrt unter „Zu meinen Reisen“ landet. Klappt das nicht
+  (kein Netz, Endpunkt geändert, Verbindung nicht wiedergefunden), fällt es
+  still auf die Suche zurück.
+- **Web-Version:** öffnet eine **vorbefüllte bahn.de-Suche** zur exakten
+  Soll-Abfahrtszeit; die gewünschte Verbindung steht damit oben in der Liste.
 
-Der Worker wird nur beim Klick auf den DB-Button aufgerufen (ein Ablauf pro Klick,
-Rate Limits daher unkritisch). Findet er die Verbindung nicht, leitet er automatisch
-auf die vorbefüllte Suche um.
+**Warum der Unterschied:** Für den exakten Link braucht es zwei Anfragen an
+DB-Endpunkte, die keine CORS-Header senden — eine Webseite darf sie schlicht
+nicht aufrufen, egal wo sie gehostet ist. Nativ gilt CORS nicht, deshalb kann
+die App es und die Website nicht.
+
+Ein früher hier beschriebener Cloudflare-Worker als Umweg ist seit v1.5.3
+**entfallen**: Er hätte die Anfragen aller Nutzer über ein einzelnes Konto und
+eine einzelne IP gebündelt. In der App stellt stattdessen jedes Gerät seine
+eigene Anfrage — kein Server, kein Konto, nichts, was auf eine Person
+zurückfällt. Der Worker steckt noch in der Git-Historie bis v1.5.2.
 
 ## Hinweise
 
