@@ -127,6 +127,10 @@ Kacheln. Das kleine ‹ davor weist darauf hin. Die Zurück-Geste des Systems tu
 dasselbe.
 
 ### Zeitpunkt wählen
+Bei **„ab"** beginnt die Ansicht bei deiner Uhrzeit und geht vorwärts. Bei **„an"**
+blickt sie ans andere Ende: Gezeigt und markiert wird die späteste Verbindung, die
+deine Ankunftszeit noch schafft — davor und danach siehst du die Nachbarn.
+
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen
   stehen links daneben).
 - **Letzte** — springt zur letzten Verbindung der Nacht, bei der man unterwegs nicht

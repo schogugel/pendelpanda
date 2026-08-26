@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.25.0";
+const APP_VERSION = "1.26.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -830,7 +830,7 @@ async function refillLoadedRange() {
 async function loadContext() {
   if (!app.itins.length) return;
   if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
-  if (app.searchTime.kind !== "letzte") return;
+  if (arrivalDeadline() === null) return;
 
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
 
@@ -856,6 +856,18 @@ async function loadContext() {
     const { added } = await fetchPage("later", need - behind + 2);
     if (!added) return;
   }
+}
+
+/* Bis wann muss man ANKOMMEN? Beantwortet zugleich, ob es überhaupt eine
+   Ankunftssuche ist. „Letzte“ ist der Sonderfall mit Betriebsschluss als
+   Grenze; bei der Datumsauswahl mit „an“ ist es der gewählte Zeitpunkt.
+   Beide brauchen dieselbe Behandlung: Interessant ist die SPÄTESTE Verbindung,
+   die es noch schafft — nicht die früheste im Ergebnis. */
+function arrivalDeadline() {
+  const t = app.searchTime;
+  if (t.kind === "letzte") return +nextServiceEnd();
+  if (t.kind === "custom" && t.arriveBy && t.time) return +new Date(t.time);
+  return null;
 }
 
 /* Die „letzte Verbindung“ wird je Suche EINMAL bestimmt und dann festgehalten.
@@ -1071,7 +1083,7 @@ function gapList(itins) {
    ohne diese Schranke wäre der Fokus einfach mitgewandert und die Antwort auf
    „wann komme ich noch heim?“ eine andere geworden. */
 function findLastDecent(itins) {
-  const limit = +nextServiceEnd();
+  const limit = arrivalDeadline() ?? +nextServiceEnd();
   const all = gapList(itins);
   const list = all.filter(x => x.arr <= limit);
   if (!list.length) return all.length ? all[0].key : null;
@@ -1245,7 +1257,8 @@ function renderResults() {
   }
   updateLastNote(visible);
   if (graph) {
-    const focus = app.searchTime.kind === "letzte" ? lastFocusKey(visible) : "start";
+    // Ankunftssuche (Letzte oder Datumswahl mit „an“) blickt ans ENDE des Zeitraums
+    const focus = arrivalDeadline() !== null ? lastFocusKey(visible) : "start";
     renderTimeline(visible, focus);
   } else {
     resultsList.innerHTML = "";

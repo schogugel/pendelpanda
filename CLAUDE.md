@@ -418,6 +418,13 @@ Was ansteht, steht in `TODO.md`.
 - **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
   Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
   nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
+- **Jede ANKUNFTSSUCHE blickt ans Ende des Zeitraums**, nicht an den Anfang
+  (`arrivalDeadline()`): „Letzte“ mit Betriebsschluss als Grenze, die Datumsauswahl mit
+  „an“ mit dem gewählten Zeitpunkt. Beide teilen sich Fokuswahl und Kontext-Nachladen.
+  Vorher galt das nur für „Letzte“, und eine Ankunftssuche zeigte die FRÜHESTE
+  zurückgelieferte Verbindung — bei „Ankunft bis 12:00“ also eine, die um 20:55 des
+  Vortages ankam, rund 15 Stunden daneben. Die Daten waren dabei immer richtig, nur die
+  Blickrichtung war falsch.
 - **Der Fokus wird VOR dem Nachladen des Kontexts festgelegt** (`lastFocusKey` in
   `loadContext`). Danach zu bestimmen ist die Falle: Das Nachladen bringt spätere
   Verbindungen, die nächste Bestimmung nimmt eine davon, und dahinter ist wieder
