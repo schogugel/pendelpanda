@@ -107,6 +107,9 @@ Was ansteht, steht in `TODO.md`.
 ## Dateien
 
 - `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
+- **Impressum:** `IMPRESSUM` in app.js. Solange `name` leer ist, bleibt der Eintrag in
+  den Einstellungen VERBORGEN — ein unvollständiges Impressum ist schlechter als keines,
+  weil es eine Pflichtangabe vortäuscht, die es nicht erfüllt. Nie mit Platzhaltern füllen.
 - `tools/check.mjs` — **der Prüfbefehl vor jedem Commit** (statisch + Ladetest)
 - `tools/layout.mjs` — misst die Startseite in einem echten Browser (bei Layoutänderungen)
 - `tools/smoke.mjs`, `tools/eslint.config.mjs` — die beiden Prüfungen dahinter

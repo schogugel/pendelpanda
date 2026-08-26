@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.18.0";
+const APP_VERSION = "1.19.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1620,6 +1620,17 @@ function dbLink(fromName, toName, depIso, arrIso) {
    laufenden Geräts: In der APK liegt die Seite unter localhost, ein daraus
    gebauter Link wäre auf jedem anderen Gerät wertlos. */
 const WEB_BASE = "https://schogugel.github.io/pendelpanda/";
+const KONTAKT_MAIL = "pendelpanda@gmx.de";
+
+/* Impressum. Solange `name` leer ist, bleibt der Eintrag in den Einstellungen
+   VERBORGEN — ein unvollständiges Impressum ist schlechter als keines, weil es
+   eine Pflichtangabe vortäuscht, die es nicht erfüllt. Name und ladungsfähige
+   Anschrift eintragen, dann erscheint es von selbst. */
+const IMPRESSUM = {
+  name: "",
+  strasse: "",
+  ort: "",
+};
 
 function configLink() {
   // v2: Kacheln UND Einstellungen wandern gemeinsam
@@ -1793,6 +1804,26 @@ function escapeHtml(s) {
 // Hilfe liegt in den Einstellungen; der Dialog legt sich über den offenen ⚙-Dialog
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
 byId("btn-legal").addEventListener("click", () => byId("legal-dialog").showModal());
+
+/* Betreff und Version gleich mitgeben: Eine Fehlermeldung ohne Versionsnummer
+   kostet immer eine Rückfrage. */
+byId("btn-contact").addEventListener("click", () => {
+  const betreff = encodeURIComponent(`PendelPanda ${APP_VERSION} (${PP.kind})`);
+  const url = `mailto:${KONTAKT_MAIL}?subject=${betreff}`;
+  /* Nativ über den AppLauncher (Intent — findet die Mail-App), im Browser über
+     die Adresse selbst. `window.open` hinterlässt für mailto in manchen Browsern
+     ein leeres Fenster. */
+  if (PP.native) PP.openExternal(url); else location.href = url;
+});
+
+if (IMPRESSUM.name) {
+  byId("btn-imprint").hidden = false;
+  byId("btn-imprint").addEventListener("click", () => {
+    const zeilen = [IMPRESSUM.name, IMPRESSUM.strasse, IMPRESSUM.ort].filter(Boolean);
+    byId("imprint-body").textContent = zeilen.concat(["", KONTAKT_MAIL]).join("\n");
+    byId("imprint-dialog").showModal();
+  });
+}
 byId("app-version").textContent = `v${APP_VERSION} · ${PP.kind}`;
 
 /* --- Einstellungs-Dialog --- */
