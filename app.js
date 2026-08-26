@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.14.0";
+const APP_VERSION = "1.15.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -710,6 +710,33 @@ async function fetchPage(direction, limit = 10) {
   }
 }
 
+/* Kontext um das Ergebnis herum nachladen — NACH der Umkreis-Rückfallebene.
+   Vorher stand das davor und hing an `app.itins.length`: Bei Strecken, die
+   erst über den Umkreis etwas finden (Erlenstegen → Vorra), war der Pool zu
+   diesem Zeitpunkt noch leer, das Nachladen wurde übersprungen, und die
+   gesuchte letzte Verbindung klebte ohne Nachbarn am rechten Rand.
+
+   Nach hinten wird so weit geladen, dass die Zielverbindung in der ZWEITEN
+   Spalte stehen kann und die eingestellte Spaltenzahl gefüllt ist — bei sieben
+   Spalten braucht es eben sechs Verbindungen danach, nicht vier. */
+async function loadContext() {
+  if (!app.itins.length) return;
+  if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
+  if (app.searchTime.kind !== "letzte") return;
+
+  const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
+  for (let round = 0; round < 3; round++) {
+    const visible = visibleItins();
+    const key = findLastDecent(visible);
+    if (!key) break;
+    const focusDep = depOf(visible.find(it => itKey(it) === key));
+    const behind = visible.filter(it => depOf(it) > focusDep).length;
+    if (behind >= need || !app.nextPageCursor) break;
+    const { added } = await fetchPage("later", need - behind + 2);
+    if (!added) break;
+  }
+}
+
 /* Orchestrierung: beschafft (ggf. mehrere Seiten) und rendert GENAU EINMAL. */
 async function runPlan(direction = null, limit = 10) {
   if (!direction) {
@@ -720,21 +747,6 @@ async function runPlan(direction = null, limit = 10) {
   try {
     const { params } = await fetchPage(direction, limit);
     if (!direction) {
-      /* Zwei Verbindungen davor als Kontext — in JEDEM Modus gleich.
-         Vorher nur im „Jetzt“-Modus; bei „Letzte“ und bei der Datumsauswahl
-         stand die Zielverbindung dadurch ganz links am Rand, ohne dass man
-         gesehen hätte, was es davor noch gegeben hätte. */
-      if (app.itins.length && app.prevPageCursor) {
-        await fetchPage("earlier", 2);
-      }
-      /* Bei „Letzte“ zusätzlich nach hinten: Die Zielverbindung soll in der
-         zweiten Spalte stehen und rechts noch Nachbarn haben — sonst klebt
-         ausgerechnet die gesuchte Verbindung am äußersten Rand und man sieht
-         nicht, was danach noch käme (meist erst am nächsten Morgen).
-         findLastDecent bleibt davon unberührt, es misst am Betriebsschluss. */
-      if (app.searchTime.kind === "letzte" && app.itins.length && app.nextPageCursor) {
-        await fetchPage("later", 4);
-      }
       // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
       // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
       if (!app.itins.length && !app.aroundTried) {
@@ -750,6 +762,7 @@ async function runPlan(direction = null, limit = 10) {
           app.nextPageCursor = around.nextPageCursor || null;
         }
       }
+      await loadContext();
     }
     renderResults();
     if (!direction) maybeAutoFill();

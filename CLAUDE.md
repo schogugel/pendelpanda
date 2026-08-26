@@ -292,8 +292,13 @@ Was ansteht, steht in `TODO.md`.
   Setzen der Scrollposition ein `scroll`-Ereignis auslöst.
 - **Die Markierung hängt an `tl.focusKey`, nicht am Fokus-Zweig.** Sie wird nach JEDEM
   Aufbau gesetzt; sonst ist sie beim ersten Nachladen weg (dann gilt `keepScroll`).
-- **Kontext-Vorladen gilt in JEDEM Modus** (zwei Verbindungen davor), nicht nur bei
-  „Jetzt“ — sonst klebt das Ziel bei „Letzte“ am linken Rand.
+- **Kontext-Vorladen (`loadContext`) läuft NACH der Umkreis-Rückfallebene.** Stand es
+  davor, hing es an `app.itins.length` — bei Strecken, die erst über den Umkreis etwas
+  finden (Erlenstegen → Vorra: Direktsuche liefert 0), war der Pool zu dem Zeitpunkt
+  leer und das Nachladen wurde stillschweigend übersprungen. Ergebnis: Die gesuchte
+  letzte Verbindung klebte ohne Nachbarn am rechten Rand.
+- Nach hinten wird geladen, bis **`settings.cols − 1`** Verbindungen hinter dem Fokus
+  liegen (max. 3 Runden), nicht pauschal vier: Bei sieben Spalten braucht es sechs.
 
 ## Verbindungs-Detailansicht (`fillDetails` + `updateJourneyLine`)
 
