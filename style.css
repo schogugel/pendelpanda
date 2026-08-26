@@ -708,6 +708,14 @@ dialog form { margin-top: 1rem; }
   letter-spacing: .09em; color: var(--muted); margin-bottom: .5rem;
 }
 .setgroup .hint { margin-top: 0; }
+/* Unterpunkt innerhalb eines Abschnitts — leiser als die Abschnitts-Überschrift,
+   aber deutlich genug, dass man den Bruch sieht. */
+.setgroup > h4 {
+  margin: 1.1rem 0 .4rem; padding-top: .8rem;
+  border-top: 1px dashed var(--border);
+  font-size: .82rem; font-weight: 700; color: var(--text);
+  letter-spacing: .04em;
+}
 .rangerow { margin: .9rem 0 .3rem; }
 .rangerow label {
   display: flex; align-items: baseline; justify-content: space-between;

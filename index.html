@@ -88,7 +88,23 @@
   <h2>Einstellungen</h2>
 
   <section class="setgroup">
-    <h3>Grafische Ansicht</h3>
+    <h3>Verkehrsmittel</h3>
+    <p class="hint">Diese standardmäßig anzeigen:</p>
+    <div class="checklist" id="settings-cats">
+      <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernzug (ICE, IC, EC)</label>
+      <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
+      <label><input type="checkbox" data-cat="sbahn"> <i class="catdot seg-sbahn"></i> S-Bahn</label>
+      <label><input type="checkbox" data-cat="ubahn"> <i class="catdot seg-ubahn"></i> U-Bahn</label>
+      <label><input type="checkbox" data-cat="tram"> <i class="catdot seg-tram"></i> Tram</label>
+      <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus</label>
+      <label><input type="checkbox" data-cat="sonstige"> <i class="catdot seg-sonstige"></i> Sonstige (Fähre, Rufbus u.&nbsp;ä.)</label>
+      <label><input type="checkbox" data-cat="fernbus"> <i class="catdot seg-fernbus"></i> Fernbus (Flix &amp; Co.)</label>
+    </div>
+    <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht
+      jederzeit über die Legende wieder einblenden.</p>
+  </section>
+  <section class="setgroup">
+    <h3>Ansicht</h3>
     <div class="countrow">Verbindungen nebeneinander
       <div class="seg3 seg5" id="set-cols" role="radiogroup" aria-label="Verbindungen nebeneinander">
         <button type="button" data-cols="3">3</button>
@@ -107,8 +123,37 @@
         Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
         mehr Übersicht, größerer Wert heißt mehr Detail.</p>
     </div>
+    <h4>Kacheln auf der Startseite</h4>
+    <label class="countrow">Mehr als 14 Kacheln
+      <input type="checkbox" id="set-more">
+    </label>
+    <div id="more-tiles-opts" hidden>
+      <label class="countrow">Anzahl Kacheln (gerade, max. 40)
+        <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
+      </label>
+      <div class="countrow">Verbinden
+        <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
+          <button type="button" data-mode="hybrid">Hybrid</button>
+          <button type="button" data-mode="tap">Nur Tippen</button>
+        </div>
+      </div>
+      <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
+    </div>
   </section>
-
+  <section class="setgroup">
+    <h3>Umsteigen</h3>
+    <div class="rangerow">
+      <label for="set-xfer">Zeit zum Umsteigen
+        <output id="set-xfer-val">Normal</output>
+      </label>
+      <input type="range" id="set-xfer" min="0" max="3" step="1">
+      <p class="finequote">Für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option
+        ist. Gerechnet wird <em>anteilig</em> zur Wegzeit im jeweiligen Bahnhof — an einem
+        großen Kopfbahnhof wirkt die Einstellung stärker als an einem Halt mit einem
+        Bahnsteig. Es fallen dabei keine Verbindungen weg: Der Fahrplanrechner sucht
+        andere, die dir Zeit lassen.</p>
+    </div>
+  </section>
   <section class="setgroup">
     <h3>„Letzte Verbindung“</h3>
     <label class="countrow">Ankunft spätestens
@@ -129,58 +174,6 @@
       zusammengerechnet. Nur Wartezeiten im Nachtfenster zählen — eine Stunde Aufenthalt
       am Nachmittag ist harmlos, um drei Uhr früh nicht.</p>
   </section>
-
-  <section class="setgroup">
-    <h3>Umsteigen</h3>
-    <div class="rangerow">
-      <label for="set-xfer">Zeit zum Umsteigen
-        <output id="set-xfer-val">Normal</output>
-      </label>
-      <input type="range" id="set-xfer" min="0" max="3" step="1">
-      <p class="finequote">Für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option
-        ist. Gerechnet wird <em>anteilig</em> zur Wegzeit im jeweiligen Bahnhof — an einem
-        großen Kopfbahnhof wirkt die Einstellung stärker als an einem Halt mit einem
-        Bahnsteig. Es fallen dabei keine Verbindungen weg: Der Fahrplanrechner sucht
-        andere, die dir Zeit lassen.</p>
-    </div>
-  </section>
-
-  <section class="setgroup">
-    <h3>Verkehrsmittel</h3>
-    <p class="hint">Diese standardmäßig anzeigen:</p>
-    <div class="checklist" id="settings-cats">
-      <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernzug (ICE, IC, EC)</label>
-      <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
-      <label><input type="checkbox" data-cat="sbahn"> <i class="catdot seg-sbahn"></i> S-Bahn</label>
-      <label><input type="checkbox" data-cat="ubahn"> <i class="catdot seg-ubahn"></i> U-Bahn</label>
-      <label><input type="checkbox" data-cat="tram"> <i class="catdot seg-tram"></i> Tram</label>
-      <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus</label>
-      <label><input type="checkbox" data-cat="sonstige"> <i class="catdot seg-sonstige"></i> Sonstige (Fähre, Rufbus u.&nbsp;ä.)</label>
-      <label><input type="checkbox" data-cat="fernbus"> <i class="catdot seg-fernbus"></i> Fernbus (Flix &amp; Co.)</label>
-    </div>
-    <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht
-      jederzeit über die Legende wieder einblenden.</p>
-  </section>
-
-  <section class="setgroup">
-    <h3>Kacheln</h3>
-    <label class="countrow">Mehr als 14 Kacheln
-      <input type="checkbox" id="set-more">
-    </label>
-    <div id="more-tiles-opts" hidden>
-      <label class="countrow">Anzahl Kacheln (gerade, max. 40)
-        <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
-      </label>
-      <div class="countrow">Verbinden
-        <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
-          <button type="button" data-mode="hybrid">Hybrid</button>
-          <button type="button" data-mode="tap">Nur Tippen</button>
-        </div>
-      </div>
-      <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
-    </div>
-  </section>
-
   <section class="setgroup">
     <h3>Übertragen, Hilfe &amp; Rechtliches</h3>
     <button id="btn-share-config" class="menurow">
