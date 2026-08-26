@@ -420,6 +420,11 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .timeline .status { padding: 2rem 1rem; }
 .tl-canvas { position: relative; }
 .tl-gridlines { position: absolute; top: 0; left: 0; pointer-events: none; }
+.tl-hline {
+  position: absolute; left: 0; width: 100%; height: 1px;
+  background: var(--tl-line);
+}
+.tl-hline.strong { background: var(--tl-line-strong); }
 .tl-axis {
   position: sticky; left: 0; width: 50px; z-index: 3;
   /* Fast durchgehend deckend: Der weiche Rand war 14 px breit, und genau darunter

@@ -343,9 +343,20 @@ Was ansteht, steht in `TODO.md`.
   der Bewegung weg). Pro Bild ein voller Neuaufbau — gemessen 1,8 ms bei 10 und 5,6 ms
   bei 40 Spalten, passt in 16 ms. Greift der Nutzer die Ansicht an (`tl.pointers.size`),
   bricht die Bewegung sofort ab. `tlSetZoom` bleibt für den Pinch.
-- `tlTopTimeFor` ermittelt das vertikale Ziel für die ZIEL-Zoomstufe, indem kurz dorthin
-  gebaut und wieder zurückgebaut wird — zwei Neuaufbauten, dafür bleibt die Docking-Regel
-  an einer Stelle statt dort nachgebaut zu werden.
+- **`tlAlignTopFor(idx, sc, ppm)` rechnet über den INDEX und die Fahrtdaten**, nicht über
+  einen fertigen Balken. Nur so lässt sich das Ziel für eine Zoomstufe ausrechnen, die
+  noch gar nicht gebaut ist. Vorher wurde dafür kurz auf die Zielstufe gebaut und wieder
+  zurück — zwei vollständige Neuaufbauten unmittelbar VOR der Bewegung. Jetzt null.
+- **Zeitlinien sind einzelne Elemente** (`.tl-hline`), keine gekachelten Verläufe. Eine
+  Kachelung mit gebrochener Höhe (60 min × 4,37 px/min = 262,2 px) sammelt über die
+  Leinwand Rundungsfehler an: Linien wandern gegenüber der echten Uhrzeit und einzelne
+  fallen beim Zeichnen ganz weg („manche volle Stunden haben eine Linie, manche nicht“).
+  Einzeln gesetzt: Abweichung 1,4 s, Abstände exakt gleich, und die Aufbaukosten bleiben
+  unverändert (1,65 / 3,00 / 5,40 ms bei 10 / 20 / 40 Spalten).
+  Die Anzahl begrenzt sich selbst, weil der Abstand nie unter 44 px fällt.
+- **`tl.tickStepFest` friert das Linienraster während einer Bewegung ein.** Sonst kippt
+  `tlTickStep` beim Durchlaufen der Zoomstufen mehrfach um und die Linien ordnen sich
+  mitten in der Bewegung neu.
 - Docking: Einrasten auf Spaltengrenzen (Halbe-Spalte-Regel); vertikal an Balkenstart —
   bei der nächsten erreichbaren Verbindung an der **Jetzt-Linie**, außer <40 % des ersten
   Segments wären sichtbar (dann Balken). `tlAlignTopFor` ist die eine Wahrheit dafür.

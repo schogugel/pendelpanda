@@ -28,6 +28,7 @@ const tl = {
   autoScrolling: false,
   followTimer: null,
   animFrame: 0,      // laufende Verfahrbewegung (Zoom + Position in einem)
+  tickStepFest: null, // Linienraster während der Bewegung eingefroren
 };
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
@@ -422,7 +423,7 @@ function renderTimeline(itins, focus = "start") {
     const bar = tl.bars[idx];
     const leftIdx = Math.max(0, idx - 1);   // Kontextspalte davor
     scroller.scrollLeft = colScrollLeft(leftIdx);
-    scroller.scrollTop = tlAlignTopFor(bar, scroller);
+    scroller.scrollTop = tlAlignTopFor(idx, scroller);
     /* Der Zoom-Index MUSS die linkeste Spalte sein, nicht die markierte.
        `tlAlign` rechnet ihn aus der Scrollposition aus; stand hier die
        markierte Spalte, wich er sofort ab, und das Einrasten zoomte 120 ms
@@ -439,7 +440,7 @@ function renderTimeline(itins, focus = "start") {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
     scroller.scrollLeft = colScrollLeft(startIdx);
-    scroller.scrollTop = tlAlignTopFor(tl.bars[startIdx] || tl.bars[0], scroller);
+    scroller.scrollTop = tlAlignTopFor(startIdx, scroller);
   }
   tl.lastAlignLeft = scroller.scrollLeft;
 }
@@ -450,21 +451,34 @@ function renderTimeline(itins, focus = "start") {
    ABER nur, wenn dabei mindestens 40 % des ersten Transportmittel-Segments
    sichtbar bleiben; sonst gewinnt der Balken (sonst sähe man bei großem
    Abstand nur die Jetzt-Linie und keine Verbindung). */
-function tlAlignTopFor(bar, sc) {
+/* Vertikales Einrast-Ziel für eine Spalte, in PIXELN bei der angegebenen
+   Zoomstufe. Bewusst über den INDEX und die Fahrtdaten statt über den fertigen
+   Balken: So lässt es sich auch für eine Zoomstufe ausrechnen, die noch gar
+   nicht gebaut ist. Vorher wurde dafür kurz auf die Zielstufe gebaut und wieder
+   zurück — zwei vollständige Neuaufbauten unmittelbar vor der Bewegung.
+
+   Regel: normalerweise die Abfahrt des Balkens leicht unter der Kopf-Kachel.
+   Ist die Spalte die NÄCHSTE noch erreichbare Verbindung, dockt die Ansicht an
+   der aktuellen Uhrzeit an — aber nur, wenn dabei mindestens 40 % des ersten
+   Segments sichtbar bleiben; sonst gewinnt der Balken (sonst sähe man bei
+   großem Abstand nur die Jetzt-Linie und keine Verbindung). */
+function tlAlignTopFor(idx, sc, ppm = tl.ppm) {
+  const it = tl.itins[idx];
+  if (!it) return 0;
+  const legs = transitLegs(it);
+  const px = ms => ((ms - tl.t0) / 60000) * ppm;
   // + DEP_LBL: Sonst rastet der Balkenanfang bündig unter der Kachel ein und
   //   verdeckt genau die Abfahrtszeit, die dort steht.
   const clear = tlHeadClear() + TL.DEP_LBL;
-  const barTop = Math.max(0, bar.top - clear);
-  if (app.searchTime.kind !== "now") return barTop;
-  const now = Date.now();
-  if (!tlIsNextReachable(tl.bars.indexOf(bar))) return barTop;
-  const nowTop = Math.max(0, tlY(now) - clear);
+  const dep = +new Date(legs[0].from.departure);
+  const barTop = Math.max(0, px(dep) - clear);
+  if (!tlIsNextReachable(idx)) return barTop;
+  const nowTop = Math.max(0, px(Date.now()) - clear);
   const viewH = sc ? sc.clientHeight : 0;
   if (viewH) {
-    const legs = transitLegs(bar.itin);
-    const seg1H = Math.max(1, tlY(+new Date(legs[0].to.arrival)) - bar.top);
-    const visiblePx = Math.min(seg1H, nowTop + viewH - bar.top);
-    if (visiblePx / seg1H < 0.4) return barTop;
+    const seg1H = Math.max(1, px(+new Date(legs[0].to.arrival)) - px(dep));
+    const sichtbar = Math.min(seg1H, nowTop + viewH - px(dep));
+    if (sichtbar / seg1H < 0.4) return barTop;
   }
   return nowTop;
 }
@@ -644,24 +658,45 @@ function tlAutoZoom(sc, startIdx = 0) {
   return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
+/* Waagerechte Zeitlinien als EINZELNE Elemente, jede exakt auf ihrer Uhrzeit.
+
+   Vorher waren es zwei gekachelte Verläufe. Eine Kachelung mit gebrochener
+   Höhe (60 min × 4,37 px/min = 262,2 px) sammelt über die Länge der Leinwand
+   Rundungsfehler an: Die Linien wandern gegenüber der echten Uhrzeit, und beim
+   Zeichnen fallen einzelne ganz weg — daher „manche volle Stunden haben eine
+   Linie, manche nicht“. Bei jeder Zoomänderung verschob sich der Fehler neu,
+   weshalb sie zusätzlich wild sprangen.
+
+   Einzeln gesetzt gibt es keinen Fehler, der sich aufsummieren könnte. Die
+   Anzahl ist von selbst begrenzt, weil der Abstand nie unter 44 px fällt —
+   bei einer 5000 px hohen Leinwand also rund 110 Linien. */
 function tlGrid(h, w) {
   const step = tlTickStep();
   const g = document.createElement("div");
   g.className = "tl-gridlines";
   g.style.width = w + "px";
   g.style.height = h + "px";
-  const minor = step * tl.ppm, hour = 60 * tl.ppm;
-  // Linien auf runde Uhrzeiten ausrichten
-  const off = m => ((m - ((tl.t0 / 60000) % m)) % m) * tl.ppm;
-  g.style.backgroundImage =
-    `repeating-linear-gradient(to bottom, var(--tl-line-strong) 0 1px, transparent 1px ${hour}px),` +
-    `repeating-linear-gradient(to bottom, var(--tl-line) 0 1px, transparent 1px ${minor}px)`;
-  g.style.backgroundPosition = `0 ${off(60)}px, 0 ${off(step)}px`;
+
+  const minStart = Math.ceil(tl.t0 / 60000 / step) * step;   // erste runde Marke
+  const minEnd = tl.t1 / 60000;
+  for (let m = minStart; m <= minEnd; m += step) {
+    const y = Math.round(((m * 60000 - tl.t0) / 60000) * tl.ppm);
+    if (y < 0 || y > h) continue;
+    const l = document.createElement("i");
+    // Volle Stunden kräftiger — sie tragen die Orientierung
+    l.className = (m % 60 === 0) ? "tl-hline strong" : "tl-hline";
+    l.style.top = y + "px";
+    g.appendChild(l);
+  }
   return g;
 }
 
-function tlTickStep() {
-  for (const s of [5, 10, 15, 30, 60, 120]) if (s * tl.ppm >= 44) return s;
+/* Während einer Verfahrbewegung bleibt die Stufe FEST (auf dem Zielwert).
+   Sonst kippt sie beim Durchlaufen der Zoomstufen mehrfach um, und die Linien
+   ordnen sich mitten in der Bewegung neu — genau das Flackern im Hintergrund. */
+function tlTickStep(ppm = tl.ppm) {
+  if (tl.tickStepFest) return tl.tickStepFest;
+  for (const s of [5, 10, 15, 30, 60, 120]) if (s * ppm >= 44) return s;
   return 240;
 }
 
@@ -974,6 +1009,7 @@ function tlInitInteractions() {
    dem, was vorher lief. */
 function tlStop() {
   cancelAnimationFrame(tl.animFrame);
+  tl.tickStepFest = null;
   tl.animFrame = 0;
   clearTimeout(tl.followTimer);
   clearTimeout(tl.focusHold);
@@ -988,12 +1024,15 @@ function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
   const p1 = ppm || p0;
   const start = performance.now();
   tl.autoScrolling = true;
+  tl.tickStepFest = tlTickStep(p1);   // Linienraster über die Bewegung stabil halten
 
   const schritt = (jetzt) => {
     // Fasst der Nutzer die Ansicht an, gehört sie ihm — Bewegung sofort aufgeben.
     // Ebenso, wenn inzwischen eine andere Suche läuft: Dann gehört die Grafik
     // schon zu einer anderen Frage.
-    if (tl.pointers.size || tl.searchTag !== app.searchTag) { tl.autoScrolling = false; return; }
+    if (tl.pointers.size || tl.searchTag !== app.searchTag) {
+      tl.autoScrolling = false; tl.tickStepFest = null; return;
+    }
     const k = Math.min(1, (jetzt - start) / ms);
     const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // weich rein und raus
     if (p1 !== p0) { tl.ppm = p0 + (p1 - p0) * e; tlBuild(sc); }
@@ -1002,6 +1041,7 @@ function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
     if (k < 1) { tl.animFrame = requestAnimationFrame(schritt); return; }
 
     tl.ppm = p1;
+    tl.tickStepFest = null;
     if (p1 !== p0) { tlBuild(sc); tlEnsureTail(sc); }
     sc.scrollLeft = left;
     sc.scrollTop = Math.max(0, tlY(topTime));
@@ -1011,17 +1051,11 @@ function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
   tl.animFrame = requestAnimationFrame(schritt);
 }
 
-/* Wo soll die Oberkante am ENDE stehen — ausgedrückt als Zeit, damit die
-   Bewegung unabhängig vom Maßstab ist. Ermittelt wird sie, indem kurz auf die
-   Zielstufe gebaut, gemessen und wieder zurückgebaut wird: zwei Neuaufbauten,
-   dafür bleibt die Docking-Regel an EINER Stelle statt hier nachgebaut. */
+/* Wo soll die Oberkante am Ende stehen — als ZEIT, damit die Bewegung
+   unabhängig vom Maßstab ist. Wird direkt für die Ziel-Zoomstufe gerechnet,
+   ohne dafür etwas zu bauen. */
 function tlTopTimeFor(sc, idx, ppm) {
-  const p0 = tl.ppm, l = sc.scrollLeft, o = sc.scrollTop;
-  if (ppm !== p0) { tl.ppm = ppm; tlBuild(sc); sc.scrollLeft = l; }
-  const bar = tl.bars[idx] || tl.bars[0];
-  const zeit = bar ? tl.t0 + (tlAlignTopFor(bar, sc) / tl.ppm) * 60000 : tl.t0;
-  if (ppm !== p0) { tl.ppm = p0; tlBuild(sc); sc.scrollLeft = l; sc.scrollTop = o; }
-  return zeit;
+  return tl.t0 + (tlAlignTopFor(idx, sc, ppm) / ppm) * 60000;
 }
 
 /* Sanftes Einrasten nach dem Scrollen:
@@ -1053,7 +1087,7 @@ function tlAlign(sc) {
   if (!visible.length) { tl.lastAlignLeft = targetLeft; return; }
   const anyInView = visible.some(b => b.top < vy1 - 20 && b.top + b.height > vy0 + 20);
   const horizMoved = Math.abs(sc.scrollLeft - (tl.lastAlignLeft ?? sc.scrollLeft)) > 24;
-  const targetTop = tlAlignTopFor(visible[0], sc);
+  const targetTop = tlAlignTopFor(idx0, sc);
   const needV = (horizMoved || !anyInView) && Math.abs(sc.scrollTop - targetTop) > 8;
   const needZoom = Math.abs(ppm - tl.ppm) > 0.01;
 
