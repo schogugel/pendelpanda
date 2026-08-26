@@ -249,6 +249,12 @@ Was ansteht, steht in `TODO.md`.
 - Kopffreiheit: `tlHeadClear()` misst die HÖCHSTE Kopf-Kachel; t0 wird vorab + per
   Nachkorrektur (auch in `tlSetZoom`) so erweitert, dass der früheste Balken und die
   Jetzt-Linie nie hinter den Kacheln verschwinden.
+- **Spaltenpositionen NUR über `colScrollLeft()` / `colIndexFor()` rechnen.** Spalte i
+  liegt bei `AXIS_W + GAP + i·Schritt`; wer die Scrollposition als `i·Schritt` ansetzt,
+  rastet GAP-Pixel zu weit links ein, und die Kante der vorherigen Spalte schimmert
+  unter dem ausblendenden Rand der Zeitachse durch. Es gibt ZWEI Einrast-Stellen —
+  `releaseGlide()` (Touch) und `tlAlign()` (Maus/Trackpad); der Fehler steckte in beiden.
+  Die Achse ist deshalb zusätzlich fast durchgehend deckend (Verlauf erst ab 94 %).
 - Docking: Einrasten auf Spaltengrenzen (Halbe-Spalte-Regel); vertikal an Balkenstart —
   bei der nächsten erreichbaren Verbindung an der **Jetzt-Linie**, außer <40 % des ersten
   Segments wären sichtbar (dann Balken). `tlAlignTopFor` ist die eine Wahrheit dafür.

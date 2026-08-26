@@ -31,6 +31,16 @@ const tl = {
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
 
+/* Spalte i liegt im Aufbau bei `AXIS_W + GAP + i·Schritt` (siehe tlBuild).
+   Damit sie beim Einrasten bündig rechts neben der Zeitachse steht, gehört das
+   GAP in die Scrollposition. Es fehlte — deshalb rastete die Ansicht acht Pixel
+   zu weit links ein, und vom vorherigen Balken blieb ein Streifen unter dem
+   ausblendenden Rand der Achse sichtbar. Beide Rechnungen stehen hier an EINER
+   Stelle, damit sie nicht wieder auseinanderlaufen. */
+const tlStep = () => tl.colW + TL.GAP;
+const colScrollLeft = i => TL.GAP + i * tlStep();
+const colIndexFor = x => Math.round((x - TL.GAP) / tlStep());
+
 // Ausfall kann am Abschnitt, an den Halten oder an Zwischenhalten hängen
 function legCancelled(l) {
   return !!(l.cancelled || l.from?.cancelled || l.to?.cancelled ||
@@ -298,12 +308,11 @@ function renderTimeline(itins, focus = "start") {
      robust gegen geänderte Zoomstufen. */
   let anchor = null;
   if (keepScroll && tl.ppm) {
-    const stepOld = tl.colW + TL.GAP;
-    const idx = Math.round((prev.left) / stepOld);
+    const idx = Math.max(0, colIndexFor(prev.left));
     anchor = {
       time: tl.t0 + (prev.top / tl.ppm) * 60000,
       key: tl.itins[idx] ? itKey(tl.itins[idx]) : null,
-      offset: prev.left - idx * stepOld,
+      offset: prev.left - colScrollLeft(idx),
     };
   }
 
@@ -389,9 +398,8 @@ function renderTimeline(itins, focus = "start") {
 
   if (keepScroll && anchor) {
     // Ankerspalte an derselben Bildschirmposition halten; Zeit-Anker für oben
-    const step = tl.colW + TL.GAP;
     const newIdx = anchor.key ? tl.itins.findIndex(it => itKey(it) === anchor.key) : -1;
-    scroller.scrollLeft = newIdx >= 0 ? Math.max(0, newIdx * step + anchor.offset) : prev.left;
+    scroller.scrollLeft = newIdx >= 0 ? Math.max(0, colScrollLeft(newIdx) + anchor.offset) : prev.left;
     scroller.scrollTop = Math.max(0, tlY(anchor.time));
     // Zoom-Index mitziehen, sonst zoomt das Einrasten die Spalte neu (Sprung)
     if (newIdx >= 0) tl.lastZoomIdx = newIdx;
@@ -409,7 +417,7 @@ function renderTimeline(itins, focus = "start") {
     const idx = focusIdx >= 0 ? focusIdx : tl.bars.length - 1;
     const bar = tl.bars[idx];
     const leftIdx = Math.max(0, idx - 1);   // Kontextspalte davor
-    scroller.scrollLeft = leftIdx * (tl.colW + TL.GAP);
+    scroller.scrollLeft = colScrollLeft(leftIdx);
     scroller.scrollTop = tlAlignTopFor(bar, scroller);
     /* Der Zoom-Index MUSS die linkeste Spalte sein, nicht die markierte.
        `tlAlign` rechnet ihn aus der Scrollposition aus; stand hier die
@@ -426,7 +434,7 @@ function renderTimeline(itins, focus = "start") {
   } else {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
-    scroller.scrollLeft = startIdx * (tl.colW + TL.GAP);
+    scroller.scrollLeft = colScrollLeft(startIdx);
     scroller.scrollTop = tlAlignTopFor(tl.bars[startIdx] || tl.bars[0], scroller);
   }
   tl.lastAlignLeft = scroller.scrollLeft;
@@ -535,7 +543,7 @@ function tlEdgeCheck(sc) {
   const last = tl.lastCheckLeft;
   tl.lastCheckLeft = sc.scrollLeft;
   if (typeof loadMore === "function" && tl.bars.length && tl.userMoved && last != null) {
-    const step = tl.colW + TL.GAP;
+    const step = tlStep();
     const movedRight = sc.scrollLeft > last + 1;
     const movedLeft = sc.scrollLeft < last - 1;
     const colsRight = (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) / step;
@@ -766,13 +774,12 @@ function tlInitInteractions() {
   let panLast = null, panMoved = 0;
 
   function releaseGlide() {
-    const step = tl.colW + TL.GAP;
     const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
-    const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+    const targetLeft = Math.min(maxLeft, Math.max(0, colScrollLeft(Math.max(0, colIndexFor(sc.scrollLeft)))));
 
     // Dynamischen Y-Zoom nur bei Spaltenwechsel anwenden (Pinch in derselben
     // Spalte bleibt unangetastet); baut ggf. neu, Bildmitte bleibt verankert
-    const idx0 = Math.min(tl.itins.length - 1, Math.max(0, Math.round(targetLeft / step)));
+    const idx0 = Math.min(tl.itins.length - 1, Math.max(0, colIndexFor(targetLeft)));
     if (idx0 !== tl.lastZoomIdx) {
       tl.lastZoomIdx = idx0;
       const dyn = tlAutoZoom(sc, idx0);
@@ -906,12 +913,12 @@ function tlInitInteractions() {
      Hoch-/Runterscrollen bleibt unangetastet, außer kein Balken ist im Bild */
 function tlAlign(sc) {
   if (!tl.bars.length || tl.autoScrolling || tl.pointers.size) return;
-  const step = tl.colW + TL.GAP;
+  const step = tlStep();
   const maxLeft = Math.max(0, sc.scrollWidth - sc.clientWidth);
-  const targetLeft = Math.min(maxLeft, Math.max(0, Math.round(sc.scrollLeft / step) * step));
+  const targetLeft = Math.min(maxLeft, Math.max(0, colScrollLeft(Math.max(0, colIndexFor(sc.scrollLeft)))));
 
   // Dynamischer Y-Zoom nur bei Spaltenwechsel (Maus-/Trackpad-Pfad)
-  const idx0 = Math.min(tl.itins.length - 1, Math.max(0, Math.round(targetLeft / step)));
+  const idx0 = Math.min(tl.itins.length - 1, Math.max(0, colIndexFor(targetLeft)));
   if (idx0 !== tl.lastZoomIdx) {
     tl.lastZoomIdx = idx0;
     const dyn = tlAutoZoom(sc, idx0);

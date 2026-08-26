@@ -394,7 +394,10 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .tl-gridlines { position: absolute; top: 0; left: 0; pointer-events: none; }
 .tl-axis {
   position: sticky; left: 0; width: 50px; z-index: 3;
-  background: linear-gradient(to right, var(--card) 72%, transparent);
+  /* Fast durchgehend deckend: Der weiche Rand war 14 px breit, und genau darunter
+     schimmerte die Kante der vorherigen Spalte durch. Ein kurzer Verlauf am
+     äußersten Rand genügt, damit durchlaufende Balken nicht hart abreißen. */
+  background: linear-gradient(to right, var(--card) 94%, transparent);
   pointer-events: none;
 }
 .tl-tick {
