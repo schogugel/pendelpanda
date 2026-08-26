@@ -536,10 +536,16 @@ function tlEnsureTail(sc) {
 
 function tlBuild(scroller) {
   tl.bars = [];
+  /* Verweise auf alles, dessen Lage von der Zoomstufe abhängt. Damit kann
+     tlRescale die Ansicht während einer Bewegung verschieben, ohne sie neu zu
+     bauen — der Neuaufbau pro Bild war zu teuer und wurde als Stottern
+     sichtbar, sobald der Zoom mitlief. */
+  tl.geo = { canvas: null, axis: null, lines: [], ticks: [], now: null, cols: [] };
   const heightPx = tlY(tl.t1);
   const widthPx = TL.AXIS_W + tl.itins.length * (tl.colW + TL.GAP) + TL.GAP;
 
   const canvas = document.createElement("div");
+  tl.geo.canvas = canvas;
   canvas.className = "tl-canvas";
   canvas.style.width = widthPx + "px";
   canvas.style.height = heightPx + "px";
@@ -686,6 +692,7 @@ function tlGrid(h, w) {
     // Volle Stunden kräftiger — sie tragen die Orientierung
     l.className = (m % 60 === 0) ? "tl-hline strong" : "tl-hline";
     l.style.top = y + "px";
+    tl.geo.lines.push({ el: l, ms: m * 60000 });
     g.appendChild(l);
   }
   return g;
@@ -702,6 +709,7 @@ function tlTickStep(ppm = tl.ppm) {
 
 function tlAxis(h) {
   const axis = document.createElement("div");
+  tl.geo.axis = axis;
   axis.className = "tl-axis";
   axis.style.height = h + "px";
   const step = tlTickStep() * 60000;
@@ -710,6 +718,7 @@ function tlAxis(h) {
     const tick = document.createElement("span");
     tick.className = "tl-tick";
     tick.style.top = tlY(t) + "px";
+    tl.geo.ticks.push({ el: tick, ms: t });
     tick.textContent = fmtTime(new Date(t).toISOString());
     axis.appendChild(tick);
   }
@@ -722,6 +731,7 @@ function tlNowLine(canvas, w) {
   const line = document.createElement("div");
   line.className = "tl-now";
   line.style.top = tlY(now) + "px";
+  tl.geo.now = { el: line, ms: now };
   line.style.width = w + "px";
   const label = document.createElement("span");
   label.textContent = "jetzt";
@@ -766,6 +776,9 @@ function tlColumn(it, left, isDominated = false) {
   col.appendChild(head);
 
   const bar = document.createElement("button");
+  const geoCol = { bar, segs: [], dep: null, arr: null,
+                   ms0: +new Date(dep.departure), ms1: +new Date(arr.arrival) };
+  tl.geo.cols.push(geoCol);
   bar.className = "tl-bar";
   bar.style.top = top + "px";
   bar.style.height = height + "px";
@@ -784,6 +797,7 @@ function tlColumn(it, left, isDominated = false) {
     if (sev) seg.title = "Schienenersatzverkehr";
     seg.style.top = s0 + "px";
     seg.style.height = h + "px";
+    geoCol.segs.push({ el: seg, ms0: +new Date(l.from.departure), ms1: +new Date(l.to.arrival) });
     const name = lineParts(l).main; // Zusatznummer nur in der Detailansicht
     // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
     if (isCancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
@@ -802,11 +816,13 @@ function tlColumn(it, left, isDominated = false) {
      in den engen Spaltenstufen wieder ein anderer. */
   t0lbl.style.top = (top - 3) + "px";
   t0lbl.textContent = fmtTime(dep.departure);
+  geoCol.dep = t0lbl;
 
   const t1lbl = document.createElement("span");
   t1lbl.className = "tl-arr";
   t1lbl.style.top = (top + height + 3) + "px";
   t1lbl.textContent = fmtTime(arr.arrival);
+  geoCol.arr = t1lbl;
 
   col.appendChild(bar);
   col.appendChild(t0lbl);
@@ -1017,6 +1033,42 @@ function tlStop() {
   tl.autoScrolling = false;
 }
 
+/* Zoomstufe ändern, ohne neu zu bauen: Es wird nur die Lage der vorhandenen
+   Elemente nachgezogen. Ein vollständiger Neuaufbau je Bild war auf dem Gerät
+   zu teuer und wurde als Stottern sichtbar — reines Scrollen lief glatt, erst
+   mit laufendem Zoom fing es an zu haken.
+
+   Am ENDE der Bewegung wird trotzdem einmal richtig gebaut. Das ist die
+   Sicherung gegen Abweichungen: Sollte hier je etwas fehlen, das tlBuild
+   inzwischen anders setzt, korrigiert sich das im Ruhezustand von selbst. */
+function tlRescale(sc, ppm) {
+  const g = tl.geo;
+  if (!g || !g.canvas) { tl.ppm = ppm; tlBuild(sc); return; }
+  tl.ppm = ppm;
+  const y = ms => ((ms - tl.t0) / 60000) * ppm;
+  const hoehe = y(tl.t1);
+  g.canvas.style.height = hoehe + "px";
+  if (g.axis) g.axis.style.height = hoehe + "px";
+  for (const { el, ms } of g.lines) el.style.top = Math.round(y(ms)) + "px";
+  for (const { el, ms } of g.ticks) el.style.top = y(ms) + "px";
+  if (g.now) g.now.el.style.top = y(g.now.ms) + "px";
+
+  g.cols.forEach((c, i) => {
+    const top = y(c.ms0), h = Math.max(10, y(c.ms1) - top);
+    c.bar.style.top = top + "px";
+    c.bar.style.height = h + "px";
+    if (tl.bars[i]) { tl.bars[i].top = top; tl.bars[i].height = h; }
+    for (const s of c.segs) {
+      const s0 = y(s.ms0) - top, sh = Math.max(2, y(s.ms1) - top - s0);
+      s.el.style.top = s0 + "px";
+      s.el.style.height = sh + "px";
+      s.el.classList.toggle("nolabel", sh < 20);
+    }
+    if (c.dep) c.dep.style.top = (top - 3) + "px";
+    if (c.arr) c.arr.style.top = (top + h + 3) + "px";
+  });
+}
+
 function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
   cancelAnimationFrame(tl.animFrame);
   const p0 = tl.ppm, l0 = sc.scrollLeft;
@@ -1035,7 +1087,7 @@ function tlGlideTo(sc, { ppm, left, topTime, ms = 300 }) {
     }
     const k = Math.min(1, (jetzt - start) / ms);
     const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // weich rein und raus
-    if (p1 !== p0) { tl.ppm = p0 + (p1 - p0) * e; tlBuild(sc); }
+    if (p1 !== p0) tlRescale(sc, p0 + (p1 - p0) * e);
     sc.scrollLeft = l0 + (left - l0) * e;
     sc.scrollTop = Math.max(0, tlY(tTop0 + (topTime - tTop0) * e));
     if (k < 1) { tl.animFrame = requestAnimationFrame(schritt); return; }
