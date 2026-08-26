@@ -142,6 +142,20 @@ Was ansteht, steht in `TODO.md`.
   („was gäbe es sonst noch?“).
 - Verkehrsmittel-Filterung der **Anzeige** bleibt clientseitig (`hiddenCats` +
   `productClass`); die gefilterte Anfrage beschafft nur zusätzliche Kandidaten.
+- **Einblenden über die Legende lädt nach** (`refillLoadedRange`) — es MUSS, weil die
+  Verbindungen dieser Kategorie im Pool schlicht fehlen können: Pareto verdrängt sie.
+  Gemessen Nürnberg→München: ungefiltert kein einziger Fernbus, nach dem Einblenden
+  24 neue Verbindungen, davon 21 mit Fernbus.
+  **Nachgefüllt wird der GANZE geladene Zeitraum**, nicht nur das sichtbare Fenster:
+  Zurückscrollen lädt nichts nach, ältere Spalten blieben sonst dauerhaft unvollständig.
+  Bezahlbar wird das durch `REFILL_LIMIT = 30` — eine Anfrage deckt damit rund 12 h ab
+  (gemessen 709 min bei 371 ms; mit 10 nur 156 min), also 1–3 Anfragen für den ganzen
+  Bereich statt 5–8. **Die Cursor der laufenden Suche bleiben dabei unangetastet** —
+  das Nachfüllen ist ein Seitenweg, kein Blättern.
+- **Ausgegraut in der Legende heißt „nachweislich nichts da“** (`app.emptyCats`), und
+  das weiß man erst NACH einer eigenen Anfrage für diese Kategorie. Vorher stand dort
+  „Keine … im Zeitraum“, obwohl nur niemand danach gefragt hatte. Chips sind deshalb
+  immer anklickbar; Ausblenden kostet weiterhin keine Anfrage.
 - **Während einer frischen Suche ist ALLES Alte weg** (`showSearching`): Liste und
   Grafik werden ausgeblendet und geleert, Hinweiszeilen zurückgesetzt. Vorher blieb der
   vorherige Stand stehen, bis der neue kam — beim Wechsel zwischen „Jetzt“ und „Letzte“

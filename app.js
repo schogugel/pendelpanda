@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.17.1";
+const APP_VERSION = "1.18.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -29,6 +29,8 @@ const app = {
   searchTime: { kind: "now", time: null, arriveBy: false },
   prevPageCursor: null,
   hiddenCats: new Set(),  // aktuell über die Legende ausgeblendete Kategorien
+  emptyCats: new Set(),   // Kategorien, für die eine eigene Anfrage nichts brachte
+  refilling: false,       // Nachladen läuft — Legende solange gesperrt
   autoLoads: 0,           // automatische Nachlade-Runden pro Suche
 };
 
@@ -513,6 +515,7 @@ function startSearch(from, to) {
   app.aroundPlaces = null;
   app.searchTag = (app.searchTag || 0) + 1;
   app.lastFocusKey = null;   // die „letzte Verbindung“ wird je Suche EINMAL bestimmt
+  app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
   byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
   updateChips();
   navigate("results");
@@ -633,14 +636,18 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
    Trennung von Beschaffung und Darstellung: So kann eine Suche mehrere Seiten
    nachladen (Bootstrap, „Letzte“) und trotzdem nur EINMAL rendern. Jedes
    Zwischenrendern hat die Grafik neu positioniert — daher das Springen. */
-async function fetchPage(direction, limit = 10) {
+/* Gemeinsamer Bau der Suchparameter — von fetchPage UND vom Nachfüllen der
+   Legende benutzt. Eine zweite, eigene Zusammenstellung hätte über kurz oder
+   lang andere Werte gehabt (Umsteigezeit, Umkreis-Modus, Ankunftssuche). */
+function planParams({ time = null, limit = 10, cursor = null } = {}) {
   const { from, to } = app.search;
   const t = app.searchTime;
   /* „Letzte“ nutzt die ANKUNFTSSUCHE bis Betriebsschluss: Der Router liefert
      damit von sich aus die spätesten Verbindungen, die vor der Grenze ankommen
      — eine Anfrage, kein Rückwärtsblättern, keine eigene Lücken-Heuristik. */
   const arriveBy = t.kind === "letzte" || (t.kind === "custom" && t.arriveBy);
-  const baseTime = t.kind === "custom" ? new Date(t.time)
+  const baseTime = time ? new Date(time)
+    : t.kind === "custom" ? new Date(t.time)
     : t.kind === "letzte" ? nextServiceEnd()
     : new Date();
   const params = new URLSearchParams({
@@ -667,16 +674,20 @@ async function fetchPage(direction, limit = 10) {
   const xf = XFER_LEVELS[settings.xferLevel] || XFER_LEVELS[0];
   if (xf.factor !== 1) params.set("transferTimeFactor", String(xf.factor));
   if (xf.extra) params.set("additionalTransferTime", String(xf.extra));
-  if (arriveBy) params.set("arriveBy", "true");
-  if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
-  if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
+  /* Eine Ankunftssuche mit ausdrücklicher Zeit ist beim Nachfüllen falsch:
+     Dort geht es um einen Zeitraum, der bereits geladen ist. */
+  if (arriveBy && !time) params.set("arriveBy", "true");
+  if (cursor) params.set("pageCursor", cursor);
+  return params;
+}
 
-  /* Zwei Anfragen pro Ladevorgang, wenn gefiltert wird (sonst eine):
-     - ungefiltert → speist die Legende („was gäbe es?“) und den Pool
-     - gefiltert   → die unter der Filterung optimalen Verbindungen, die die
-       ungefilterte Suche wegen Pareto-Optimierung verschweigt
-     Beide werden in EINEM Dedupe-Durchgang gemischt; Cursor kommen immer aus
-     der ungefilterten Antwort (Zeitstempel, filter-agnostisch). */
+async function fetchPage(direction, limit = 10) {
+  const params = planParams({
+    limit,
+    cursor: direction === "later" ? app.nextPageCursor
+      : direction === "earlier" ? app.prevPageCursor : null,
+  });
+
   const modes = enabledModes();
   const filtered = modes
     ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`)
@@ -713,6 +724,63 @@ async function fetchPage(direction, limit = 10) {
     app.itins.sort((a, b) => depOf(a) - depOf(b));
     return { added: add.length, params };
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Ein Verkehrsmittel nachträglich einblenden
+
+   Warum das überhaupt Anfragen braucht: MOTIS liefert Pareto-optimale
+   Ergebnisse. Eine Fernbus-Verbindung, die langsamer ist als der ICE, taucht in
+   der ungefilterten Suche NIE auf — sie existiert aber. Nachgemessen an
+   Nürnberg→München: ungefiltert kein einziger Fernbus, mit Fernbus im Filter
+   vier Verbindungen. Ohne Nachladen bliebe der Eintrag in der Legende also
+   ausgegraut, obwohl es etwas zu sehen gäbe.
+
+   Nachgefüllt wird der GESAMTE bereits geladene Zeitraum, nicht nur das
+   sichtbare Fenster: Sonst blieben ältere Spalten dauerhaft unvollständig, ohne
+   dass es jemand merkt — Zurückscrollen lädt ja nichts nach.
+
+   Warum das bezahlbar ist: mit `numItineraries: 30` deckt EINE Anfrage rund
+   zwölf Stunden ab (gemessen 709 min bei 371 ms; mit 10 sind es 156 min). Der
+   ganze geladene Bereich kostet damit 1–3 Anfragen statt 5–8 — und nur beim
+   Einblenden, nicht bei jedem Laden.
+   --------------------------------------------------------------------------- */
+const REFILL_LIMIT = 30;
+
+async function refillLoadedRange() {
+  const modes = enabledModes();
+  if (!modes || !app.itins.length) return 0;   // alles an → nichts zu ergänzen
+  const deps = app.itins.map(depOf).filter(Number.isFinite);
+  if (!deps.length) return 0;
+  const von = Math.min(...deps), bis = Math.max(...deps);
+
+  let cursor = null, added = 0;
+  for (let round = 0; round < 4; round++) {
+    const params = planParams({ time: round === 0 ? von : null, limit: REFILL_LIMIT, cursor });
+    let data;
+    try {
+      const res = await fetch(`${API}/plan?${params}&transitModes=${encodeURIComponent(modes)}`);
+      if (!res.ok) break;
+      data = await res.json();
+    } catch { break; }
+
+    const known = new Set(app.itins.map(itKey));
+    const fresh = (data.itineraries || []).filter(it => transitLegs(it).length);
+    for (const it of fresh) {
+      const k = itKey(it);
+      if (known.has(k)) continue;
+      known.add(k);
+      app.itins.push(it);
+      added++;
+    }
+    /* Die Cursor der laufenden Suche bleiben UNANGETASTET — dieses Nachfüllen
+       ist ein Seitenweg, kein Blättern. */
+    const juengste = fresh.length ? Math.max(...fresh.map(depOf)) : -Infinity;
+    if (!data.nextPageCursor || juengste >= bis) break;
+    cursor = data.nextPageCursor;
+  }
+  if (added) app.itins.sort((a, b) => depOf(a) - depOf(b));
+  return added;
 }
 
 /* Kontext um das Ergebnis herum nachladen — NACH der Umkreis-Rückfallebene.
@@ -1061,13 +1129,31 @@ function renderLegend() {
     el.innerHTML = CATS.map(c =>
       `<button class="tl-key" data-cat="${c}"><i class="dot seg-${c}"></i>${CAT_LABEL[c]}</button>`).join("");
     el.dataset.built = "1";
-    el.addEventListener("click", (e) => {
+    el.addEventListener("click", async (e) => {
       const b = e.target.closest(".tl-key");
-      if (!b || b.classList.contains("nodata")) return;
+      if (!b || app.refilling) return;
       const c = b.dataset.cat;
-      if (app.hiddenCats.has(c)) app.hiddenCats.delete(c);
-      else app.hiddenCats.add(c);
       app.autoLoads = 0;
+      if (!app.hiddenCats.has(c)) {          // ausblenden kostet keine Anfrage
+        app.hiddenCats.add(c);
+        renderResults();
+        return;
+      }
+      /* Einblenden: Die Verbindungen dieser Kategorie können im Pool schlicht
+         fehlen, weil sie von schnelleren verdrängt wurden. Also nachfüllen —
+         und zwar über den ganzen geladenen Zeitraum. */
+      app.hiddenCats.delete(c);
+      app.refilling = true;
+      showSearching(`${CAT_LABEL[c]} nachladen …`);
+      try {
+        await refillLoadedRange();
+      } finally {
+        app.refilling = false;
+      }
+      /* Kam trotz eigener Anfrage nichts dieser Art, gibt es hier wirklich
+         nichts — erst DANN ist die Aussage „keine“ belegt. */
+      const gibts = app.itins.some(it => transitLegs(it).some(l => productClass(l.mode) === c));
+      if (!gibts) app.emptyCats.add(c); else app.emptyCats.delete(c);
       renderResults();
       maybeAutoFill();
     });
@@ -1077,11 +1163,17 @@ function renderLegend() {
   el.querySelectorAll(".tl-key").forEach(b => {
     const c = b.dataset.cat;
     const has = present.has(c);
-    b.classList.toggle("nodata", !has);
-    b.classList.toggle("off", has && app.hiddenCats.has(c));
+    /* Ausgegraut heißt jetzt „nachweislich nichts da“ — und das wissen wir erst,
+       wenn eine eigene Anfrage für diese Kategorie nichts gebracht hat. Vorher
+       stand dort „Keine … im Zeitraum“, obwohl nur niemand danach gefragt
+       hatte: Verdrängte Verbindungen tauchen ungefragt nie auf. */
+    const belegtLeer = !has && app.emptyCats.has(c);
+    b.classList.toggle("nodata", belegtLeer);
+    b.classList.toggle("off", !belegtLeer && app.hiddenCats.has(c));
     b.classList.toggle("on", has && !app.hiddenCats.has(c));
-    b.title = !has ? `Keine ${CAT_LABEL[c]}-Verbindungen im Zeitraum`
-      : app.hiddenCats.has(c) ? `${CAT_LABEL[c]} einblenden` : `${CAT_LABEL[c]} ausblenden`;
+    b.title = belegtLeer ? `Auf dieser Strecke fährt im geladenen Zeitraum kein ${CAT_LABEL[c]}`
+      : app.hiddenCats.has(c) ? `${CAT_LABEL[c]} einblenden${has ? "" : " (wird nachgeladen)"}`
+      : `${CAT_LABEL[c]} ausblenden`;
   });
 }
 
