@@ -11,13 +11,14 @@
   --bad: #c62828;
   --shadow: 0 1px 3px rgba(0,0,0,.08);
   /* Verkehrsmittel-Farben (validierte kategoriale Palette, heller Modus) */
-  --seg-fern: #2a78d6;
-  --seg-regio: #eb6834;
-  --seg-sbahn: #1baf7a;
-  --seg-utram: #eda100;
-  --seg-bus: #e87ba4;
-  --seg-fernbus: #008300;
-  --seg-sonstige: #4a3aa7;
+  --seg-fern: #C5C7C4;
+  --seg-regio: #C1121C;
+  --seg-sbahn: #587F40;
+  --seg-ubahn: #005A8C;
+  --seg-tram: #FF9C00;
+  --seg-bus: #A83A5B;
+  --seg-sonstige: #8A7157;
+  --seg-fernbus: #73DC04;
   --tl-line: rgba(0,0,0,.06);
   --tl-line-strong: rgba(0,0,0,.14);
 }
@@ -35,13 +36,9 @@
     --bad: #ef7070;
     --shadow: 0 1px 3px rgba(0,0,0,.4);
     /* dieselben Farbtöne, für die dunkle Fläche gestuft */
-    --seg-fern: #3987e5;
-    --seg-regio: #d95926;
-    --seg-sbahn: #199e70;
-    --seg-utram: #c98500;
-    --seg-bus: #d55181;
-    --seg-fernbus: #008300;
-    --seg-sonstige: #9085e9;
+    /* Verkehrsmittel-Farben sind in beiden Themen gleich: Sie sind eine
+       Zuordnung, kein Kontrastmittel — eine S-Bahn muss überall dieselbe Farbe
+       haben. Die Lesbarkeit macht stattdessen die Schriftfarbe je Kategorie. */
     --tl-line: rgba(255,255,255,.07);
     --tl-line-strong: rgba(255,255,255,.16);
   }
@@ -431,13 +428,16 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   padding: 0 5px; border-radius: 4px; line-height: 1.35;
 }
 .tl-seg.nolabel .seg-label { display: none; }
-.seg-fern  { background: var(--seg-fern);  color: #131313; }
-.seg-regio { background: var(--seg-regio); color: #131313; }
-.seg-sbahn { background: var(--seg-sbahn); color: #131313; }
-.seg-utram { background: var(--seg-utram); color: #131313; }
-.seg-bus   { background: var(--seg-bus);   color: #131313; }
-.seg-fernbus { background: var(--seg-fernbus); color: #fff; }
+/* Schriftfarbe je Kategorie ausgerechnet, nicht geschätzt: Jede Paarung
+   erreicht mindestens 4,5:1 (WCAG AA). Dunkel auf hell, hell auf dunkel. */
+.seg-fern    { background: var(--seg-fern);    color: #131313; }
+.seg-regio   { background: var(--seg-regio);   color: #fff; }
+.seg-sbahn   { background: var(--seg-sbahn);   color: #fff; }
+.seg-ubahn   { background: var(--seg-ubahn);   color: #fff; }
+.seg-tram    { background: var(--seg-tram);    color: #131313; }
+.seg-bus     { background: var(--seg-bus);     color: #fff; }
 .seg-sonstige { background: var(--seg-sonstige); color: #fff; }
+.seg-fernbus { background: var(--seg-fernbus); color: #131313; }
 /* Schienenersatzverkehr: Kategoriefarbe bleibt (es IST ein Bus), zusätzlich
    gelbe Schrägstreifen als Warnmuster — analog zu Ausfällen, nur in Gelb */
 .tl-seg.seg-sev {
@@ -449,7 +449,6 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
    Ersatzverkehr sauber schwarz stand. Die Streifen sind das Warnsignal, die
    Beschriftung soll sich wie überall lesen. */
 .tl-seg.seg-sev { color: #131313; }
-@media (prefers-color-scheme: dark) { .seg-sonstige { color: #131313; } }
 .tl-arr, .tl-dep {
   position: absolute; left: 0; width: 100%;
   text-align: center; font-size: .72rem; color: var(--muted);

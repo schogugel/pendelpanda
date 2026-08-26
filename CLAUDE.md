@@ -287,7 +287,17 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Kategorien & Legende
 
-- 7 Kategorien fix: fern, regio, sbahn, utram, bus, sonstige (Fähre/Rufbus/Rest), fernbus.
+- **8 Kategorien fix**: fern, regio, sbahn, **ubahn**, **tram**, bus, sonstige
+  (Fähre/Rufbus/Rest), fernbus. U-Bahn und Tram waren bis v1.9.2 EINE Kategorie
+  (`utram`) — gespeicherte Einstellungen und alte Übertragungslinks tragen sie noch,
+  ihr Wert wird auf beide neuen übernommen. Diese Migration nicht entfernen.
+- Verkehrsmittel-Farben sind vom Nutzer vorgegeben und in **beiden Themen gleich** —
+  sie sind eine Zuordnung, kein Kontrastmittel. Die Lesbarkeit macht die Schriftfarbe
+  je Kategorie; alle acht Paarungen erreichen ≥4,5:1 (nachgerechnet, nicht geschätzt).
+- Fahrzeugsymbole sind FLÄCHEN (`svgSolid`, `fill-rule="evenodd"`), aus den PNG-Vorlagen
+  in `icons/` nachgezeichnet (`tools/trace-icons.mjs`). Sie zeichnen mit `currentColor`
+  und nehmen die Schriftfarbe des Segments an — als PNG eingebunden verschwänden sie auf
+  der hellen Fernzug-Farbe. „Sonstige“ hat bewusst KEIN Symbol (außer Fähre).
 - Legende statisch gebaut (alle immer sichtbar), 3 Zustände: farbiger Punkt (an),
   hohler Punkt (Daten da, ausgeblendet), ausgegraut+durchgestrichen (keine Daten).
   Toggle rein clientseitig; `hiddenCats` resettet NUR bei `startFreshSearch` (Grid),

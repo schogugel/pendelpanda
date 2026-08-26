@@ -116,5 +116,34 @@ for (const [name, call] of CALLS) {
   }
 }
 
+/* Eine Kategorie ist erst fertig, wenn sie ÜBERALL steht: Filter-Modi, Beschriftung,
+   Farbe, Segmentklasse, Haken in den Einstellungen und Zuordnung in productClass.
+   Beim Aufteilen von „U-Bahn/Tram“ in zwei Kategorien war genau das die Arbeit —
+   eine vergessene Stelle fällt sonst erst auf, wenn ein Filter ins Leere greift. */
+{
+  const app = readFileSync(join(ROOT, "app.js"), "utf8");
+  const css = readFileSync(join(ROOT, "style.css"), "utf8");
+  const html = readFileSync(join(ROOT, "index.html"), "utf8");
+  const tlSrc = readFileSync(join(ROOT, "timeline.js"), "utf8");
+  const cats = app.match(/const CATS = \[([^\]]+)\]/)[1].split(",").map(x => x.trim().replace(/"/g, ""));
+  const modes = app.match(/const CAT_MODES = \{([\s\S]*?)\n\};/)[1];
+  const labels = app.match(/const CAT_LABEL = \{([\s\S]*?)\};/)[1];
+  for (const c of cats) {
+    const missing = Object.entries({
+      "CAT_MODES": new RegExp(`\\b${c}:`).test(modes),
+      "CAT_LABEL": new RegExp(`\\b${c}:`).test(labels),
+      "--seg-Farbe": css.includes(`--seg-${c}:`),
+      ".seg-Klasse": new RegExp(`\\.seg-${c}\\b`).test(css),
+      "Haken in den Einstellungen": html.includes(`data-cat="${c}"`),
+      "productClass": tlSrc.includes(`"${c}"`),
+    }).filter(([, v]) => !v).map(([k]) => k);
+    if (missing.length) {
+      failed = true;
+      console.error(`✗ Kategorie „${c}“ fehlt in: ${missing.join(", ")}`);
+    }
+  }
+  if (!failed) console.log(`✓ ${cats.length} Kategorien vollständig verdrahtet`);
+}
+
 console.log(failed ? "\nFEHLGESCHLAGEN" : "\nAlles geladen und aufrufbar.");
 process.exit(failed ? 1 : 0);

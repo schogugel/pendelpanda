@@ -60,7 +60,7 @@ python3 -m http.server 8080
   Transitous-API (`/geocode` für die Stationssuche, `/plan` fürs Routing inkl. Echtzeit).
 - **Suche ungefiltert, Filter clientseitig.** `/plan` wird ohne Verkehrsmittel-Filter
   abgefragt; die Legende blendet ganze Verbindungen aus, deren Abschnitte eine deaktivierte
-  Kategorie enthalten (fern/regio/sbahn/utram/bus, Mapping in `timeline.js: productClass`).
+  Kategorie enthalten (fern/regio/sbahn/ubahn/tram/bus, Mapping in `timeline.js: productClass`).
   So lässt sich Ausgeblendetes ohne neue Anfrage wieder einblenden. Bleiben nach dem Filtern
   <5 Verbindungen, lädt die App automatisch weitere Seiten nach.
 - **Blättern über API-Cursor.** „Frühere“/„Spätere“ nutzen `previousPageCursor`/

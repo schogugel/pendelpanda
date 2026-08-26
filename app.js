@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.10.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -34,14 +34,16 @@ const app = {
 
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
-const CATS = ["fern", "regio", "sbahn", "utram", "bus", "sonstige", "fernbus"];
-const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", utram: "U-Bahn/Tram", bus: "Bus", sonstige: "Sonstige", fernbus: "Fernbus" };
+const CATS = ["fern", "regio", "sbahn", "ubahn", "tram", "bus", "sonstige", "fernbus"];
+const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", ubahn: "U-Bahn",
+                    tram: "Tram", bus: "Bus", sonstige: "Sonstige", fernbus: "Fernbus" };
 
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
     // D-Ticket-Sicht: Fernzug UND Fernbus standardmäßig aus
-    show: { fern: false, regio: true, sbahn: true, utram: true, bus: true, sonstige: true, fernbus: false },
+    show: { fern: false, regio: true, sbahn: true, ubahn: true, tram: true,
+            bus: true, sonstige: true, fernbus: false },
     cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
     fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
   };
@@ -51,6 +53,11 @@ function loadSettings() {
     // Altbestand: „Bus & Sonstige“ war eine Kategorie — Wert auf sonstige übernehmen
     if (s && s.show && typeof s.show.sonstige !== "boolean" && typeof s.show.bus === "boolean") {
       def.show.sonstige = s.show.bus;
+    }
+    // Altbestand: „U-Bahn/Tram“ war EINE Kategorie — der Wert gilt für beide
+    if (s && s.show && typeof s.show.utram === "boolean") {
+      if (typeof s.show.ubahn !== "boolean") def.show.ubahn = s.show.utram;
+      if (typeof s.show.tram !== "boolean") def.show.tram = s.show.utram;
     }
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(7, Math.max(3, Math.round(n)));
@@ -847,7 +854,8 @@ const CAT_MODES = {
   // und darf hier nicht auftauchen, sonst kippt der Filter
   regio: "REGIONAL_RAIL,REGIONAL_FAST_RAIL",
   sbahn: "SUBURBAN,METRO",
-  utram: "SUBWAY,TRAM",
+  ubahn: "SUBWAY",
+  tram: "TRAM",
   bus: "BUS",
   sonstige: "FERRY,ODM",
   fernbus: "COACH",
@@ -1451,6 +1459,11 @@ function applyConfig(cfg, { ask = false } = {}) {
   saveSlots();
   if (imported.show) {
     for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
+    // Links aus älteren Fassungen kennen nur die zusammengefasste Kategorie
+    if (typeof imported.show.utram === "boolean") {
+      if (typeof imported.show.ubahn !== "boolean") settings.show.ubahn = imported.show.utram;
+      if (typeof imported.show.tram !== "boolean") settings.show.tram = imported.show.utram;
+    }
     const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
     if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
     if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
