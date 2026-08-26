@@ -321,6 +321,14 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Design-Tokens & Stil
 
+- **Dialoge sind Fenster, keine Vollbildseiten**: `max-height` mit `2 * max(inset-top,
+  inset-bottom)` Abzug, innen `overflow-y: auto`. Sie liegen in der obersten Ebene und
+  erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie
+  Platz gleichmäßig, deshalb der doppelte Abzug. Ohne das schob sich der Dialogtext unter
+  die Statusleisten-Symbole.
+- **Kein Gummiband-Scrollen** (`overscroll-behavior: none`). Die Abfahrtstafel wird
+  zusätzlich festgestellt (`.lockscroll`), aber erst NACH einer Messung — blind sperren
+  würde auf kleinen Geräten die untersten Kacheln abschneiden.
 - **Systemzonen oben UND unten freihalten** (`env(safe-area-inset-*)` am `body`):
   Android zeichnet ab Version 15 randlos, die APK legte die Überschrift sonst unter die
   Statusleisten-Symbole. Im Browser und in der installierten PWA ist der Wert 0.

@@ -49,7 +49,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; color-scheme: light dark; }
+/* Kein Überziehen/Gummiband: Die App ist kein Dokument, das man weiterblättert.
+   Ohne das ließ sich die Startseite ein Stück verschieben, obwohl es gar nichts
+   zu scrollen gab. */
+html { -webkit-text-size-adjust: 100%; color-scheme: light dark; overscroll-behavior: none; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
@@ -61,7 +64,12 @@ body {
      ohne das hier läge die Überschrift unter den Statusleisten-Symbolen. */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior: none;
 }
+/* Passt die Abfahrtstafel ohnehin ganz aufs Bild, wird sie festgestellt —
+   gesetzt wird die Klasse erst NACH einer Messung (siehe lockGridScroll),
+   damit auf kleinen Geräten nichts abgeschnitten wird. */
+body[data-view="grid"].lockscroll { overflow: hidden; }
 
 .topbar {
   display: flex; align-items: center; gap: .6rem;
@@ -643,9 +651,19 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 #share-dialog form { margin-top: .6rem; text-align: center; }
 
 /* ---------- Hilfe ---------- */
+/* Dialoge sind Fenster, keine Vollbildseiten: ringsum Abstand, gescrollt wird
+   INNEN. Die Höhe zieht zweimal den größeren der beiden Systemränder ab —
+   der Dialog liegt in der obersten Ebene und erbt das `padding` des body
+   nicht, und beim mittigen Zentrieren verteilt sich der freie Platz gleich
+   auf oben und unten. Ohne diese Rechnung schob sich der Text bei randloser
+   Darstellung (Android ab 15) unter die Statusleisten-Symbole. */
 dialog {
   border: none; border-radius: 16px; background: var(--card); color: var(--text);
   max-width: 480px; width: calc(100vw - 3rem); padding: 1.2rem; margin: auto;
+  max-height: calc(100dvh - 2rem -
+    2 * max(env(safe-area-inset-top), env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 dialog::backdrop { background: rgba(0,0,0,.45); }
 dialog h2 { margin-bottom: .7rem; }
