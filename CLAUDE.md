@@ -379,10 +379,22 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Inhalt und die letzte hing über (v1.13.0, gemessen: 15 px bei 393×740).
   **Kein `overflow: hidden` am `body`** (nimmt das Ziehen zum Aktualisieren mit);
   für sehr flache Bildschirme darf stattdessen das RASTER scrollen, nie die Seite.
+- **Auch die Ergebnisansicht (Grafik) ist bildschirmfüllend und scrollt NICHT** —
+  gescrollt wird nur INNERHALB der Balken. Die Grafik hat deshalb keine feste Höhe
+  mehr, sondern bekommt per Flex, was nach Kopfzeile, Zeitleiste, Hinweiszeilen und
+  Legende übrig bleibt (`body[data-view="results"][data-mode="graph"]`; `data-mode`
+  setzt `renderResults`). Die alte feste Höhe (74dvh) ging nur auf, solange keine
+  Hinweiszeile da war: Bei „Letzte“ kommt eine dazu, und die Seite wurde scrollbar,
+  während „Jetzt“ und die Datumsauswahl fest standen (gemessen: 187 px Überlauf,
+  Legende 155 px unter dem Rand).
 - **Layout nicht schätzen, messen: `node tools/layout.mjs`.** Lädt die echte Seite in
-  Firefox, misst `scrollHeight` gegen `innerHeight` bei fünf Bildschirmgrößen und legt
-  `layout-messung.png` ab. Jede Kachel muss „PASST“ zeigen. Bei jeder Änderung an der
-  Startseiten-Höhe ausführen — dieselbe Fehlerklasse ist dreimal ausgeliefert worden.
+  Firefox und misst zwei Ansichten (Startseite und Ergebnis-Grafik) bei vier
+  Bildschirmgrößen; die Ergebnisansicht bewusst im UNGÜNSTIGSTEN Fall, mit beiden
+  Hinweiszeilen sichtbar. Gemessen wird `scrollHeight` gegen `innerHeight` und die
+  Unterkante des letzten sichtbaren BLOCKS — nicht dessen Inhalt, denn die Grafik ist
+  ein eigenes Scrollfeld und ragt innen absichtlich darüber hinaus. Alle Kacheln in
+  `layout-messung.png` müssen „PASST“ zeigen. Dieselbe Fehlerklasse ist inzwischen
+  viermal ausgeliefert worden — ohne Messung geht es offensichtlich nicht.
 - **Die Fokus-Markierung gehört in `tlBuild`, nicht in `renderTimeline`.** Jede
   Zoomänderung ruft `tlBuild` erneut auf und wirft alle Spalten weg — eine Ebene höher
   gesetzt, verschwand die Markierung beim ersten Scrollen von selbst.

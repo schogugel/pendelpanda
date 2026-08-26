@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.15.1";
+const APP_VERSION = "1.15.2";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1035,6 +1035,9 @@ function renderLegend() {
 
 function renderResults() {
   const graph = app.viewMode === "graph";
+  // Die Grafikansicht ist bildschirmfüllend und darf nicht scrollen; das
+  // steuert CSS über dieses Attribut (die Liste scrollt dagegen normal).
+  document.body.dataset.mode = app.viewMode;
   byId("timeline-wrap").hidden = !graph;
   resultsList.hidden = graph;
   const toggle = byId("btn-viewmode");

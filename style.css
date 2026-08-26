@@ -109,6 +109,31 @@ body[data-view="grid"].fitgrid .stationbtn {
 #btn-settings { font-size: 1.3rem; }
 body[data-view="results"] #view-results { padding-top: .7rem; }
 
+/* Die Grafikansicht füllt den Bildschirm und scrollt NICHT — gescrollt wird
+   nur innerhalb der Balken. Die Höhe der Grafik ergibt sich aus dem, was nach
+   Kopfzeile, Zeitleiste, Hinweiszeilen und Legende übrig bleibt.
+
+   Vorher hatte die Grafik eine feste Höhe (74dvh). Das ging auf, solange keine
+   Hinweiszeile da war — bei „Letzte“ kommt aber der Hinweis auf ausgeblendete
+   spätere Verbindungen dazu, und schon war die Seite ein Stück scrollbar,
+   während „Jetzt“ und die Datumsauswahl weiter fest standen. Mit `height` statt
+   `min-height` und einem flexiblen Grafikfeld passt es in JEDEM Fall, auch wenn
+   später weitere Zeilen dazukommen. */
+body[data-view="results"][data-mode="graph"] {
+  display: flex; flex-direction: column;
+  height: 100dvh;
+}
+body[data-view="results"][data-mode="graph"] #view-results {
+  flex: 1 1 auto; display: flex; flex-direction: column;
+  min-height: 0; padding-bottom: .4rem;
+}
+body[data-view="results"][data-mode="graph"] #timeline-wrap {
+  flex: 1 1 auto; min-height: 0; display: flex;
+}
+body[data-view="results"][data-mode="graph"] #timeline {
+  flex: 1 1 auto; min-height: 0; height: auto;
+}
+
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }
 .hint { color: var(--muted); font-size: .9rem; margin: .2rem 0 .8rem; }
 .hint strong {

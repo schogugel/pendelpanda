@@ -23,7 +23,28 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SIZES = ["393x852", "393x740", "360x640", "412x915", "1280x800"];
+const SIZES = ["393x852", "393x740", "360x640", "412x915"];
+
+/* Zwei Ansichten, die beide bildschirmfüllend sein müssen. Die Ergebnisansicht
+   wird im UNGÜNSTIGSTEN Fall gemessen: mit BEIDEN Hinweiszeilen sichtbar. Genau
+   daran ist v1.15.1 gescheitert — bei „Letzte“ kommt eine Zeile dazu, die es bei
+   „Jetzt“ nicht gibt, und die feste Grafikhöhe passte dann nicht mehr. */
+const VIEWS = {
+  start: "",
+  ergebnis: `
+    document.querySelectorAll("main.view").forEach(v => v.hidden = v.id !== "view-results");
+    document.body.dataset.view = "results";
+    document.body.dataset.mode = "graph";
+    document.getElementById("around-note").hidden = false;
+    const ln = document.getElementById("last-note");
+    ln.hidden = false;
+    ln.textContent = "Später fährt noch etwas, aber nur mit Fernzug – in der Legende wieder einblenden.";
+    document.getElementById("timeline-wrap").hidden = false;
+    document.getElementById("timeline").innerHTML = '<div style="width:2000px;height:3000px"></div>';
+    document.getElementById("tl-legend").innerHTML =
+      Array.from({length: 8}, (_, i) => '<button class="tl-key on"><i class="dot"></i>Kat' + i + '</button>').join("");
+  `,
+};
 
 if (!existsSync("/usr/bin/firefox")) {
   console.error("✗ Firefox nicht gefunden — ohne Browser lässt sich das Layout nicht messen.");
@@ -32,21 +53,29 @@ if (!existsSync("/usr/bin/firefox")) {
 
 /* Messung IM Dokument, ohne Zeitgeber: Firefox schießt das Bild direkt nach
    `load`, ein setTimeout käme zu spät und das Bild bliebe leer. */
-const probe = readFileSync(join(ROOT, "index.html"), "utf8") + `
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
+const makeProbe = (name, setup) => html + `
 <script>
 addEventListener("load", () => {
-  const de = document.documentElement, tile = document.querySelector(".stationbtn");
+  ${setup}
+  const de = document.documentElement;
   const over = Math.max(0, de.scrollHeight - window.innerHeight);
+  /* Nur die BLÖCKE der Ansicht messen, nicht deren Inhalt: Die Grafik ist ein
+     eigenes Scrollfeld, ihr Inneres ragt absichtlich darüber hinaus. Gemessen
+     wird also die Unterkante des letzten sichtbaren Blocks (die Legende). */
+  const main = document.querySelector("body > main:not([hidden])");
+  const letzte = [...main.children].filter(el => !el.hidden)
+    .map(el => el.getBoundingClientRect().bottom)
+    .reduce((a, b) => Math.max(a, b), 0);
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;inset:0;z-index:99999;background:#fff;color:#000;"
-    + "font:22px/1.6 monospace;padding:18px;white-space:pre";
+    + "font:21px/1.6 monospace;padding:16px;white-space:pre";
   box.textContent = [
+    "${name}",
     "Fenster      " + window.innerWidth + "x" + window.innerHeight,
-    "scrollHeight " + de.scrollHeight,
     "UEBERLAUF    " + over + " px",
-    "Kacheln      " + document.querySelectorAll(".stationbtn").length,
-    "Kachelhoehe  " + (tile ? Math.round(tile.getBoundingClientRect().height) : "-"),
-    "", over <= 1 ? "PASST" : "SCROLLT"
+    "unterste Kante " + Math.round(letzte),
+    "", (over <= 1 && letzte <= window.innerHeight + 1) ? "PASST" : "PASST NICHT"
   ].join("\\n");
   document.body.appendChild(box);
 });
@@ -62,23 +91,25 @@ mkdirSync(prof, { recursive: true });
 const ff = (args, ms) => execFileSync("/usr/bin/firefox",
   ["--headless", "--no-remote", "--profile", prof, ...args], { stdio: "ignore", timeout: ms });
 
-writeFileSync(probePath, probe);
 try {
   if (!existsSync(join(prof, "prefs.js"))) {
     console.log("· Firefox-Profil wird einmalig angelegt …");
     try { ff(["--screenshot", join(work, "warmup.png"), "about:blank"], 300000); } catch { /* egal */ }
   }
   const shots = [];
-  for (const size of SIZES) {
-    const [w, h] = size.split("x");
-    const out = join(work, `${size}.png`);
-    ff(["--window-size", `${w},${h}`, "--screenshot", out, `file://${probePath}`], 180000);
-    shots.push(out);
-    console.log(`· ${size} gemessen`);
+  for (const [view, setup] of Object.entries(VIEWS)) {
+    writeFileSync(probePath, makeProbe(view, setup));
+    for (const size of SIZES) {
+      const [w, h] = size.split("x");
+      const out = join(work, `${view}-${size}.png`);
+      ff(["--window-size", `${w},${h}`, "--screenshot", out, `file://${probePath}`], 180000);
+      shots.push(out);
+      console.log(`· ${view} ${size} gemessen`);
+    }
   }
   const montage = join(ROOT, "layout-messung.png");
-  execFileSync("magick", ["montage", ...shots, "-tile", `${SIZES.length}x1`,
-    "-geometry", "300x330+6+6", "-background", "#222", montage], { stdio: "ignore" });
+  execFileSync("magick", ["montage", ...shots, "-tile", `${SIZES.length}x${Object.keys(VIEWS).length}`,
+    "-geometry", "300x300+6+6", "-background", "#222", montage], { stdio: "ignore" });
   console.log(`\n✓ Ergebnis: ${montage}  — ansehen, jede Kachel muss „PASST“ zeigen.`);
 } finally {
   rmSync(probePath, { force: true });
