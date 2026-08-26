@@ -401,9 +401,13 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   background-image: repeating-linear-gradient(135deg,
     rgba(0,0,0,0) 0 8px, rgba(240,166,58,.92) 8px 16px);
 }
-.tl-seg.seg-sev { color: #131313; text-shadow: 0 0 3px rgba(255,255,255,.55); }
+/* Bewusst OHNE text-shadow: Ein weißer Schein um die schwarze Schrift ließ
+   „RB23“ ausgewaschen und grau aussehen, während dieselbe Linie ohne
+   Ersatzverkehr sauber schwarz stand. Die Streifen sind das Warnsignal, die
+   Beschriftung soll sich wie überall lesen. */
+.tl-seg.seg-sev { color: #131313; }
 @media (prefers-color-scheme: dark) { .seg-sonstige { color: #131313; } }
-.tl-arr {
+.tl-arr, .tl-dep {
   position: absolute; left: 0; width: 100%;
   text-align: center; font-size: .72rem; color: var(--muted);
   font-variant-numeric: tabular-nums; pointer-events: none;
@@ -423,7 +427,14 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   animation: pp-spin .7s linear infinite;
 }
 @keyframes pp-spin { to { transform: rotate(360deg); } }
+/* Die gesuchte letzte Verbindung: gestrichelt umrandet, Kachel wie Balken.
+   Gestrichelt statt farbig gefüllt, damit die Kategoriefarben der Segmente
+   unangetastet bleiben — die Markierung sagt „diese meintest du“, sie ist
+   keine weitere Eigenschaft der Fahrt. */
 .tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
+.tl-head.tl-focus, .tl-bar.tl-focus {
+  outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 4px;
+}
 .warn-label { color: var(--warn); font-weight: 700; }
 .warn-tri { color: var(--warn); font-weight: 700; }
 /* Drei Risikoklassen, drei Symbole, drei Farben. Der Unterschied muss ohne

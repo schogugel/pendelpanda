@@ -104,6 +104,12 @@ Zeitpunkt oder Richtung änderst; erst eine neue Verbindung von der Startseite s
 sie zurück.
 
 ### Was die Balken zeigen
+
+Über und unter jedem Balken steht klein die Abfahrts- und die Ankunftszeit. Suchst du
+die **letzte Verbindung**, ist die gefundene gestrichelt umrandet — an der Kachel oben
+und am Balken. Sie steht in der zweiten Spalte, damit du siehst, was davor und was
+danach noch fährt.
+
 - **Drei Symbole, drei Bedeutungen.** Sie stehen an der Verbindung in der Übersicht und
   noch einmal an der betroffenen Zeile in der Detailansicht — dort sind sie aufklappbar
   und sagen im Klartext, worum es geht:

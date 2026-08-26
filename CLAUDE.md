@@ -239,7 +239,13 @@ Was ansteht, steht in `TODO.md`.
   Die frühere Konstruktion (Suche ab Morgen + rückwärts blättern + Lücken-Heuristik)
   war langsam und traf oft die falsche Verbindung — **nicht wieder einführen.**
   `findLastDecent()` wählt daraus nur noch die FOKUS-Spalte: späteste mit
-  Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium).
+  Umstiegswartezeit ≤45 min (Gesamtdauer bewusst kein Kriterium) **und Ankunft vor
+  `nextServiceEnd()`**. Diese Schranke ist nötig, seit für den Kontext auch
+  Verbindungen NACH der letzten geladen werden — ohne sie wanderte der Fokus einfach
+  mit und beantwortete eine andere Frage.
+- Bei „Letzte“ werden bewusst 4 Verbindungen NACH dem Fokus nachgeladen, damit die
+  gesuchte Verbindung in der zweiten Spalte steht und rechts Nachbarn hat, statt am
+  Rand zu kleben. Markiert wird sie gestrichelt an Kachel UND Balken (`.tl-focus`).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
 - **Die Fokusspalte bestimmt den Zoom.** `startIdx` MUSS bei „Letzte“/Datumsauswahl
   auf die fokussierte Verbindung zeigen, sonst zoomt `tlAutoZoom` auf die erste
@@ -299,6 +305,10 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - Verspätungs-Abzeichen zeigt IMMER die Zahl (`+0`, `+3`, …), auch ohne Echtzeitdaten.
   Ein Sonderzustand „Plan“ war ausdrücklich unerwünscht — die Datenlage steckt in der
   Textfarbe der Uhrzeit, nicht im Abzeichen.
+- An beiden Balkenenden steht die Uhrzeit (`.tl-dep` / `.tl-arr`), klein und ohne
+  „ab“/„an“ — die Position sagt, was gemeint ist. `TL.DEP_LBL` reserviert den Platz
+  dafür; wer am Einrasten oder an der Kopffreiheit rechnet, muss ihn mit einrechnen,
+  sonst verschwindet die Abfahrtszeit unter der Kopf-Kachel.
 - Fahrdauern: <60 min „42 min“, sonst „1:40 h“ (`fmtDur`). Ist-Zeiten farbcodiert,
   Soll durchgestrichen gestapelt darüber (Spaltenbreite konstant halten!).
 - Icons: aus `icons/icon_pendelpanda.png` generieren (magick). **Bei Icon-Wechsel

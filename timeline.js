@@ -15,6 +15,7 @@ const TL = {
   AXIS_W: 50,
   PAD_MIN: 14,      // Minuten Luft über erster Abfahrt / unter letzter Ankunft
   HEAD_H: 58,
+  DEP_LBL: 18,      // Zeile für die Abfahrtszeit über dem Balken
 };
 
 const tl = {
@@ -350,7 +351,7 @@ function renderTimeline(itins, focus = "start") {
   // Kopffreiheit: über dem FRÜHESTEN geladenen Balken (und im „Jetzt“-Modus
   // zusätzlich über der Jetzt-Linie) muss immer Platz für die Kopf-Kachel
   // sein — egal, in welcher Spalte man steht
-  const headroomMs = ((tlHeadClear() + 10) / tl.ppm) * 60000;
+  const headroomMs = ((tlHeadClear() + TL.DEP_LBL + 8) / tl.ppm) * 60000;
   tl.t0 = Math.min(tl.t0, min - headroomMs);
   if (app.searchTime.kind === "now") tl.t0 = Math.min(tl.t0, Date.now() - headroomMs);
 
@@ -358,7 +359,7 @@ function renderTimeline(itins, focus = "start") {
 
   // Exakte Nachkorrektur mit der real gemessenen Kachelhöhe (eine Runde genügt)
   {
-    const clear = tlHeadClear() + 8;
+    const clear = tlHeadClear() + TL.DEP_LBL + 8; // Kachel + Abfahrtszeit + Luft
     let deficit = clear - tl.bars[0].top;
     if (app.searchTime.kind === "now" && Date.now() <= tl.t1) {
       deficit = Math.max(deficit, clear - tlY(Date.now()));
@@ -394,6 +395,7 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollTop = tlAlignTopFor(bar, scroller);
     tl.lastZoomIdx = idx;
     if (bar.head) bar.head.classList.add("tl-focus");
+    if (bar.el) bar.el.classList.add("tl-focus");
   } else {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
@@ -410,7 +412,9 @@ function renderTimeline(itins, focus = "start") {
    sichtbar bleiben; sonst gewinnt der Balken (sonst sähe man bei großem
    Abstand nur die Jetzt-Linie und keine Verbindung). */
 function tlAlignTopFor(bar, sc) {
-  const clear = tlHeadClear();
+  // + DEP_LBL: Sonst rastet der Balkenanfang bündig unter der Kachel ein und
+  //   verdeckt genau die Abfahrtszeit, die dort steht.
+  const clear = tlHeadClear() + TL.DEP_LBL;
   const barTop = Math.max(0, bar.top - clear);
   if (app.searchTime.kind !== "now") return barTop;
   const now = Date.now();
@@ -607,7 +611,7 @@ function tlColumn(it, left, isDominated = false) {
     const viewTop = sc.scrollTop + tlHeadClear(), viewBot = sc.scrollTop + sc.clientHeight;
     if (top < viewTop - 10 || top > viewBot - 40) {
       tl.autoScrolling = true;
-      sc.scrollTo({ top: Math.max(0, top - tlHeadClear()), behavior: "smooth" });
+      sc.scrollTo({ top: Math.max(0, top - tlHeadClear() - TL.DEP_LBL), behavior: "smooth" });
       setTimeout(() => { tl.autoScrolling = false; }, 500);
     } else {
       openTripDialog(it);
@@ -641,14 +645,24 @@ function tlColumn(it, left, isDominated = false) {
     bar.appendChild(seg);
   }
 
+  /* Zeiten an beiden Balkenenden — klein und zurückhaltend, damit sie den
+     Balken nicht überstimmen. Ohne „ab“/„an“: Oben steht sie am Anfang des
+     Balkens, unten am Ende; was gemeint ist, sagt die Position. */
+  const t0lbl = document.createElement("span");
+  t0lbl.className = "tl-dep";
+  t0lbl.style.top = (top - 15) + "px";
+  t0lbl.textContent = fmtTime(dep.departure);
+
   const t1lbl = document.createElement("span");
   t1lbl.className = "tl-arr";
   t1lbl.style.top = (top + height + 3) + "px";
-  t1lbl.textContent = `an ${fmtTime(arr.arrival)}`;
+  t1lbl.textContent = fmtTime(arr.arrival);
+
   col.appendChild(bar);
+  col.appendChild(t0lbl);
   col.appendChild(t1lbl);
 
-  tl.bars.push({ colLeft: left, top, height, itin: it, head });
+  tl.bars.push({ colLeft: left, top, height, itin: it, head, el: bar });
   return col;
 }
 

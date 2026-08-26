@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.7.2";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -639,6 +639,14 @@ async function runPlan(direction = null, limit = 10) {
       if (app.itins.length && app.prevPageCursor) {
         await fetchPage("earlier", 2);
       }
+      /* Bei „Letzte“ zusätzlich nach hinten: Die Zielverbindung soll in der
+         zweiten Spalte stehen und rechts noch Nachbarn haben — sonst klebt
+         ausgerechnet die gesuchte Verbindung am äußersten Rand und man sieht
+         nicht, was danach noch käme (meist erst am nächsten Morgen).
+         findLastDecent bleibt davon unberührt, es misst am Betriebsschluss. */
+      if (t.kind === "letzte" && app.itins.length && app.nextPageCursor) {
+        await fetchPage("later", 4);
+      }
       // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
       // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
       if (!app.itins.length && !app.aroundTried) {
@@ -762,13 +770,21 @@ function gapList(itins) {
     for (let i = 1; i < legs.length; i++) {
       maxGap = Math.max(maxGap, +new Date(legs[i].from.departure) - +new Date(legs[i - 1].to.arrival));
     }
-    return { key: itKey(it), dep: +new Date(legs[0].from.departure), maxGap };
+    return { key: itKey(it), dep: +new Date(legs[0].from.departure),
+             arr: +new Date(legs[legs.length - 1].to.arrival), maxGap };
   }).filter(Boolean).sort((a, b) => a.dep - b.dep);
 }
 
+/* Die „letzte Verbindung des Tages“ ist die späteste, die noch VOR
+   Betriebsschluss ankommt — nicht einfach die letzte geladene. Der Unterschied
+   wurde wichtig, als für den Kontext auch Verbindungen NACH ihr geladen wurden:
+   ohne diese Schranke wäre der Fokus einfach mitgewandert und die Antwort auf
+   „wann komme ich noch heim?“ eine andere geworden. */
 function findLastDecent(itins) {
-  const list = gapList(itins);
-  if (!list.length) return null;
+  const limit = +nextServiceEnd();
+  const all = gapList(itins);
+  const list = all.filter(x => x.arr <= limit);
+  if (!list.length) return all.length ? all[0].key : null;
   const DECENT_WAIT = 45 * 60000; // kein Stranden am Umstieg
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].maxGap <= DECENT_WAIT) return list[i].key;
