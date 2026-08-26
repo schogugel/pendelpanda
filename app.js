@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.21.0";
+const APP_VERSION = "1.21.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -28,6 +28,7 @@ const app = {
   // Zeitnavigation: kind = now | custom | letzte
   searchTime: { kind: "now", time: null, arriveBy: false },
   prevPageCursor: null,
+  planAbort: null,        // bricht die Anfragen einer überholten Suche ab
   hiddenCats: new Set(),  // aktuell über die Legende ausgeblendete Kategorien
   emptyCats: new Set(),   // Kategorien, für die eine eigene Anfrage nichts brachte
   refilling: false,       // Nachladen läuft — Legende solange gesperrt
@@ -513,6 +514,14 @@ function startSearch(from, to) {
   app.aroundTried = false;
   app.aroundUsed = false;
   app.aroundPlaces = null;
+  /* Laufende Anfragen der VORHERIGEN Suche abbrechen. Ohne das laufen sie
+     weiter, verbrauchen weiter vom Anfragebudget und können obendrein ihr
+     Ergebnis in den frischen Pool schreiben. Gemessen drosselt Transitous ab
+     etwa der zwölften Anfrage in kurzer Folge auf konstante 3 Sekunden — wer
+     ein paar Strecken schnell durchprobiert, erreicht das mühelos, wenn jede
+     Suche ihre Anfragen zu Ende laufen lässt. */
+  if (app.planAbort) app.planAbort.abort();
+  app.planAbort = new AbortController();
   app.searchTag = (app.searchTag || 0) + 1;
   app.lastFocusKey = null;   // die „letzte Verbindung“ wird je Suche EINMAL bestimmt
   app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
@@ -687,6 +696,8 @@ function planParams({ time = null, limit = 10, cursor = null } = {}) {
 }
 
 async function fetchPage(direction, limit = 10) {
+  const myTag = app.searchTag;
+  const signal = app.planAbort?.signal;
   const params = planParams({
     limit,
     cursor: direction === "later" ? app.nextPageCursor
@@ -695,14 +706,18 @@ async function fetchPage(direction, limit = 10) {
 
   const modes = enabledModes();
   const filtered = modes
-    ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`)
+    ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`, { signal })
         .then(r => (r.ok ? r.json() : null)).catch(() => null)
     : null;
 
   {
-    const res = await fetch(`${API}/plan?${params}`);
+    const res = await fetch(`${API}/plan?${params}`, { signal });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
+    /* Verspätete Antwort einer ÜBERHOLTEN Suche verwerfen. Ohne diese Prüfung
+       konnte sie den Pool der aktuellen Suche überschreiben — man sah dann
+       Verbindungen der vorher gewählten Strecke. */
+    if (myTag !== app.searchTag) return { added: 0, params };
     const filteredData = filtered ? await filtered : null;
     // Dubletten gegen den Pool UND innerhalb des Batches aussieben
     const known = new Set(app.itins.map(itKey));
@@ -764,7 +779,8 @@ async function refillLoadedRange() {
     const params = planParams({ time: round === 0 ? von : null, limit: REFILL_LIMIT, cursor });
     let data;
     try {
-      const res = await fetch(`${API}/plan?${params}&transitModes=${encodeURIComponent(modes)}`);
+      const res = await fetch(`${API}/plan?${params}&transitModes=${encodeURIComponent(modes)}`,
+        { signal: app.planAbort?.signal });
       if (!res.ok) break;
       data = await res.json();
     } catch { break; }
@@ -888,6 +904,8 @@ async function runPlan(direction = null, limit = 10) {
     renderResults();
     if (!direction) maybeAutoFill();
   } catch (e) {
+    // Ein Abbruch ist kein Fehler: Die nächste Suche läuft bereits.
+    if (e.name === "AbortError") return;
     if (!direction) {
       const msg = `<p class="status error">Konnte keine Verbindungen laden (${escapeHtml(e.message)}). Nochmal versuchen?</p>`;
       // Suchanzeige beenden, sonst läuft der Balken unter der Fehlermeldung weiter
@@ -938,7 +956,7 @@ async function planAround(baseParams) {
   p.set("maxPreTransitTime", "1800");
   p.set("maxPostTransitTime", "1800");
   try {
-    const res = await fetch(`${API}/plan?${p}`);
+    const res = await fetch(`${API}/plan?${p}`, { signal: app.planAbort?.signal });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -949,7 +967,8 @@ async function planAround(baseParams) {
    stillgelegte/saisonale Halte und echte „keine Verbindung“-Fälle ab. */
 async function nextDeparture(stopId) {
   try {
-    const res = await fetch(`${API}/stoptimes?stopId=${encodeURIComponent(stopId)}&n=1`);
+    const res = await fetch(`${API}/stoptimes?stopId=${encodeURIComponent(stopId)}&n=1`,
+      { signal: app.planAbort?.signal });
     if (!res.ok) return null;
     const d = await res.json();
     const s = (d.stopTimes || [])[0];

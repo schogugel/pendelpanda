@@ -202,6 +202,18 @@ Was ansteht, steht in `TODO.md`.
      User-Agent nicht setzen, dort identifiziert der Origin die App.
   3. „Not intended for commercial or for-profit purposes“ — bei Spendenlink oder
      Ähnlichem vorher bei Transitous nachfragen, sie bitten ausdrücklich darum.
+- **Transitous drosselt, es lehnt nicht ab.** Gemessen: ab etwa der zwölften Anfrage in
+  kurzer Folge antwortet es konstant nach ~3 s statt ~200 ms, ohne 429 und ohne
+  Rate-Limit-Header; nach wenigen Sekunden Pause ist es wieder normal. Eine Suche kostet
+  4 Anfragen (Jetzt/Kalender) bzw. 6 („Letzte“) — die Drosselung greift also schon nach
+  rund drei zügigen Suchen.
+- **Eine neue Suche bricht die Anfragen der vorherigen ab** (`app.planAbort`). Das
+  verhindert vor allem, dass die FOLGE-Runden einer überholten Suche überhaupt losgehen
+  (Kontext davor/danach); die bereits gesendete erste Runde ist verloren. Zusätzlich
+  verwirft `fetchPage` verspätete Antworten über `myTag !== app.searchTag` — ohne diese
+  Prüfung konnte eine langsame Antwort den Pool der neuen Suche ÜBERSCHREIBEN, man sah
+  dann Verbindungen der vorher gewählten Strecke.
+- `AbortError` in `runPlan` still schlucken — ein Abbruch ist kein Fehler.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
 ## Transitous/MOTIS-Gotchas (teuer erarbeitet)
