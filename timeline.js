@@ -350,6 +350,7 @@ function renderTimeline(itins, focus = "start") {
   }
   tl.t0 = min - TL.PAD_MIN * 60000;
   tl.t1 = max + TL.PAD_MIN * 60000;
+  tl.t1Base = tl.t1;   // Bezug für die Fußfreiheit, siehe tlEnsureTail
 
   /* Startspalte: im „Jetzt“-Modus die erste noch erreichbare Verbindung, sonst
      die fokussierte (z. B. die letzte des Tages). Das ist WICHTIG für den Zoom
@@ -454,12 +455,7 @@ function tlAlignTopFor(bar, sc) {
   const barTop = Math.max(0, bar.top - clear);
   if (app.searchTime.kind !== "now") return barTop;
   const now = Date.now();
-  const dep = b => +new Date(transitLegs(b.itin)[0].from.departure);
-  const idx = tl.bars.indexOf(bar);
-  const isNextReachable = now >= tl.t0 && now <= tl.t1 &&
-    dep(bar) >= now - 30000 &&
-    (idx <= 0 || dep(tl.bars[idx - 1]) < now - 30000);
-  if (!isNextReachable) return barTop;
+  if (!tlIsNextReachable(tl.bars.indexOf(bar))) return barTop;
   const nowTop = Math.max(0, tlY(now) - clear);
   const viewH = sc ? sc.clientHeight : 0;
   if (viewH) {
@@ -507,12 +503,18 @@ function tlMarkFocus() {
    Es wird nur ANGEHÄNGT, nie gekürzt — an der Zeitskala oben ändert sich nichts. */
 function tlEnsureTail(sc) {
   if (!tl.bars.length || !sc.clientHeight) return;
+  /* IMMER von der Grundlänge aus rechnen, nie vom zuletzt verlängerten Wert:
+     Sonst wächst die Leinwand bei jeder Zoomänderung weiter, die Zeitskala wird
+     absurd lang, und die Stundenlinien im Hintergrund fangen an auszusetzen. */
+  if (!Number.isFinite(tl.t1Base)) tl.t1Base = tl.t1;
   const clear = tlHeadClear() + TL.DEP_LBL;
   const maxTop = tl.bars.reduce((m, b) => Math.max(m, b.top), 0);
   const needed = Math.max(0, maxTop - clear) + sc.clientHeight;
-  const have = tlY(tl.t1);
-  if (have >= needed - 1) return;
-  tl.t1 += ((needed - have) / tl.ppm) * 60000;
+  const base = tl.t1Base;
+  const want = tl.t0 + (needed / tl.ppm) * 60000;
+  const t1 = Math.max(base, want);
+  if (Math.abs(t1 - tl.t1) < 1000) return;
+  tl.t1 = t1;
   tlBuild(sc);
 }
 
@@ -604,6 +606,21 @@ function tlEdgeCheck(sc) {
    dem Bild — man sah dann den roten Balken und sonst nichts. Gemessen wird
    deshalb von JETZT bis zur Ankunft, damit Jetzt-Linie, ganze Verbindung und
    der eingestellte Puffer zusammen sichtbar bleiben. */
+/* Ist die Spalte die NÄCHSTE noch erreichbare Verbindung? Nur dort dockt die
+   Ansicht an der Jetzt-Linie an — und nur dort gehört die Wartezeit bis zur
+   Abfahrt in die Zoom-Rechnung. Beide Stellen müssen dieselbe Antwort geben,
+   deshalb steht sie hier einmal. */
+function tlIsNextReachable(idx) {
+  if (app.searchTime.kind !== "now") return false;
+  const now = Date.now();
+  if (!(now >= tl.t0 && now <= tl.t1)) return false;
+  const dep = i => {
+    const it = tl.itins[i];
+    return it ? +new Date(transitLegs(it)[0].from.departure) : -Infinity;
+  };
+  return dep(idx) >= now - 30000 && (idx <= 0 || dep(idx - 1) < now - 30000);
+}
+
 function tlAutoZoom(sc, startIdx = 0) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
   const it = tl.itins[Math.min(tl.itins.length - 1, Math.max(0, startIdx))];
@@ -611,11 +628,14 @@ function tlAutoZoom(sc, startIdx = 0) {
   const legs = transitLegs(it);
   const dep = +new Date(legs[0].from.departure);
   const arr = +new Date(legs[legs.length - 1].to.arrival);
-  let from = dep;
-  if (app.searchTime.kind === "now") {
-    const now = Date.now();
-    if (now < dep) from = now;
-  }
+  /* Die Wartezeit ab JETZT zählt nur für die nächste erreichbare Verbindung
+     mit — dort steht die Jetzt-Linie oben im Bild und muss mit hineinpassen.
+     Für jede weitere Spalte wäre das falsch: Je später sie abfährt, desto
+     größer würde die gemessene Spanne, und der Zoom schrumpfte immer weiter,
+     bis die Verbindung nur noch ein Zehntel der Höhe einnahm. Genau das
+     passierte beim Weiterscrollen nach rechts. */
+  const idx = Math.min(tl.itins.length - 1, Math.max(0, startIdx));
+  const from = (tlIsNextReachable(idx) && Date.now() < dep) ? Date.now() : dep;
   const spanMin = Math.max(1, (arr - from) / 60000);
   const fill = Math.min(90, Math.max(40, settings.fill || 70)) / 100;
   const ppm = (usable * fill) / spanMin;

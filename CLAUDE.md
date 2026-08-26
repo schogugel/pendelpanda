@@ -253,6 +253,9 @@ Was ansteht, steht in `TODO.md`.
   funktionieren, und zwar UMSO MEHR, je weiter rechts man war (gerechnet: 8 px
   Fehlbetrag in einer frühen Spalte, über 300 px in der letzten). Nach jedem `tlBuild`
   aufrufen — auch nach `tlSetZoom`, weil sich mit der Zoomstufe alles verschiebt.
+  **Immer von `tl.t1Base` aus rechnen, nie vom zuletzt verlängerten Wert.** Sonst wächst
+  die Leinwand bei jeder Zoomänderung weiter, die Zeitskala wird absurd lang und die
+  Stundenlinien im Hintergrund setzen aus.
 - Kopffreiheit: `tlHeadClear()` misst die HÖCHSTE Kopf-Kachel; t0 wird vorab + per
   Nachkorrektur (auch in `tlSetZoom`) so erweitert, dass der früheste Balken und die
   Jetzt-Linie nie hinter den Kacheln verschwinden.
