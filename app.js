@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.13.1";
+const APP_VERSION = "1.14.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -35,6 +35,18 @@ const app = {
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
 const CATS = ["fern", "regio", "sbahn", "ubahn", "tram", "bus", "sonstige", "fernbus"];
+/* Stufen für die Umsteigezeit. `factor` skaliert die vom Router berechnete
+   nötige Zeit (wächst also mit der Größe des Bahnhofs), `extra` legt einen
+   kleinen festen Sockel darunter. An vier Strecken gemessen wächst der
+   kürzeste Umstieg damit von 2–4 min über 6–18 und 11–18 auf 18–22 min,
+   ohne dass Verbindungen wegfallen — es werden andere gefunden. */
+const XFER_LEVELS = [
+  { label: "Normal", factor: 1, extra: 0 },
+  { label: "Etwas mehr", factor: 1.5, extra: 3 },
+  { label: "Deutlich mehr", factor: 2, extra: 7 },
+  { label: "Viel mehr", factor: 3, extra: 12 },
+];
+
 const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", ubahn: "U-Bahn",
                     tram: "Tram", bus: "Bus", sonstige: "Sonstige", fernbus: "Fernbus" };
 
@@ -53,11 +65,16 @@ function loadSettings() {
     nightFrom: "22:00",
     nightTo: "06:00",
     nightWait: 45,   // Minuten am Stück, nicht über die Umstiege summiert
-    /* Zusätzliche Umstiegszeit, direkt an MOTIS weitergereicht
-       (`additionalTransferTime`). Kostet KEINE zusätzliche Anfrage und ist
-       besser als nachträgliches Filtern: Der Router sucht dann andere
-       Verbindungen, die die Bedingung erfüllen. */
-    xferExtra: 0,    // Minuten
+    /* Zeit zum Umsteigen als STUFE, nicht als feste Minutenzahl. Ein fixer
+       Aufschlag ist das falsche Maß: Er verhält sich an einem kleinen Halt
+       gleich wie an einem Kopfbahnhof, obwohl der Weg dort ein Vielfaches
+       beträgt. MOTIS kann anteilig rechnen (`transferTimeFactor` skaliert die
+       nötige Umsteigezeit), und genau das ist der Hauptregler.
+       Ein kleiner fester Anteil bleibt trotzdem dabei — gemessen: Wo die
+       Grundzeit nur 2 min beträgt, macht selbst Faktor 3 daraus erst 6 min,
+       was mit Gepäck nicht reicht. Faktor allein wäre also genauso einseitig
+       wie der Aufschlag allein. */
+    xferLevel: 0,    // 0 normal · 1 etwas · 2 deutlich · 3 viel mehr Zeit
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
@@ -78,7 +95,9 @@ function loadSettings() {
       if (typeof s?.[k] === "string" && /^\d{2}:\d{2}$/.test(s[k])) def[k] = s[k];
     }
     if (Number.isFinite(s?.nightWait)) def.nightWait = Math.min(240, Math.max(5, Math.round(s.nightWait)));
-    if (Number.isFinite(s?.xferExtra)) def.xferExtra = Math.min(30, Math.max(0, Math.round(s.xferExtra)));
+    if (Number.isFinite(s?.xferLevel)) def.xferLevel = Math.min(3, Math.max(0, Math.round(s.xferLevel)));
+    // Altbestand: früher wurde eine Minutenzahl gespeichert
+    else if (Number.isFinite(s?.xferExtra)) def.xferLevel = s.xferExtra >= 10 ? 3 : s.xferExtra >= 6 ? 2 : s.xferExtra >= 1 ? 1 : 0;
     if (s && (s.connectMode === "tap" || s.connectMode === "hybrid")) def.connectMode = s.connectMode;
   } catch { /* Default behalten */ }
   if (!def.connectMode) def.connectMode = "hybrid"; // Verbinde-Modus bei >14 Kacheln
@@ -640,7 +659,9 @@ async function fetchPage(direction, limit = 10) {
   /* Mehr Zeit zum Umsteigen geht direkt in die Anfrage. Der Router sucht dann
      ANDERE Verbindungen, die das einhalten, statt dass wir hinterher welche
      wegwerfen — und es kostet keine zusätzliche Anfrage. */
-  if (settings.xferExtra > 0) params.set("additionalTransferTime", String(settings.xferExtra));
+  const xf = XFER_LEVELS[settings.xferLevel] || XFER_LEVELS[0];
+  if (xf.factor !== 1) params.set("transferTimeFactor", String(xf.factor));
+  if (xf.extra) params.set("additionalTransferTime", String(xf.extra));
   if (arriveBy) params.set("arriveBy", "true");
   if (direction === "later" && app.nextPageCursor) params.set("pageCursor", app.nextPageCursor);
   if (direction === "earlier" && app.prevPageCursor) params.set("pageCursor", app.prevPageCursor);
@@ -1445,7 +1466,7 @@ function configLink() {
                     fill: settings.fill, connect: settings.connectMode,
                     lastArrival: settings.lastArrival, nightFrom: settings.nightFrom,
                     nightTo: settings.nightTo, nightWait: settings.nightWait,
-                    xferExtra: settings.xferExtra };
+                    xferLevel: settings.xferLevel };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const base = PP.native ? WEB_BASE : `${location.origin}${location.pathname}`;
   return `${base}#cfg=${cfg}`;
@@ -1551,7 +1572,8 @@ function applyConfig(cfg, { ask = false } = {}) {
       if (typeof imported[k] === "string" && /^\d{2}:\d{2}$/.test(imported[k])) settings[k] = imported[k];
     }
     if (Number.isFinite(imported.nightWait)) settings.nightWait = Math.min(240, Math.max(5, Math.round(imported.nightWait)));
-    if (Number.isFinite(imported.xferExtra)) settings.xferExtra = Math.min(30, Math.max(0, Math.round(imported.xferExtra)));
+    if (Number.isFinite(imported.xferLevel)) settings.xferLevel = Math.min(3, Math.max(0, Math.round(imported.xferLevel)));
+    else if (Number.isFinite(imported.xferExtra)) settings.xferLevel = imported.xferExtra >= 10 ? 3 : imported.xferExtra >= 6 ? 2 : imported.xferExtra >= 1 ? 1 : 0;
     saveSettings();
   }
   const n = slots.filter(Boolean).length;
@@ -1626,7 +1648,8 @@ byId("btn-settings").addEventListener("click", () => {
   byId("set-nightfrom").value = settings.nightFrom;
   byId("set-nightto").value = settings.nightTo;
   byId("set-nightwait").value = settings.nightWait;
-  byId("set-xfer").value = settings.xferExtra;
+  byId("set-xfer").value = settings.xferLevel;
+  byId("set-xfer-val").textContent = XFER_LEVELS[settings.xferLevel].label;
   byId("settings-dialog").showModal();
 });
 
@@ -1667,13 +1690,11 @@ byId("set-nightwait").addEventListener("change", (e) => {
   e.target.value = settings.nightWait;
   applySearchSetting();
 });
-byId("set-xfer").addEventListener("change", (e) => {
-  const v = Number(e.target.value);
-  if (!Number.isFinite(v)) return;
-  settings.xferExtra = Math.min(30, Math.max(0, Math.round(v)));
-  e.target.value = settings.xferExtra;
-  applySearchSetting();
+byId("set-xfer").addEventListener("input", (e) => {
+  settings.xferLevel = Math.min(3, Math.max(0, Number(e.target.value) || 0));
+  byId("set-xfer-val").textContent = XFER_LEVELS[settings.xferLevel].label;
 });
+byId("set-xfer").addEventListener("change", applySearchSetting);
 
 byId("set-fill").addEventListener("input", (e) => {
   settings.fill = Number(e.target.value);

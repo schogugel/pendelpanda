@@ -105,9 +105,16 @@ Wartezeiten außerhalb des Nachtfensters zählen nicht mit. Eine Stunde Aufentha
 Nachmittag ist unangenehm, aber harmlos; um drei Uhr früh ist sie etwas anderes.
 
 ### Mehr Zeit zum Umsteigen
-**⚙ → „Umsteigen“** reserviert zusätzliche Minuten je Umstieg — für schweres Gepäck,
-Kinderwagen oder wenn Hetzen keine Option ist. Es werden dadurch keine Verbindungen
-weggelassen: Der Fahrplanrechner sucht stattdessen andere, die zu dir passen.
+**⚙ → „Umsteigen“** hat vier Stufen: normal, etwas mehr, deutlich mehr, viel mehr —
+für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option ist.
+
+Gerechnet wird **anteilig** zur Wegzeit im jeweiligen Bahnhof, nicht als fester
+Zuschlag. An einem großen Kopfbahnhof, wo der Weg zwischen den Gleisen ohnehin lang
+ist, wirkt die Einstellung deshalb stärker als an einem Halt mit einem Bahnsteig — dort
+wäre ein pauschaler Aufschlag verschenkte Zeit.
+
+Es fallen dadurch keine Verbindungen weg: Der Fahrplanrechner sucht andere, die dir
+Zeit lassen.
 
 ### Zeitpunkt wählen
 - **Jetzt** — Standard, ab der aktuellen Uhrzeit (die zuletzt verpassten Verbindungen

@@ -157,11 +157,15 @@ Was ansteht, steht in `TODO.md`.
   tatsächlich gescrollt wird, und erst nach echter Nutzer-Geste (`tl.userMoved`).
   Sonst löst schon das Positionieren beim Öffnen ein Nachladen aus. Rand-Spinner nur,
   wenn wirklich am Rand.
-- **`additionalTransferTime`** (`settings.xferExtra`, Minuten) geht direkt in die
-  Anfrage — kostet KEINE zusätzliche Anfrage. Besser als nachträgliches Filtern: Der
-  Router sucht andere Verbindungen, die die Bedingung erfüllen, statt dass wir welche
-  wegwerfen. Nachgemessen an Nürnberg→Bayreuth: 0 → kürzester Umstieg 6 min,
-  10 → 18 min, 20 → 24 min, bei jeweils gleich vielen Ergebnissen.
+- **Umsteigezeit als STUFE** (`settings.xferLevel`, `XFER_LEVELS`), nicht als
+  Minutenzahl. Hauptregler ist `transferTimeFactor` — er skaliert die vom Router
+  berechnete nötige Zeit und wirkt damit ANTEILIG zur Größe des Bahnhofs. Ein fester
+  Aufschlag allein wäre falsch (gleich viel am Dorfhalt wie am Kopfbahnhof), ein Faktor
+  allein aber auch: Gemessen macht selbst Faktor 3 aus einer Grundzeit von 2 min nur
+  6 min. Deshalb je Stufe zusätzlich ein kleiner fester Sockel
+  (`additionalTransferTime`). Beides geht in DIESELBE Anfrage, kostet also nichts.
+  Gemessen an vier Strecken wächst der kürzeste Umstieg über die Stufen von 2–4 auf
+  6–18, 11–18 und 18–22 min, bei unverändert 10 Ergebnissen je Strecke.
 - MOTIS kennt **keine Obergrenze** für Wartezeiten — die muss clientseitig bleiben.
 - Anfrage-Budget Transitous: 60/min pro IP. Typisch: Suche ≈2, Seite ≈1. Kein Grund zur Knausrigkeit, aber keine Parallel-Orgien.
 
