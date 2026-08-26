@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.11.1";
+const APP_VERSION = "1.12.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -140,6 +140,9 @@ function renderGrid() {
   // Bei >14 Kacheln muss das Grid scrollbar sein: „Nur Tippen“ deaktiviert das
   // Wisch-Verbinden komplett; „Hybrid“ deaktiviert es, sobald ein Start gewählt
   // ist (dann scrollt Wischen frei zum Ziel). Bearbeiten-Modus bleibt unberührt.
+  /* Bis 14 Kacheln passt alles auf eine Seite (Reihen teilen sich die Höhe);
+     darüber ist Scrollen gewollt und das Raster behält seine feste Kachelhöhe. */
+  document.body.classList.toggle("fitgrid", slots.length <= BASE_SLOTS);
   const scrollGrid = slots.length > BASE_SLOTS;
   const dragOff = !app.editMode && scrollGrid &&
     (settings.connectMode === "tap" || app.selectedStart !== null);
@@ -1177,7 +1180,7 @@ function fillDetails(container, it) {
     app.search.from.name, app.search.to.name,
     T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival
   );
-  a.textContent = "Bei der DB öffnen (Wagenreihung, Tickets …)";
+  a.textContent = "Bei der DB öffnen";
   if (PP.native) {
     enableExactDbLink(a, app.search.from.name, app.search.to.name,
       T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival);

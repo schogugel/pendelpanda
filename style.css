@@ -60,20 +60,23 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Unter der letzten Kachelreihe soll NICHTS mehr kommen. Die 2rem Fußraum der
-   allgemeinen Ansicht sind für Ergebnislisten gedacht; auf der Startseite waren
-   sie zusammen mit einem seit v1.8.0 leeren Fußbereich rund 50 px Leerraum, über
-   den man scrollen konnte — die Überschrift wanderte dabei aus dem Bild.
-   Bewusst nur der Leerraum weg, KEINE Scroll-Sperre: Die hatte im Browser auch
-   das Ziehen zum Aktualisieren mitgenommen. */
-body[data-view="grid"] #view-grid { padding-bottom: .5rem; }
-
-.topbar {
-  display: flex; align-items: center; gap: .6rem;
-  padding: .7rem 1rem calc(.7rem);
-  max-width: 640px; margin: 0 auto;
-  border-bottom: 1px solid var(--border);
+/* Startseite: EINE Seite, egal welcher Bildschirm.
+   Die Kachelreihen teilen sich die Höhe, die nach Kopfzeile und Hinweis übrig
+   bleibt — dann gibt es nichts zu scrollen, und die Überschrift bleibt stehen.
+   Bewusst über das Layout gelöst und NICHT über eine Scroll-Sperre: Die nimmt
+   im Browser auch das Ziehen zum Aktualisieren mit (einmal versucht, war falsch).
+   Der Boden von 64 px verhindert Briefmarken auf sehr flachen Bildschirmen; wird
+   er unterschritten, darf gescrollt werden — dann ist Scrollen richtig. */
+body[data-view="grid"] { display: flex; flex-direction: column; }
+body[data-view="grid"] #view-grid {
+  flex: 1 1 auto; display: flex; flex-direction: column;
+  min-height: 0; padding-bottom: .5rem;
 }
+body[data-view="grid"].fitgrid #buttongrid {
+  flex: 1 1 auto; min-height: 0; grid-auto-rows: minmax(64px, 1fr);
+}
+body[data-view="grid"].fitgrid .stationbtn { min-height: 0; padding: .9rem .6rem .7rem; }
+
 /* Markanter Seitentitel (Screenshot-Design) mit ⚙ rechtsbündig */
 .pagehead {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
@@ -89,11 +92,7 @@ body[data-view="grid"] #view-grid { padding-bottom: .5rem; }
 /* Zweier-Variante des Schiebeschalters */
 .seg3.seg2 { --n: 2; }
 .seg3.seg5 { --n: 5; width: 11.5rem; }
-.topbar-logo { width: 34px; height: 34px; border-radius: 8px; }
-.topbar h1 { font-size: 1.25rem; letter-spacing: .01em; flex: 1; }
 #btn-settings { font-size: 1.3rem; }
-/* Ergebnisansicht: ohne App-Kopfzeile — die Grafik bekommt den Platz */
-body[data-view="results"] .topbar { display: none; }
 body[data-view="results"] #view-results { padding-top: .7rem; }
 
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }

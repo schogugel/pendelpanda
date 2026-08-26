@@ -347,6 +347,13 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie
   Platz gleichmäßig, deshalb der doppelte Abzug. Ohne das schob sich der Dialogtext unter
   die Statusleisten-Symbole.
+- **Startseite passt immer auf eine Seite** (`.fitgrid`): Bis 14 Kacheln ist
+  `#view-grid` eine Flex-Spalte und das Raster teilt die Resthöhe auf
+  (`grid-auto-rows: minmax(64px, 1fr)`). Boden 64 px; darunter darf gescrollt werden.
+  Ab 15 Kacheln behält das Raster die feste Kachelhöhe, dort ist Scrollen gewollt.
+- **Die Fokus-Markierung gehört in `tlBuild`, nicht in `renderTimeline`.** Jede
+  Zoomänderung ruft `tlBuild` erneut auf und wirft alle Spalten weg — eine Ebene höher
+  gesetzt, verschwand die Markierung beim ersten Scrollen von selbst.
 - **Scrollen NICHT sperren.** `overscroll-behavior: none` am Dokument nimmt im Browser
   auch das Ziehen zum Aktualisieren mit — das wurde einmal versucht und war falsch.
   Soll unter einer Ansicht nichts mehr kommen, gehört der LEERRAUM weg, nicht das

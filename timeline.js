@@ -429,14 +429,6 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollLeft = startIdx * (tl.colW + TL.GAP);
     scroller.scrollTop = tlAlignTopFor(tl.bars[startIdx] || tl.bars[0], scroller);
   }
-  // Markierung nach JEDEM Aufbau setzen, unabhängig vom gewählten Zweig
-  if (tl.focusKey) {
-    const i = tl.itins.findIndex(it => itKey(it) === tl.focusKey);
-    if (i >= 0 && tl.bars[i]) {
-      tl.bars[i].head?.classList.add("tl-focus");
-      tl.bars[i].el?.classList.add("tl-focus");
-    }
-  }
   tl.lastAlignLeft = scroller.scrollLeft;
 }
 
@@ -481,6 +473,20 @@ function tlHeadClear() {
   return h + 6 + 16; // sticky-Offset + Luft
 }
 
+/* Die Markierung der gesuchten Verbindung MUSS in tlBuild sitzen, nicht in
+   renderTimeline: Jede Zoomänderung (Pinch, oder das automatische Nachzoomen
+   beim Spaltenwechsel) ruft tlBuild erneut auf, wirft dabei alle Spalten weg
+   und baut sie neu. Stand die Markierung eine Ebene höher, war sie nach dem
+   ersten Scrollen still verschwunden — sie „blendete sich aus“, ohne dass sie
+   jemand entfernt hätte. */
+function tlMarkFocus() {
+  if (!tl.focusKey) return;
+  const i = tl.itins.findIndex(it => itKey(it) === tl.focusKey);
+  if (i < 0 || !tl.bars[i]) return;
+  tl.bars[i].head?.classList.add("tl-focus");
+  tl.bars[i].el?.classList.add("tl-focus");
+}
+
 function tlBuild(scroller) {
   tl.bars = [];
   const heightPx = tlY(tl.t1);
@@ -515,6 +521,7 @@ function tlBuild(scroller) {
   tl.armedLeft = false;
   tl.armedRight = false;
   tl.lastCheckLeft = null; // Referenz für die Scrollrichtung neu setzen
+  tlMarkFocus();
 }
 
 /* Am Rand angekommen → nächsten Batch in diese Richtung laden.
