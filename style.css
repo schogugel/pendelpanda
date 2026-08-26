@@ -55,6 +55,11 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
+  /* Oben wie unten die Systemzonen freihalten. Im Browser und in der
+     installierten PWA ist der Wert 0 (dort setzt Chrome eine eigene Leiste
+     davor); in der APK zeichnet Android ab Version 15 zwingend randlos, und
+     ohne das hier läge die Überschrift unter den Statusleisten-Symbolen. */
+  padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -77,7 +82,8 @@ body {
 /* Scroll-Modus bei vielen Kacheln: Wisch-Verbinden aus → normales Scrollen */
 .buttongrid.no-drag .stationbtn { touch-action: manipulation; }
 /* Zweier-Variante des Schiebeschalters */
-.seg3.seg2::before { width: calc((100% - 6px) / 2); }
+.seg3.seg2 { --n: 2; }
+.seg3.seg5 { --n: 5; width: 11.5rem; }
 .topbar-logo { width: 34px; height: 34px; border-radius: 8px; }
 .topbar h1 { font-size: 1.25rem; letter-spacing: .01em; flex: 1; }
 #btn-settings { font-size: 1.3rem; }
@@ -130,19 +136,24 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
   background: var(--card); color: var(--text);
 }
 /* Dreifach-Schalter mit gleitendem Daumen (3/4/5) */
+/* --n = Anzahl der Stufen; der gleitende Daumen rechnet damit, statt auf
+   drei festgenagelt zu sein. */
 .seg3 {
+  --n: 3;
   position: relative; display: flex; width: 9.5rem; flex: none;
   border: 1.5px solid var(--border); border-radius: 999px;
   background: var(--bg); padding: 3px;
 }
 .seg3::before {
   content: ""; position: absolute; top: 3px; bottom: 3px;
-  left: 3px; width: calc((100% - 6px) / 3);
+  left: 3px; width: calc((100% - 6px) / var(--n));
   background: var(--accent); border-radius: 999px;
   transition: transform .18s ease;
 }
 .seg3[data-idx="1"]::before { transform: translateX(100%); }
 .seg3[data-idx="2"]::before { transform: translateX(200%); }
+.seg3[data-idx="3"]::before { transform: translateX(300%); }
+.seg3[data-idx="4"]::before { transform: translateX(400%); }
 .seg3 button {
   position: relative; z-index: 1; flex: 1;
   border: none; background: none; cursor: pointer;
@@ -319,7 +330,7 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 /* ---------- Grafische Fahrplan-Ansicht ---------- */
 .timeline-wrap { position: relative; }
 .timeline {
-  height: min(74dvh, 640px);
+  height: min(calc(74dvh - env(safe-area-inset-top)), 640px);
   overflow: auto;
   border: 1.5px solid var(--border);
   border-radius: 14px;
@@ -361,6 +372,30 @@ body[data-view="results"] #view-results { padding-top: .7rem; }
 .tl-head small { color: var(--muted); font-size: .72rem; line-height: 1.25; }
 .tl-head .delay { font-size: .8rem; }
 .tl-head.cancelled { border-color: var(--bad); }
+/* Viele Spalten nebeneinander: Die Kachel muss schrumpfen, sonst bricht die
+   Uhrzeit um und die Kachelhöhen laufen auseinander. „2 Umst.“ weicht dann
+   der Kurzform „2×“ — die Zahl ist die Information, das Wort ist Beiwerk. */
+.u-short { display: none; }
+#timeline.narrow .tl-head { padding: .22rem .3rem; font-size: .7rem; }
+#timeline.narrow .tl-head strong { font-size: .8rem; }
+#timeline.narrow .tl-head small { font-size: .64rem; }
+#timeline.narrow .tl-head .delay { font-size: .68rem; }
+#timeline.narrow .tl-hl { gap: .18rem; }
+#timeline.narrow .u-long { display: none; }
+#timeline.narrow .u-short { display: inline; }
+#timeline.narrow .tl-arr, #timeline.narrow .tl-dep { font-size: .64rem; }
+#timeline.narrow .tl-seg { font-size: .66rem; }
+#timeline.narrow .risk .mi { width: .95em; height: .95em; }
+/* 7 Spalten auf einem Telefon: rund 36 px je Spalte. Alles bleibt stehen,
+   nur kleiner — Information wegzulassen wäre der schlechtere Tausch, und die
+   Kachelhöhen bleiben gleich, weil tlHeadClear() ohnehin die höchste misst. */
+#timeline.tiny .tl-head { padding: .18rem .22rem; font-size: .62rem; }
+#timeline.tiny .tl-head strong { font-size: .7rem; }
+#timeline.tiny .tl-head small { font-size: .58rem; }
+#timeline.tiny .tl-head .delay { font-size: .58rem; }
+#timeline.tiny .tl-arr, #timeline.tiny .tl-dep { font-size: .58rem; }
+#timeline.tiny .tl-seg { font-size: .58rem; padding: 0 1px; }
+#timeline.tiny .tl-bar { left: 4px; width: calc(100% - 8px); }
 .tl-bar {
   position: absolute; left: 8px; width: calc(100% - 16px);
   border: none; padding: 0; cursor: pointer; border-radius: 8px;
@@ -635,6 +670,23 @@ dialog form { margin-top: 1rem; }
 }
 .menurow small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: .15rem; }
 .menurow-arrow { color: var(--muted); font-size: 1.3rem; line-height: 1; }
+/* Der Dialog war eine lange Liste ohne Gliederung — man musste jedes Mal
+   suchen. Jetzt Abschnitte mit Überschrift, sichtbar voneinander getrennt. */
+.setgroup { margin: 1.1rem 0; padding-top: .9rem; border-top: 1px solid var(--border); }
+.setgroup:first-of-type { border-top: none; padding-top: 0; margin-top: .6rem; }
+.setgroup > h3 {
+  font-size: .78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--muted); margin-bottom: .5rem;
+}
+.setgroup .hint { margin-top: 0; }
+.rangerow { margin: .9rem 0 .3rem; }
+.rangerow label {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: .8rem; font-size: .95rem;
+}
+.rangerow output { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
+.rangerow input[type="range"] { width: 100%; margin: .45rem 0 .1rem; accent-color: var(--accent); }
+.rangerow .finequote { margin-top: .1rem; }
 
 /* Gleis + Karten-Pin als eine Einheit (Koordinaten sind bahnsteiggenau) */
 .trackchip {

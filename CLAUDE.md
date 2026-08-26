@@ -210,7 +210,11 @@ Was ansteht, steht in `TODO.md`.
 
 ## Grafik (timeline.js)
 
-- Y-Zoom: Zielspalten-Verbindung belegt **70 %** der Fläche unter den Kopf-Kacheln;
+- Y-Zoom: Zielspalten-Verbindung belegt **`settings.fill` %** der Fläche (Standard 70,
+  einstellbar 40–90). Im **„Jetzt“-Modus wird von JETZT bis zur Ankunft gemessen**, nicht
+  nur die Fahrtdauer — die Ansicht dockt dort an der Jetzt-Linie an, und bei langer
+  Wartezeit schob die reine Fahrtdauer die Verbindung aus dem Bild (man sah nur den roten
+  Balken). So bleiben Jetzt-Linie, ganze Verbindung und der eingestellte Puffer sichtbar;
   Neuberechnung nur bei neuer Suche + Spaltenwechsel (`tl.lastZoomIdx`-Guard schützt Pinch).
   **Zoom-Anker = Viewport-Oberkante** (oben bleibt stehen, unten atmet).
   `tl.minPpm`-Floor: p25 der Leg-Fahrzeiten behält ≥20 px (Labels nie wegzoombar).
@@ -287,6 +291,11 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - `slots` = geordnetes Array inkl. `null`-Lücken (Position = Index, Länge = Feldzahl);
   Einträge `{name, id, label?}` — `name` ist der offizielle Bahnhofsname (Pflicht für
   DB-Link/API), `label` reine Anzeige.
+- Spalten nebeneinander: **3–7** (`settings.cols`). Die colW-Untergrenze (34 px) ist
+  bewusst niedrig, damit 7 auf einem Telefon wirklich nebeneinander passen; darüber
+  greifen zwei Enge-Stufen am Scroller (`.narrow` <62 px, `.tiny` <46 px), die nur die
+  Schrift verkleinern und „2 Umst.“ zu „2×“ kürzen. Gemessen: 7 passen ab 393 px
+  Bildschirmbreite, auf 360 px sind es real 6,7.
 - BASE 14 (7×2, scrollfrei), „Mehr als 14“: gerade bis 40 + `connectMode`
   `hybrid` (Wischen verbindet; ab gewähltem Start scrollt Wischen frei) / `tap`.
   Umsetzung: `.buttongrid.no-drag` + Guard in `attachStationPointer`. Verkleinern nie
@@ -298,6 +307,9 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Design-Tokens & Stil
 
+- **Systemzonen oben UND unten freihalten** (`env(safe-area-inset-*)` am `body`):
+  Android zeichnet ab Version 15 randlos, die APK legte die Überschrift sonst unter die
+  Statusleisten-Symbole. Im Browser und in der installierten PWA ist der Wert 0.
 - Dark-first. bg `#0a0e18`, card `#131928`, Akzent Amber `#f0a63a` (hell `#b97800`).
   Status semantisch: ok grün, warn orange, bad rot — nie als Deko missbrauchen.
 - Formen: Kacheln 4 px (Farbbalken INNEN an der Oberkante, eingerückt), Karten/Chips 8 px,

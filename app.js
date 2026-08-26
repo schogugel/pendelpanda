@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.7.2";
+const APP_VERSION = "1.8.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -42,7 +42,8 @@ function loadSettings() {
   const def = {
     // D-Ticket-Sicht: Fernzug UND Fernbus standardmäßig aus
     show: { fern: false, regio: true, sbahn: true, utram: true, bus: true, sonstige: true, fernbus: false },
-    cols: 3, // Verbindungen nebeneinander in der Grafik (3/4/5)
+    cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
+    fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
   };
   try {
     const s = JSON.parse(localStorage.getItem("pp.settings") || "null");
@@ -52,7 +53,8 @@ function loadSettings() {
       def.show.sonstige = s.show.bus;
     }
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
-    if (Number.isFinite(n)) def.cols = Math.min(5, Math.max(3, Math.round(n)));
+    if (Number.isFinite(n)) def.cols = Math.min(7, Math.max(3, Math.round(n)));
+    if (Number.isFinite(s?.fill)) def.fill = Math.min(90, Math.max(40, Math.round(s.fill / 5) * 5));
     if (s && (s.connectMode === "tap" || s.connectMode === "hybrid")) def.connectMode = s.connectMode;
   } catch { /* Default behalten */ }
   if (!def.connectMode) def.connectMode = "hybrid"; // Verbinde-Modus bei >14 Kacheln
@@ -819,7 +821,7 @@ function visibleItins() {
 // Spaltenzahl + 2, damit die Grafik überläuft und seitwärts scrollbar
 // bleibt (sonst kann das Rand-Nachladen nie greifen); Liste: sechs
 function neededVisible() {
-  return app.viewMode === "graph" ? Math.min(5, Math.max(3, settings.cols || 3)) + 2 : 6;
+  return app.viewMode === "graph" ? Math.min(7, Math.max(3, settings.cols || 3)) + 2 : 6;
 }
 
 // transitModes-Gruppen je Kategorie (für gezielt gefilterte Zusatzanfragen)
@@ -1340,7 +1342,8 @@ byId("btn-share-config").addEventListener("click", () => {
     byId("settings-dialog").close();
   }
   // v2: Buttons UND Einstellungen wandern gemeinsam im Link
-  const payload = { v: 2, slots, show: settings.show, cols: settings.cols, connect: settings.connectMode };
+  const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
+                    fill: settings.fill, connect: settings.connectMode };
   const cfg = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   byId("share-url").value = `${location.origin}${location.pathname}#cfg=${cfg}`;
   byId("share-native").hidden = !navigator.share;
@@ -1382,7 +1385,8 @@ function maybeImportConfig() {
       if (imported.show) {
         for (const c of CATS) if (typeof imported.show[c] === "boolean") settings.show[c] = imported.show[c];
         const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
-        if (Number.isFinite(n)) settings.cols = Math.min(5, Math.max(3, Math.round(n)));
+        if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
+        if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
         if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
         saveSettings();
       }
@@ -1434,6 +1438,7 @@ function escapeHtml(s) {
 
 /* ---------------- Start ---------------- */
 
+// Hilfe liegt in den Einstellungen; der Dialog legt sich über den offenen ⚙-Dialog
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
 byId("app-version").textContent = `v${APP_VERSION} · ${PP.kind}`;
 
@@ -1445,17 +1450,30 @@ byId("btn-settings").addEventListener("click", () => {
   });
   refreshTileOpts();
   renderColsControl();
+  byId("set-fill").value = settings.fill;
+  byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
   byId("settings-dialog").showModal();
 });
 
 let gridSettingsDirty = false;
 
 function renderColsControl() {
-  const idx = [3, 4, 5].indexOf(settings.cols);
+  const idx = [3, 4, 5, 6, 7].indexOf(settings.cols);
   byId("set-cols").dataset.idx = idx >= 0 ? idx : 0;
   document.querySelectorAll("#set-cols button").forEach(b =>
     b.classList.toggle("active", Number(b.dataset.cols) === settings.cols));
 }
+
+byId("set-fill").addEventListener("input", (e) => {
+  settings.fill = Number(e.target.value);
+  byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
+  saveSettings();
+  // sofort sichtbar machen: neuer Zoom gilt für die laufende Ansicht
+  if (app.viewMode === "graph" && tl.itins.length) {
+    tl.lastZoomIdx = null;
+    renderResults();
+  }
+});
 
 byId("set-cols").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-cols]");

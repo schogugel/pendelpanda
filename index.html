@@ -27,7 +27,6 @@
   </div>
   <div id="buttongrid" class="buttongrid" aria-label="Gespeicherte Bahnhöfe"></div>
   <footer class="footlinks">
-    <button class="linklike" id="btn-help">Hilfe</button>
   </footer>
 </main>
 
@@ -88,43 +87,76 @@
 <!-- EINSTELLUNGEN -->
 <dialog id="settings-dialog">
   <h2>Einstellungen</h2>
-  <p class="hint">Diese Verkehrsmittel standardmäßig anzeigen:</p>
-  <div class="checklist" id="settings-cats">
-    <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernzug (ICE, IC, EC)</label>
-    <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
-    <label><input type="checkbox" data-cat="sbahn"> <i class="catdot seg-sbahn"></i> S-Bahn</label>
-    <label><input type="checkbox" data-cat="utram"> <i class="catdot seg-utram"></i> U-Bahn &amp; Tram</label>
-    <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus</label>
-    <label><input type="checkbox" data-cat="sonstige"> <i class="catdot seg-sonstige"></i> Sonstige (Fähre, Rufbus u.&nbsp;ä.)</label>
-    <label><input type="checkbox" data-cat="fernbus"> <i class="catdot seg-fernbus"></i> Fernbus (Flix &amp; Co.)</label>
-  </div>
-  <label class="countrow">Mehr als 14 Kacheln
-    <input type="checkbox" id="set-more">
-  </label>
-  <div id="more-tiles-opts" hidden>
-    <label class="countrow">Anzahl Kacheln (gerade, max. 40)
-      <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
-    </label>
-    <div class="countrow">Verbinden
-      <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
-        <button type="button" data-mode="hybrid">Hybrid</button>
-        <button type="button" data-mode="tap">Nur Tippen</button>
+
+  <section class="setgroup">
+    <h3>Grafische Ansicht</h3>
+    <div class="countrow">Verbindungen nebeneinander
+      <div class="seg3 seg5" id="set-cols" role="radiogroup" aria-label="Verbindungen nebeneinander">
+        <button type="button" data-cols="3">3</button>
+        <button type="button" data-cols="4">4</button>
+        <button type="button" data-cols="5">5</button>
+        <button type="button" data-cols="6">6</button>
+        <button type="button" data-cols="7">7</button>
       </div>
     </div>
-    <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
-  </div>
-  <div class="countrow">Grafik: Verbindungen nebeneinander
-    <div class="seg3" id="set-cols" role="radiogroup" aria-label="Verbindungen nebeneinander">
-      <button type="button" data-cols="3">3</button>
-      <button type="button" data-cols="4">4</button>
-      <button type="button" data-cols="5">5</button>
+    <div class="rangerow">
+      <label for="set-fill">Höhe der vordersten Verbindung
+        <output id="set-fill-val">70&nbsp;%</output>
+      </label>
+      <input type="range" id="set-fill" min="40" max="90" step="5">
+      <p class="finequote">So viel der Bildhöhe nimmt die vorderste Verbindung ein. Der
+        Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
+        mehr Übersicht, größerer Wert heißt mehr Detail.</p>
     </div>
-  </div>
-  <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht jederzeit über die Legende wieder einblenden.</p>
-  <button id="btn-share-config" class="menurow">
-    <span>Buttons übertragen<small>Kacheln und Einstellungen auf ein anderes Gerät</small></span>
-    <span class="menurow-arrow">›</span>
-  </button>
+  </section>
+
+  <section class="setgroup">
+    <h3>Verkehrsmittel</h3>
+    <p class="hint">Diese standardmäßig anzeigen:</p>
+    <div class="checklist" id="settings-cats">
+      <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernzug (ICE, IC, EC)</label>
+      <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
+      <label><input type="checkbox" data-cat="sbahn"> <i class="catdot seg-sbahn"></i> S-Bahn</label>
+      <label><input type="checkbox" data-cat="utram"> <i class="catdot seg-utram"></i> U-Bahn &amp; Tram</label>
+      <label><input type="checkbox" data-cat="bus"> <i class="catdot seg-bus"></i> Bus</label>
+      <label><input type="checkbox" data-cat="sonstige"> <i class="catdot seg-sonstige"></i> Sonstige (Fähre, Rufbus u.&nbsp;ä.)</label>
+      <label><input type="checkbox" data-cat="fernbus"> <i class="catdot seg-fernbus"></i> Fernbus (Flix &amp; Co.)</label>
+    </div>
+    <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht
+      jederzeit über die Legende wieder einblenden.</p>
+  </section>
+
+  <section class="setgroup">
+    <h3>Kacheln</h3>
+    <label class="countrow">Mehr als 14 Kacheln
+      <input type="checkbox" id="set-more">
+    </label>
+    <div id="more-tiles-opts" hidden>
+      <label class="countrow">Anzahl Kacheln (gerade, max. 40)
+        <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
+      </label>
+      <div class="countrow">Verbinden
+        <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
+          <button type="button" data-mode="hybrid">Hybrid</button>
+          <button type="button" data-mode="tap">Nur Tippen</button>
+        </div>
+      </div>
+      <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
+    </div>
+  </section>
+
+  <section class="setgroup">
+    <h3>Übertragen &amp; Hilfe</h3>
+    <button id="btn-share-config" class="menurow">
+      <span>Buttons übertragen<small>Kacheln und Einstellungen auf ein anderes Gerät</small></span>
+      <span class="menurow-arrow">›</span>
+    </button>
+    <button id="btn-help" class="menurow">
+      <span>Hilfe<small>Kurzanleitung zu Kacheln, Grafik und Zeitleiste</small></span>
+      <span class="menurow-arrow">›</span>
+    </button>
+  </section>
+
   <p class="version-line">PendelPanda <span id="app-version">–</span></p>
   <form method="dialog"><button class="widebtn">Fertig</button></form>
 </dialog>

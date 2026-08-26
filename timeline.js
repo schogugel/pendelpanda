@@ -298,11 +298,16 @@ function renderTimeline(itins, focus = "start") {
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
 
-  // Spalten nebeneinander aus der Einstellung (3/4/5, Default 3),
-  // Breite auf großen Screens gedeckelt
-  const nCols = Math.min(5, Math.max(3, settings.cols || 3));
+  /* Spalten nebeneinander aus der Einstellung (3–7, Default 3), Breite auf
+     großen Screens gedeckelt. Die Untergrenze muss klein genug sein, dass 7
+     Spalten auf einem schmalen Telefon TATSÄCHLICH nebeneinander passen —
+     stünde sie zu hoch, wählte man 7 und bekäme trotzdem nur 5 zu sehen. */
+  const nCols = Math.min(7, Math.max(3, settings.cols || 3));
   const usableW = Math.max(140, scroller.clientWidth - TL.AXIS_W);
-  tl.colW = Math.min(170, Math.max(44, Math.round(usableW / nCols) - TL.GAP));
+  tl.colW = Math.min(170, Math.max(34, Math.round(usableW / nCols) - TL.GAP));
+  // Zwei Enge-Stufen: „narrow“ ab 6 Spalten, „tiny“ bei 7 auf dem Telefon
+  scroller.classList.toggle("narrow", tl.colW < 62);
+  scroller.classList.toggle("tiny", tl.colW < 46);
 
   // Zoom-Untergrenze: so weit rauszoomen, dass Beschriftungen verschwinden,
   // geht nicht — das Gros der Abschnitte (25%-Quantil der Fahrzeiten) muss
@@ -523,14 +528,31 @@ function tlEdgeCheck(sc) {
    oberen 70 % der Sichtfläche unter den Kopf-Kacheln — die unteren 30 %
    bleiben frei, damit man mehr von den nachfolgenden, weiter unten
    startenden Verbindungen sieht. */
+/* Zoomstufe so wählen, dass das WESENTLICHE der Startspalte den eingestellten
+   Anteil der Bildhöhe einnimmt; der Rest bleibt als Vorschau auf das, was
+   danach kommt.
+
+   Im „Jetzt“-Modus gehört die Wartezeit bis zur Abfahrt mit ins Bild: Die
+   Ansicht dockt dort an der Jetzt-Linie an, nicht am Balken. Rechnete man nur
+   mit der Fahrtdauer, schob eine lange Wartezeit die Verbindung nach unten aus
+   dem Bild — man sah dann den roten Balken und sonst nichts. Gemessen wird
+   deshalb von JETZT bis zur Ankunft, damit Jetzt-Linie, ganze Verbindung und
+   der eingestellte Puffer zusammen sichtbar bleiben. */
 function tlAutoZoom(sc, startIdx = 0) {
   const usable = Math.max(180, (sc.clientHeight || 400) - TL.HEAD_H - 60);
   const it = tl.itins[Math.min(tl.itins.length - 1, Math.max(0, startIdx))];
   if (!it) return tl.ppm || 4;
   const legs = transitLegs(it);
-  const durMin = Math.max(1,
-    (+new Date(legs[legs.length - 1].to.arrival) - +new Date(legs[0].from.departure)) / 60000);
-  const ppm = (usable * 0.7) / durMin;
+  const dep = +new Date(legs[0].from.departure);
+  const arr = +new Date(legs[legs.length - 1].to.arrival);
+  let from = dep;
+  if (app.searchTime.kind === "now") {
+    const now = Date.now();
+    if (now < dep) from = now;
+  }
+  const spanMin = Math.max(1, (arr - from) / 60000);
+  const fill = Math.min(90, Math.max(40, settings.fill || 70)) / 100;
+  const ppm = (usable * fill) / spanMin;
   return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
 }
 
@@ -605,7 +627,8 @@ function tlColumn(it, left, isDominated = false) {
   head.innerHTML =
     `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${riskMark(risk)}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
-    `<small>${it.transfers} Umst.</small>`;
+    `<small><span class="u-long">${it.transfers} Umst.</span>` +
+    `<span class="u-short">${it.transfers}×</span></small>`;
   head.addEventListener("click", () => {
     const sc = byId("timeline");
     const viewTop = sc.scrollTop + tlHeadClear(), viewBot = sc.scrollTop + sc.clientHeight;
