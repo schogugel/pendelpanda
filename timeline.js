@@ -280,6 +280,11 @@ function productClass(mode) {
 function renderTimeline(itins, focus = "start") {
   const scroller = byId("timeline");
   const sameSearch = tl.searchTag === app.searchTag;
+  /* Welche Verbindung markiert ist, gehört zur SUCHE, nicht zum Neuaufbau.
+     Vorher wurde die Markierung nur im Fokus-Zweig gesetzt; sobald ein
+     Nachladen die Ansicht neu baute (dann gilt keepScroll), war sie weg. */
+  if (!sameSearch) tl.focusKey = null;
+  if (focus && focus !== "start" && focus !== "end") tl.focusKey = focus;
   tl.searchTag = app.searchTag;
   /* Position halten bei JEDEM Neuaufbau innerhalb derselben Suche — nicht nur
      wenn Verbindungen dazukamen. Ein Nachladen ohne Treffer hat sonst die
@@ -403,16 +408,34 @@ function renderTimeline(itins, focus = "start") {
        Rechnung, die den Balken verfehlen konnte. */
     const idx = focusIdx >= 0 ? focusIdx : tl.bars.length - 1;
     const bar = tl.bars[idx];
-    scroller.scrollLeft = Math.max(0, (idx - 1) * (tl.colW + TL.GAP));
+    const leftIdx = Math.max(0, idx - 1);   // Kontextspalte davor
+    scroller.scrollLeft = leftIdx * (tl.colW + TL.GAP);
     scroller.scrollTop = tlAlignTopFor(bar, scroller);
-    tl.lastZoomIdx = idx;
-    if (bar.head) bar.head.classList.add("tl-focus");
-    if (bar.el) bar.el.classList.add("tl-focus");
+    /* Der Zoom-Index MUSS die linkeste Spalte sein, nicht die markierte.
+       `tlAlign` rechnet ihn aus der Scrollposition aus; stand hier die
+       markierte Spalte, wich er sofort ab, und das Einrasten zoomte 120 ms
+       später neu und richtete sich an der Kontextspalte aus — die Markierung
+       blitzte auf und die Ansicht sprang weg. */
+    tl.lastZoomIdx = leftIdx;
+    /* Das Setzen der Scrollposition feuert ein scroll-Ereignis. Ohne diese
+       Sperre plant dessen Handler sofort ein Einrasten ein und macht die
+       gerade gesetzte Position wieder kaputt. */
+    tl.autoScrolling = true;
+    clearTimeout(tl.focusHold);
+    tl.focusHold = setTimeout(() => { tl.autoScrolling = false; }, 400);
   } else {
     // Start: linkeste sichtbare Spalte ist die erste noch ERREICHBARE
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
     scroller.scrollLeft = startIdx * (tl.colW + TL.GAP);
     scroller.scrollTop = tlAlignTopFor(tl.bars[startIdx] || tl.bars[0], scroller);
+  }
+  // Markierung nach JEDEM Aufbau setzen, unabhängig vom gewählten Zweig
+  if (tl.focusKey) {
+    const i = tl.itins.findIndex(it => itKey(it) === tl.focusKey);
+    if (i >= 0 && tl.bars[i]) {
+      tl.bars[i].head?.classList.add("tl-focus");
+      tl.bars[i].el?.classList.add("tl-focus");
+    }
   }
   tl.lastAlignLeft = scroller.scrollLeft;
 }

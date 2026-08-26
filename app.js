@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.10.0";
+const APP_VERSION = "1.11.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -779,6 +779,33 @@ async function diagnoseEmpty() {
   renderResults();
 }
 
+/* Wenn die markierte „letzte“ Verbindung nur deshalb die letzte ist, weil
+   spätere über ein AUSGEBLENDETES Verkehrsmittel laufen, muss das dastehen.
+   Sonst wirkt die Markierung schlicht falsch: Regensburg→Neustrelitz zeigt mit
+   D-Ticket-Sicht 12:45 als letzte, während es bis 17:48 weitergeht — aber eben
+   nur mit ICE. Ohne diesen Hinweis sucht man den Fehler in der App. */
+function updateLastNote(visible) {
+  const el = byId("last-note");
+  el.hidden = true;
+  if (app.searchTime.kind !== "letzte" || !visible.length) return;
+  const depOfIt = it => { const T = transitLegs(it); return T.length ? +new Date(T[0].from.departure) : 0; };
+  const lastVisible = Math.max(...visible.map(depOfIt));
+  const later = app.itins.filter(it => depOfIt(it) > lastVisible);
+  if (!later.length) return;
+  const cats = new Set();
+  for (const it of later) {
+    for (const l of transitLegs(it)) {
+      const c = productClass(l.mode);
+      if (app.hiddenCats.has(c)) cats.add(CAT_LABEL[c]);
+    }
+  }
+  if (!cats.size) return;
+  const names = [...cats].join(" und ");
+  el.innerHTML = `ℹ️ Später fährt noch etwas, aber nur mit <strong>${escapeHtml(names)}</strong> – ` +
+    `in der Legende unten wieder einblenden.`;
+  el.hidden = false;
+}
+
 /* --- „Letzte anständige Verbindung“ ---
    Welche Verbindungen überhaupt die letzten sind, beantwortet die
    Ankunftssuche bis Betriebsschluss (siehe fetchPage) — hier wird daraus nur
@@ -946,6 +973,7 @@ function renderResults() {
     if (graph) byId("timeline").innerHTML = msg; else resultsList.innerHTML = msg;
     return;
   }
+  updateLastNote(visible);
   if (graph) {
     const focus = app.searchTime.kind === "letzte" ? (findLastDecent(visible) || "end") : "start";
     renderTimeline(visible, focus);

@@ -266,6 +266,13 @@ Was ansteht, steht in `TODO.md`.
   geladene, während der Blick auf der letzten liegt — man scrollt seitwärts hin und
   sieht ins Leere. Vertikal immer `tlAlignTopFor`, nie eine eigene Rechnung.
   Die Fokusverbindung steht in der **zweiten** Spalte (eine Spalte Kontext davor).
+  **`tl.lastZoomIdx` muss dabei die LINKESTE Spalte sein, nicht die markierte** —
+  `tlAlign` rechnet den Index aus der Scrollposition; bei Abweichung zoomt es 120 ms
+  später neu und richtet sich an der Kontextspalte aus (Markierung blitzt auf, Ansicht
+  springt weg). Zusätzlich sperrt `tl.autoScrolling` das Einrasten kurz, weil schon das
+  Setzen der Scrollposition ein `scroll`-Ereignis auslöst.
+- **Die Markierung hängt an `tl.focusKey`, nicht am Fokus-Zweig.** Sie wird nach JEDEM
+  Aufbau gesetzt; sonst ist sie beim ersten Nachladen weg (dann gilt `keepScroll`).
 - **Kontext-Vorladen gilt in JEDEM Modus** (zwei Verbindungen davor), nicht nur bei
   „Jetzt“ — sonst klebt das Ziel bei „Letzte“ am linken Rand.
 
