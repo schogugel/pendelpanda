@@ -116,14 +116,10 @@ Was ansteht, steht in `TODO.md`.
 ## Dateien
 
 - `TODO.md` — offene Punkte (Erledigtes wird gelöscht, nicht abgehakt)
-- **Haftungshinweise: BEWUSST kein Baukasten-Disclaimer.** Im Impressum-Dialog stehen
-  vier sachliche Aussagen — was das Angebot ist, woher die Daten kommen und was verbindlich
-  ist, wofür nach dem Gesetz gehaftet wird, und wofür uneingeschränkt. Keine Klausel
-  versucht, Haftung wegzuschreiben: Einseitig geht das ohnehin nicht, und pauschale
-  Formeln („keine Gewähr für Richtigkeit“) sind abmahnbar. Für die unentgeltliche
-  Überlassung gibt § 521 BGB die Beschränkung auf Vorsatz und grobe Fahrlässigkeit von
-  selbst — **AGB würden sie ZERSTÖREN**, weil § 309 Nr. 7 BGB in vorformulierten
-  Bedingungen strengere Maßstäbe anlegt. Ausführlich samt Quellen in `Notizen/haftung.md`.
+- **Haftungstext: NICHT eingebaut, bewusst.** Ein Versuch in v1.46.0 wurde auf Wunsch
+  wieder entfernt. Die Recherche dazu (AGB, Disclaimer, § 521 BGB, EU-Produkthaftung ab
+  09.12.2026) steht in `Notizen/haftung.md`; wer hier etwas ergänzt, liest sie vorher.
+  Ohne Text gilt ohnehin § 521 BGB — Haftung nur für Vorsatz und grobe Fahrlässigkeit.
 - **Impressum:** `IMPRESSUM` in app.js. Solange `name` leer ist, bleibt der Eintrag in
   den Einstellungen VERBORGEN — ein unvollständiges Impressum ist schlechter als keines,
   weil es eine Pflichtangabe vortäuscht, die es nicht erfüllt. Nie mit Platzhaltern füllen.
