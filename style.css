@@ -307,12 +307,6 @@ body[data-view="results"][data-mode="graph"] #timeline {
   margin: .2rem 0 .6rem;
   position: relative; overflow: hidden;
 }
-/* Akzentkante oben: färbt die Karte als „das hier ist deine Strecke“ ein,
-   ohne Fläche zu kosten. */
-.rhead::before {
-  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
-  background: var(--accent);
-}
 .rhead-side {
   display: flex; flex-direction: column; gap: .05rem;
   min-width: 0; padding: .1rem 0; margin: 0;
@@ -351,6 +345,709 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .backbtn, .iconbtn {
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   border-radius: 10px; min-width: 42px; height: 42px; font-size: 1.15rem; cursor: pointer;
+}
+
+/* ---------- Stationssuche ---------- */
+.labelrow { display: block; font-size: .9rem; color: var(--muted); margin-bottom: .7rem; }
+.labelrow input {
+  display: block; width: 100%; margin-top: .3rem;
+  font: inherit; font-size: 1rem; padding: .6rem .8rem;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text);
+}
+.labelrow input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+/* Bearbeiten: gewählter Bahnhof prominent */
+.edit-station { font-size: 1.25rem; font-weight: 700; margin: .2rem 0 .9rem; }
+#stationinput {
+  width: 100%; font: inherit; font-size: 1.05rem;
+  padding: .8rem .9rem; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+}
+#stationinput:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.suggestions { margin-top: .6rem; display: flex; flex-direction: column; gap: .4rem; }
+.suggestion {
+  text-align: left; border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+  border-radius: 12px; padding: .7rem .9rem; font: inherit; cursor: pointer;
+}
+.suggestion small { display: block; color: var(--muted); margin-top: .15rem; }
+.dangerbtn {
+  margin-top: 1.2rem; width: 100%; padding: .7rem; font: inherit;
+  border-radius: 12px; border: 1.5px solid var(--bad); color: var(--bad); background: none; cursor: pointer;
+}
+
+/* ---------- Zeit-Chips ---------- */
+.timechips { display: flex; gap: .5rem; margin-bottom: .7rem; align-items: center; flex: none; }
+.chip {
+  border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+  border-radius: 8px; padding: .42rem .9rem; font: inherit; font-size: .9rem; cursor: pointer;
+  font-weight: 600;
+}
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .chip.active { color: var(--bg); } }
+.chip-right { margin-left: auto; }
+/* Die drei Zeitknöpfe sind EINE Auswahl, keine drei Einzelknöpfe — deshalb ein
+   zusammenhängender Block mit Trennstrichen statt drei Rahmen nebeneinander.
+   Der Ansichts-Knopf rechts steht bewusst getrennt: Er wählt keinen Zeitpunkt. */
+.timeseg {
+  display: flex; min-width: 0;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); overflow: hidden;
+}
+.timeseg .chip { border: none; border-radius: 0; background: none; }
+/* NACH `.timeseg .chip` stehen, sonst gewinnt bei gleicher Spezifität die
+   spätere Regel und der aktive Knopf wird durchsichtig — weiße Schrift auf
+   weißem Grund, „Jetzt“ war schlicht unsichtbar. */
+.timeseg .chip.active { background: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .timeseg .chip.active { color: var(--bg); } }
+.timeseg .chip + .chip { border-left: 1.5px solid var(--border); }
+.chip-icon { display: grid; place-items: center; padding: .42rem .8rem; }
+.chip svg { width: 19px; height: 19px; display: block; }
+#btn-viewmode { display: grid; place-items: center; padding: .42rem .75rem; }
+
+/* ---------- Ergebnisliste ---------- */
+.results-list { display: flex; flex-direction: column; gap: .7rem; }
+.status { color: var(--muted); padding: 1.2rem 0; text-align: center; }
+.status.error { color: var(--bad); }
+
+.trip {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.trip-main { display: flex; align-items: center; gap: .8rem; padding: .8rem .9rem; cursor: pointer; width: 100%; background: none; border: none; color: inherit; font: inherit; text-align: left; }
+.trip-times { font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
+.trip-times .arr { color: var(--muted); font-weight: 500; }
+.trip-meta { flex: 1; min-width: 0; }
+.trip-lines { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-sub { color: var(--muted); font-size: .85rem; margin-top: .15rem; }
+.delay { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.delay.ok { color: var(--ok); }
+.delay.warn { color: var(--warn); }
+.delay.bad { color: var(--bad); }
+.cancelled-label { color: var(--bad); font-weight: 700; }
+.trip.cancelled .trip-times { text-decoration: line-through; opacity: .6; }
+
+.trip-details { border-top: 1px solid var(--border); padding: .7rem .9rem; display: flex; flex-direction: column; gap: .55rem; }
+.leg { display: grid; grid-template-columns: auto 1fr; gap: .15rem .6rem; font-size: .92rem; }
+.leg-time { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.leg-line { font-weight: 600; }
+.leg-detail { color: var(--muted); grid-column: 2; }
+.leg .old-time { text-decoration: line-through; color: var(--muted); font-weight: 400; margin-right: .3em; }
+/* Zeitfarben nach Datenlage: grau = nur Sollfahrplan, grün = Echtzeit
+   bestätigt und pünktlich, rot = Echtzeit mit Verspätung */
+.t-plan { color: var(--muted); }
+.jrn .old-time { text-decoration: line-through; color: var(--muted); font-weight: 400; font-size: .92em; }
+.t-real.ok { color: var(--ok); }
+.t-real.bad { color: var(--bad); }
+.track-changed { color: var(--bad); font-weight: 700; }
+.walkleg { color: var(--muted); font-size: .85rem; }
+
+.dblink {
+  display: block; text-align: center; margin-top: .3rem;
+  padding: .6rem; border-radius: 10px; text-decoration: none; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent);
+}
+
+.widebtn {
+  margin-top: .9rem; width: 100%; padding: .8rem; font: inherit; font-weight: 600;
+  border-radius: 12px; border: 1.5px solid var(--border); background: var(--card); color: var(--accent); cursor: pointer;
+}
+
+/* Schwebende Knöpfe am unteren Rand von Dialogen. Auf einem Telefon liegt die
+   Daumenzone unten, und in einem langen Dialog (Einstellungen, Halteliste,
+   Datenschutz) müsste man sonst erst ans Ende scrollen, nur um zu schließen.
+
+   BEWUSST ohne Balken dahinter: Eine deckende Leiste verdeckt ein Stück Inhalt
+   dauerhaft. Ohne sie scrollt der Text sichtbar zwischen und hinter den Knöpfen
+   durch, und man sieht mehr von der Seite. Die Knöpfe selbst sind deckend und
+   werfen einen Schatten — sonst wären sie über Text nicht mehr zu lesen.
+
+   `pointer-events` an der Leiste AUS und an den Knöpfen wieder AN: Sonst fängt
+   der durchsichtige Streifen zwischen ihnen jede Wischgeste ab, und der Dialog
+   ließe sich am unteren Rand nicht mehr scrollen.
+
+   Zusätzlicher Fußraum ist NICHT nötig: Die Leiste steht im Fluss ganz am Ende.
+   Ganz nach unten gescrollt sitzt sie an ihrer natürlichen Stelle und verdeckt
+   nichts — verdeckt wird nur unterwegs, und dorthin scrollt man ohnehin weiter. */
+dialog:has(.dlgfoot) { padding-bottom: 0; }
+.dlgfoot {
+  position: sticky; bottom: 0; z-index: 3;
+  margin: 1rem 0 0; padding: .35rem 0 1.1rem;
+  pointer-events: none;
+  display: grid; grid-template-columns: 1fr 3fr; gap: .55rem;
+  align-items: stretch;
+}
+.dlgfoot > * { pointer-events: auto; }
+/* Der Zurück-Knopf ist DIREKT eine Rasterzelle, ohne <form>-Hülle: In der Hülle
+   saß er gemessen 16 px tiefer als der DB-Knopf daneben und ragte unten aus der
+   Zeile heraus. Geschlossen wird stattdessen per Klick-Handler. */
+.dlgfoot form { display: flex; }
+/* Einzelner Knopf (Einstellungen, Hilfe, Rechtliches) nimmt die ganze Breite */
+.dlgfoot form:only-child { grid-column: 1 / -1; }
+.dlgfoot .widebtn { margin-top: 0; width: 100%; height: 100%; box-shadow: var(--shadow); }
+/* Beide Knöpfe füllen die Zeilenhöhe — vorher war der Zurück-Knopf niedriger als
+   der DB-Knopf, weil jeder seine eigene Polsterung mitbrachte. */
+.footbtn {
+  display: grid; place-items: center;
+  padding: .6rem .5rem; font: inherit; font-size: 1.05rem; font-weight: 700;
+  cursor: pointer; border-radius: 10px; border: 1.5px solid var(--border);
+  background: var(--card); color: var(--text);
+  box-shadow: var(--shadow);
+}
+.footbtn:active { opacity: .6; }
+.dlgfoot .dblink {
+  display: grid; place-items: center;
+  margin: 0; box-shadow: var(--shadow);
+}
+
+/* ---------- Grid-Werkzeuge / Bearbeiten-Modus ---------- */
+.gridtools { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.gridtools .hint { margin: .2rem 0 .8rem; }
+.gridtools .linklike {
+  white-space: nowrap; text-decoration: none; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em; font-size: .78rem;
+}
+.buttongrid.editing .stationbtn { border-style: dashed; border-color: var(--accent); }
+.stationbtn { position: relative; }
+.buttongrid.editing .stationbtn:not(.empty)::after {
+  content: "✎";
+  position: absolute; top: .3rem; right: .5rem;
+  font-size: .8rem; color: var(--accent);
+}
+
+/* ---------- Grafische Fahrplan-Ansicht ---------- */
+.timeline-wrap { position: relative; }
+.timeline {
+  height: min(calc(74svh - env(safe-area-inset-top)), 640px);
+  overflow: auto;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  overscroll-behavior: contain;
+  /* freies Panning per Pointer-Events (diagonal ohne Achsensperre) */
+  touch-action: none;
+}
+.timeline .status { padding: 2rem 1rem; }
+.tl-canvas { position: relative; }
+.tl-gridlines { position: absolute; top: 0; left: 0; pointer-events: none; }
+.tl-hline {
+  position: absolute; left: 0; width: 100%; height: 1px;
+  background: var(--tl-line);
+}
+.tl-hline.strong { background: var(--tl-line-strong); }
+.tl-axis {
+  position: sticky; left: 0; width: 50px; z-index: 3;
+  /* Fast durchgehend deckend: Der weiche Rand war 14 px breit, und genau darunter
+     schimmerte die Kante der vorherigen Spalte durch. Ein kurzer Verlauf am
+     äußersten Rand genügt, damit durchlaufende Balken nicht hart abreißen. */
+  background: linear-gradient(to right, var(--card) 94%, transparent);
+  pointer-events: none;
+}
+/* Datumskachel in der Ecke oben links. Sie sitzt IN der Zeitachse (die klebt
+   waagerecht) und klebt selbst senkrecht — zusammen ergibt das eine Kachel, die
+   in der Ecke stehen bleibt, egal wohin man scrollt. `pointer-events` bleibt
+   aus, sie ist reine Auskunft. Höhe und Rand halten sich an die Kopf-Kacheln
+   daneben, damit die Reihe oben eine Linie bildet. */
+/* Der deckende Rahmen ist nötig, nicht nur Zierde: Ohne ihn lugt die Zeitmarke,
+   die zufällig ganz oben liegt, über der Kachel hervor und reiht sich in die
+   Skala ein — als stünde das Datum zwischen zwei Uhrzeiten. Der Rahmen klebt
+   ganz oben, die Kachel darin hält den Abstand der Kopf-Kacheln daneben. */
+.tl-datewrap {
+  position: sticky; top: 0; z-index: 4;
+  padding: 6px 3px 9px; background: var(--card);
+}
+.tl-date {
+  width: 44px;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: .3rem 0 .32rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--card); box-shadow: var(--shadow);
+  line-height: 1.15;
+}
+.tl-date b {
+  font-size: .64rem; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tl-date span { font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+#timeline.narrow .tl-date b { font-size: .58rem; }
+#timeline.narrow .tl-date span { font-size: .72rem; }
+.tl-tick {
+  position: absolute; left: 6px; transform: translateY(-50%);
+  font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  background: var(--card); padding: 0 3px; border-radius: 4px;
+}
+.tl-now { position: absolute; left: 0; border-top: 2px solid var(--bad); z-index: 2; pointer-events: none; }
+.tl-now span {
+  position: absolute; left: 54px; top: -9px;
+  font-size: .65rem; font-weight: 700; color: #fff; background: var(--bad);
+  padding: 1px 6px; border-radius: 999px;
+}
+.tl-col { position: absolute; top: 0; height: 100%; }
+.tl-head {
+  position: sticky; top: 6px; z-index: 2;
+  display: flex; flex-direction: column; gap: .05rem; align-items: flex-start;
+  width: 100%; padding: .3rem .45rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); font: inherit; font-size: .8rem;
+  box-shadow: var(--shadow); cursor: pointer; text-align: left;
+}
+/* Mitternachtsmarke zwischen zwei Kacheln. Sie sitzt in der Lücke links neben
+   der ersten Kachel des neuen Tages und ist genau so hoch wie diese — dadurch
+   sieht man den Tagessprung, ohne die Datumskachel links im Auge behalten zu
+   müssen. `--text` statt reinem Weiß: im dunklen Design ist das nahezu weiß,
+   im hellen wäre ein weißer Strich auf weißem Grund unsichtbar. */
+.tl-head.daybreak::before {
+  content: ""; position: absolute; left: -6px; top: 0; bottom: 0;
+  width: 2px; border-radius: 1px; background: var(--text);
+}
+.tl-hl { display: flex; align-items: baseline; gap: .3rem; flex-wrap: wrap; }
+.tl-head strong { font-size: .95rem; }
+.tl-head small { color: var(--muted); font-size: .72rem; line-height: 1.25; }
+.tl-head .delay { font-size: .8rem; }
+.tl-head.cancelled { border-color: var(--bad); }
+/* Viele Spalten nebeneinander: Die Kachel muss schrumpfen, sonst bricht die
+   Uhrzeit um und die Kachelhöhen laufen auseinander. „2 Umst.“ weicht dann
+   der Kurzform „2×“ — die Zahl ist die Information, das Wort ist Beiwerk. */
+.u-short { display: none; }
+#timeline.narrow .tl-head { padding: .22rem .3rem; font-size: .7rem; }
+#timeline.narrow .tl-head strong { font-size: .8rem; }
+#timeline.narrow .tl-head small { font-size: .64rem; }
+#timeline.narrow .tl-head .delay { font-size: .68rem; }
+#timeline.narrow .tl-hl { gap: .18rem; }
+#timeline.narrow .u-long { display: none; }
+#timeline.narrow .u-short { display: inline; }
+#timeline.narrow .tl-arr, #timeline.narrow .tl-dep { font-size: .64rem; }
+#timeline.narrow .tl-seg { font-size: .66rem; }
+#timeline.narrow .risk .mi { width: .95em; height: .95em; }
+/* 7 Spalten auf einem Telefon: rund 36 px je Spalte. Alles bleibt stehen,
+   nur kleiner — Information wegzulassen wäre der schlechtere Tausch, und die
+   Kachelhöhen bleiben gleich, weil tlHeadClear() ohnehin die höchste misst. */
+#timeline.tiny .tl-head { padding: .18rem .22rem; font-size: .62rem; }
+#timeline.tiny .tl-head strong { font-size: .7rem; }
+#timeline.tiny .tl-head small { font-size: .58rem; }
+#timeline.tiny .tl-head .delay { font-size: .58rem; }
+#timeline.tiny .tl-arr, #timeline.tiny .tl-dep { font-size: .58rem; }
+#timeline.tiny .tl-seg { font-size: .58rem; padding: 0 1px; }
+#timeline.tiny .tl-bar { left: 4px; width: calc(100% - 8px); }
+.tl-bar {
+  position: absolute; left: 8px; width: calc(100% - 16px);
+  border: none; padding: 0; cursor: pointer; border-radius: 8px;
+  /* Dünne Verbindungslinie hinter den Segmenten (Umstiegs-Lücken). Eigener
+     Farbwert statt `--border`: Der ist auf ruhige Trennlinien ausgelegt und kam
+     hier auf 1,4:1 gegen den Kartengrund — sichtbar nur, wenn man weiß, wo man
+     hinsehen muss. Die Linie trägt aber Bedeutung (hier wird gewartet), also
+     gehört sie deutlich sichtbar: rund 11:1 im dunklen, 5,4:1 im hellen Design. */
+  background: linear-gradient(to right,
+    transparent calc(50% - 1px), var(--tl-link) calc(50% - 1px),
+    var(--tl-link) calc(50% + 1px), transparent calc(50% + 1px));
+}
+.tl-seg {
+  position: absolute; left: 0; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; overflow: hidden;
+  font-size: .72rem; font-weight: 700; line-height: 1.15;
+  text-align: center; padding: 0 2px;
+  overflow-wrap: normal; /* Zuglabels brechen am Leerzeichen um */
+  box-shadow: 0 0 0 2px var(--card); /* 2px Flächen-Abstand zwischen Segmenten */
+}
+.tl-seg.nolabel { font-size: 0; }
+/* Ausgefallenes Teilstück: schwarz-rot schräg gestreift, Kategorie-Farbe egal */
+.tl-seg.seg-cancelled {
+  background: repeating-linear-gradient(135deg, #161616 0 7px, #b02525 7px 14px);
+}
+.seg-cancelled .seg-label {
+  background: #111; color: #fff;
+  padding: 0 5px; border-radius: 4px; line-height: 1.35;
+}
+.tl-seg.nolabel .seg-label { display: none; }
+/* Schriftfarbe je Kategorie ausgerechnet, nicht geschätzt: Jede Paarung
+   erreicht mindestens 4,5:1 (WCAG AA). Dunkel auf hell, hell auf dunkel. */
+.seg-fern    { background: var(--seg-fern);    color: #131313; }
+.seg-regio   { background: var(--seg-regio);   color: #fff; }
+.seg-sbahn   { background: var(--seg-sbahn);   color: #fff; }
+.seg-ubahn   { background: var(--seg-ubahn);   color: #fff; }
+.seg-tram    { background: var(--seg-tram);    color: #131313; }
+.seg-bus     { background: var(--seg-bus);     color: #fff; }
+.seg-sonstige { background: var(--seg-sonstige); color: #fff; }
+.seg-fernbus { background: var(--seg-fernbus); color: #131313; }
+/* Schienenersatzverkehr: Kategoriefarbe bleibt (es IST ein Bus), zusätzlich
+   gelbe Schrägstreifen als Warnmuster — analog zu Ausfällen, nur in Gelb */
+.tl-seg.seg-sev {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(0,0,0,0) 0 8px, rgba(240,166,58,.92) 8px 16px);
+}
+/* Bewusst OHNE text-shadow: Ein weißer Schein um die schwarze Schrift ließ
+   „RB23“ ausgewaschen und grau aussehen, während dieselbe Linie ohne
+   Ersatzverkehr sauber schwarz stand. Die Streifen sind das Warnsignal, die
+   Beschriftung soll sich wie überall lesen. */
+.tl-seg.seg-sev { color: #131313; }
+.tl-arr, .tl-dep {
+  position: absolute; left: 0; width: 100%;
+  text-align: center; font-size: .72rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; pointer-events: none;
+}
+/* Die Abfahrtszeit wird an ihrer UNTERkante ausgerichtet: Der Versatz um die
+   eigene Höhe hält den Abstand zum Balken gleich, egal wie groß die Schrift in
+   der jeweiligen Spaltenbreite gerade ist. */
+.tl-dep { transform: translateY(-100%); }
+/* Verspätete Zeiten am Balken rot. Die Kopf-Kachel zeigt die SOLL-Abfahrt plus
+   Abzeichen, hier steht die Prognose ausgeschrieben — die Farbe sagt, dass es
+   nicht die geplante Zeit ist. Grün für „bestätigt pünktlich“ gibt es hier
+   bewusst nicht: Diese Zeiten sollen zurückhaltend bleiben, und die Datenlage
+   steht ohnehin im Abzeichen darüber. */
+.tl-arr.late, .tl-dep.late { color: var(--bad); font-weight: 600; }
+
+/* Verspätungsstück: die Zeit zwischen Soll-Abfahrt und Prognose — man steht am
+   Bahnsteig, es fährt noch nichts. Der Balken beginnt dadurch wieder dort, wo
+   die Kopf-Kachel es sagt.
+
+   Bewusst NICHT die Ausfall-Streifen: Schwarz-Rot heißt in dieser Grafik
+   „fällt aus“, Gelb-Schräg heißt „Ersatzverkehr“. Ein drittes Muster darf
+   keinem der beiden ähneln, sonst sehen zwei verschiedene Aussagen gleich aus.
+   Deshalb feine Rot-Schraffur auf durchscheinendem Grund: leichter als der
+   Ausfall, aber unmissverständlich „hier fährt noch nichts“. */
+/* Deckender Grund UNTER der Schraffur: Der Balken zeichnet eine senkrechte
+   Wartelinie über seine ganze Höhe (`--tl-link`, siehe .tl-bar). Die gehört zu
+   den Umstiegs-Lücken und schien vorher mitten durch das Verspätungsstück —
+   dort bedeutet sie nichts und sah aus wie ein Zeichenfehler. */
+.tl-seg.seg-late {
+  background:
+    repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--bad) 26%, transparent) 0 4px,
+      color-mix(in srgb, var(--bad) 6%, transparent) 4px 9px),
+    var(--card);
+  border: 1px solid color-mix(in srgb, var(--bad) 55%, transparent);
+  border-bottom: 2px solid var(--bad);
+  border-radius: 3px 3px 0 0;
+  box-sizing: border-box;
+}
+/* Die untere Kante ist die eigentliche Abfahrt — der Übergang vom Warten zur
+   Fahrt. Sie trägt deshalb die volle Farbe und die Uhrzeit direkt daneben. */
+/* Mittig über dem Übergang, wie die Zeiten an den Balkenenden. Nicht über
+   `width: 100%` + `text-align: center` wie jene — dieses Label hat einen
+   deckenden Hintergrund, der sonst die ganze Spaltenbreite überzöge. Also das
+   Element selbst auf die Mitte setzen und um seine halbe Breite zurückziehen;
+   der Kasten bleibt so eng am Text. Der Balken sitzt symmetrisch in der Spalte
+   (`left: 8px`, `width: calc(100% - 16px)`), Spaltenmitte ist also Balkenmitte. */
+.tl-real {
+  position: absolute; left: 50%;
+  transform: translate(-50%, -100%);
+  font-size: .68rem; font-weight: 700; color: var(--bad);
+  font-variant-numeric: tabular-nums; pointer-events: none;
+  background: var(--card); padding: 0 3px; border-radius: 3px;
+  line-height: 1.25;
+}
+#timeline.narrow .tl-real { font-size: .6rem; }
+#timeline.tiny .tl-real { display: none; }
+/* Suchanzeige: Während gesucht wird, sind Liste UND Grafik ausgeblendet — es
+   soll lieber kurz nichts zu sehen sein als eine veraltete Verbindung. Der
+   Balken läuft ohne Prozentangabe: Wie lange es dauert, hängt an drei Anfragen
+   an einen fremden Dienst; eine ausgedachte Zahl wäre gelogen. Der TEXT nennt
+   dafür den Schritt, der gerade läuft. */
+.searching { margin: 1.4rem 0; }
+/* Der Suchbalken ist in FELDER geteilt — eines je Schritt. Erledigte sind
+   gefüllt, im laufenden wandert ein Licht, kommende bleiben blass. Das ist die
+   ehrliche Auskunft: Wie lange ein Schritt dauert, hängt an einem fremden
+   Dienst und lässt sich nicht vorhersagen; WIE VIELE Schritte es sind, schon. */
+.searchbar { display: flex; gap: 3px; height: 5px; }
+.searchbar i {
+  flex: 1; border-radius: 999px; overflow: hidden; position: relative;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.searchbar i.done { background: var(--accent); }
+.searchbar i.run::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 45%;
+  border-radius: 999px; background: var(--accent);
+  animation: searchslide 1.15s ease-in-out infinite;
+}
+@keyframes searchslide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .searchbar i.run::after { animation-duration: 2.4s; }
+}
+.searching .status { text-align: center; margin-top: .7rem; }
+
+/* Die Suchanzeige nimmt in der Grafikansicht GENAU den Platz der Grafik ein.
+   Vorher klappte sie auf ihre Inhaltshöhe zusammen, die Legende sprang nach
+   oben und beim Fertigwerden wieder zurück. Jetzt bewegt sich nichts: gleiches
+   Feld, Inhalt darin mittig. */
+body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
+  flex: 1 1 auto; min-height: 0; margin: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  overflow: hidden;
+}
+.searchbox { width: 100%; max-width: 22rem; margin: 0 auto; }
+/* Aufklapper mit den Antwortzeiten. Bei einer zügigen Suche schaut da niemand
+   hinein; wartet man länger, will man wissen, ob überhaupt etwas passiert. */
+.searchlog { margin-top: .9rem; font-size: .78rem; }
+.searchlog summary {
+  cursor: pointer; color: var(--muted); text-align: center;
+  list-style: none; padding: .25rem 0;
+}
+.searchlog summary::-webkit-details-marker { display: none; }
+.searchlog summary::after { content: " ▾"; }
+.searchlog[open] summary::after { content: " ▴"; }
+.searchlog > div {
+  margin-top: .4rem; padding: .5rem .6rem;
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
+  max-height: 12rem; overflow-y: auto; overscroll-behavior: contain;
+}
+.logline {
+  display: flex; justify-content: space-between; gap: .8rem;
+  padding: .12rem 0; line-height: 1.45;
+}
+.logline.sum { border-top: 1px solid var(--border); margin-top: .3rem; padding-top: .3rem; font-weight: 700; }
+.logline.muted { color: var(--muted); display: block; }
+.logval { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.logval.slow { color: var(--warn); font-weight: 700; }
+
+/* Nachlade-Spinner am Rand (nur noch Fallback bei sehr schnellem Wischen) */
+.tl-edgeload {
+  position: absolute; top: 50%; left: 10px; transform: translateY(-50%);
+  background: var(--card); border: 1.5px solid var(--border);
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5; box-shadow: var(--shadow);
+}
+.tl-edgeload-r { left: auto; right: 10px; }
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid var(--accent-soft); border-top-color: var(--accent);
+  animation: pp-spin .7s linear infinite;
+}
+@keyframes pp-spin { to { transform: rotate(360deg); } }
+/* Die gesuchte letzte Verbindung: gestrichelt umrandet, Kachel wie Balken.
+   Gestrichelt statt farbig gefüllt, damit die Kategoriefarben der Segmente
+   unangetastet bleiben — die Markierung sagt „diese meintest du“, sie ist
+   keine weitere Eigenschaft der Fahrt. */
+.tl-head.tl-focus { border-color: var(--accent); box-shadow: 0 0 0 2.5px var(--accent-soft), var(--shadow); }
+.tl-head.tl-focus, .tl-bar.tl-focus {
+  outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 4px;
+}
+.warn-label { color: var(--warn); font-weight: 700; }
+.warn-tri { color: var(--warn); font-weight: 700; }
+/* Drei Risikoklassen, drei Symbole, drei Farben. Der Unterschied muss ohne
+   Lesen erkennbar sein: Rot heißt „das schaffst du nicht“, Orange „ohne
+   Reserve“, Gelb „es gibt eine Meldung“ — das sind drei verschiedene
+   Entscheidungen für den Fahrgast, kein abgestufter Alarm. */
+.risk { display: inline-flex; align-items: center; vertical-align: -.18em; }
+.risk .mi { width: 1.1em; height: 1.1em; }
+.risk-broken { color: var(--bad); }
+.risk-tight { color: var(--warn); }
+.risk-notice { color: var(--accent); }
+/* Linien-Chip in Verkehrsmittel-Farbe (Detailansicht) */
+.linechip { display: inline-block; padding: 0 .4em; border-radius: 5px; font-weight: 700; }
+.linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
+/* Ersatzverkehr in der Detailansicht */
+.linechip.chip-sev {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(0,0,0,0) 0 6px, rgba(240,166,58,.92) 6px 12px);
+  color: #131313;
+}
+.sev-badge {
+  background: var(--warn); color: #131313; font-size: .7rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: .1rem .4rem; border-radius: 4px; white-space: nowrap;
+}
+.sev-hint { font-size: .82rem; color: var(--warn); margin: .1rem 0 .1rem; }
+/* Karten-Link an Halten */
+.mappin { text-decoration: none; font-size: .9em; opacity: .75; }
+.mappin:hover { opacity: 1; }
+/* Aufklappbare Umstiegs-Meldung */
+.walkmeld { font-size: .85rem; color: var(--muted); }
+.walkmeld summary { cursor: pointer; }
+.walkmeld p { margin: .3rem 0 0 1.15rem; }
+.walkmeld .finequote { margin-top: .4rem; }
+/* Verbindungs-Detailansicht: durchgehende Linie, Zeitspalte links.
+   Reihenfolge wie bei der Bahn: Halt zuerst, darunter die Fahrt dorthin. */
+/* --rail = x-Position der Linie. ALLE Punkte werden absolut daran gehängt,
+   statt sich auf Rasterspalten zu verlassen — dadurch sitzen sie unabhängig
+   von Verschachtelung, Schriftgröße und Zeilenart immer exakt auf der Linie. */
+.jrn { position: relative; font-size: .92rem; --rail: calc(3.6rem + .55rem + 5px); }
+.jrn-line, .jrn-progress {
+  position: absolute; left: calc(var(--rail) - 1px); width: 2px; border-radius: 1px;
+}
+.jrn-line { background: var(--border); }
+.jrn-progress { background: var(--accent); z-index: 1; }
+.jrn-progress::after {
+  content: ""; position: absolute; bottom: -5px; left: -4px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px var(--card);
+}
+/* gemeinsames Raster: Zeit | Punkt | Inhalt */
+.jrn-stop, .jrn-seg, .jrn-transfer, .jrn-sub, .jrn-more, .jrn-facts, .jrn-warn {
+  display: grid; grid-template-columns: 3.6rem 10px 1fr; align-items: start; gap: .55rem;
+}
+.jrn-stop { padding: .25rem 0; align-items: center; }
+.jrn-time, .jrn-dur {
+  display: flex; flex-direction: column; align-items: flex-end; text-align: right;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.jrn-time { font-weight: 700; }
+.jrn-dur { color: var(--muted); font-size: .8rem; padding-top: .15rem; }
+.jrn-dot {
+  justify-self: center; margin-top: .1rem;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--card); border: 2.5px solid var(--text); z-index: 2;
+}
+/* justify-self: center hält JEDE Punktgröße mittig in der 10px-Spalte —
+   damit liegen große und kleine Punkte auf derselben Achse wie die Linie. */
+.jrn-sub .jrn-dot { width: 8px; height: 8px; border-width: 2px; border-color: var(--muted); }
+.jrn-stop.passed .jrn-dot, .jrn-sub.passed .jrn-dot { border-color: var(--accent); background: var(--accent); }
+.jrn-stop.passed .jrn-name, .jrn-stop.passed .jrn-time,
+.jrn-sub.passed .jrn-name, .jrn-sub.passed .jrn-time { opacity: .55; }
+/* Vorbei und pünktlich → doch grau. Grün ist eine Zusage für das, was noch
+   kommt („bestätigt, das klappt“). Liegt der Halt hinter uns, ist die Zusage
+   verbraucht und nur noch Chronik. Eine Verspätung bleibt auch rückblickend
+   rot — sie erklärt, warum man dort ist, wo man ist. */
+.jrn-stop.passed .t-real.ok, .jrn-sub.passed .t-real.ok { color: var(--muted); }
+.jrn-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.jrn-sub .jrn-name { font-weight: 400; }
+.jrn-track { white-space: nowrap; }
+/* Fahrt-Abschnitt */
+.jrn-seg { padding: .1rem 0 .45rem; }
+.jrn-seg .jrn-body { grid-column: 3; min-width: 0; }
+.jrn-dir { color: var(--muted); font-size: .85rem; margin-top: .2rem; }
+.linechip {
+  display: inline-flex; align-items: center; gap: .45em; width: fit-content; max-width: 100%;
+  padding: .18em .55em; border-radius: 5px; font-weight: 700;
+}
+.linechip .lc-icon { display: flex; }
+.linechip .lc-name { border-left: 1.5px solid currentColor; padding-left: .5em; opacity: 1; }
+.linechip .lc-name { border-left-color: color-mix(in srgb, currentColor 45%, transparent); }
+.mi { width: 1.25em; height: 1.25em; display: block; }
+/* Fußgänger-Symbol in Umstiegs- und Fußwegzeilen */
+.wi { display: inline-flex; vertical-align: -.22em; margin-right: .35em; }
+.wi .mi { width: 1.1em; height: 1.1em; }
+.linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
+/* Umstieg / Fußweg */
+.jrn-transfer { padding: .3rem 0; color: var(--muted); font-size: .85rem; }
+.jrn-transfer .jrn-body { grid-column: 3; }
+.jrn-transfer.edge .jrn-body { color: var(--text); }
+/* Zwischenhalte, Umschalter und Zusatzinfos sind DIREKTE Zeilen im selben
+   Raster — dadurch sitzen ihre Punkte zwangsläufig auf der Linie. */
+.jrn-sub { padding: .12rem 0; font-size: .84rem; color: var(--muted); }
+.jrn-sub .jrn-time { font-weight: 400; }
+.jrn-more { padding: .1rem 0 .2rem; }
+.jrn-toggle {
+  justify-self: start; display: inline-flex; align-items: center; gap: .3rem;
+  border: none; background: none; padding: .1rem 0; cursor: pointer;
+  font: inherit; font-size: .84rem; color: var(--accent);
+}
+.jrn-toggle .caret { transition: transform .18s ease; display: inline-block; }
+.jrn-toggle[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.jrn-facts { font-size: .84rem; color: var(--muted); padding-bottom: .2rem; }
+/* Hinweiszeile: gelb angerissen, damit sie beim Aufklappen sofort als Warnung
+   und nicht als weitere Fahrtinfo gelesen wird. */
+.jrn-warn { font-size: .84rem; padding-bottom: .25rem; }
+.jrn-warn ul { grid-column: 3; margin: 0; padding: 0 0 0 .7rem; list-style: none; border-left: 2px solid var(--accent); }
+.jrn-warn.risk-broken ul { border-left-color: var(--bad); }
+.jrn-warn.risk-tight ul { border-left-color: var(--warn); }
+.jrn-warn li { color: var(--text); padding: .12rem 0 .12rem .45rem; overflow-wrap: anywhere; }
+/* Der Fließtext der Verkehrsbetriebe bringt eigene Zeilenumbrüche und
+   Aufzählungen mit — die müssen erhalten bleiben, sonst wird eine Liste
+   von Ersatzfahrten zu einer unlesbaren Textwurst. */
+.jrn-warn .alert-body { display: block; margin-top: .15rem; color: var(--muted); white-space: pre-line; }
+.jrn-toggle .risk { margin-left: .15rem; }
+.jrn-transfer.risk-broken .jrn-body, .jrn-transfer.risk-tight .jrn-body { color: var(--text); }
+.stop-cancelled { color: var(--bad); text-decoration: line-through; }
+
+/* Feste Legende mit drei Zuständen:
+   on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·
+   nodata = alles ausgegraut + durchgestrichen (keine solchen Verbindungen) */
+.tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
+.tl-key {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: none; background: none; color: var(--text);
+  font: inherit; font-size: .8rem; padding: .2rem 0; cursor: pointer;
+}
+.tl-key i, .catdot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+.tl-key.off i.dot { background: transparent; border: 1.5px solid var(--muted); }
+.tl-key.nodata { opacity: .38; text-decoration: line-through; cursor: default; }
+.tl-key.nodata i.dot { background: var(--muted); border: none; }
+
+/* ---------- Zeit-Dialog & Einstellungen ---------- */
+.segmented { display: flex; gap: .5rem; margin: .6rem 0; }
+.segmented label {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
+  border: 1.5px solid var(--border); border-radius: 10px; padding: .55rem;
+  font-size: .92rem; cursor: pointer;
+}
+.segmented label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+#time-input {
+  width: 100%; font: inherit; font-size: 1rem; padding: .6rem .7rem; margin: .4rem 0 .8rem;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); color-scheme: light dark;
+}
+.checklist { display: flex; flex-direction: column; gap: .55rem; margin: .7rem 0; }
+.checklist label { display: flex; align-items: center; gap: .55rem; font-size: .95rem; cursor: pointer; }
+.checklist input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
+
+/* ---------- Dialoge: Details & Übertragen ---------- */
+#trip-dialog { width: min(520px, calc(100vw - 2rem)); }
+#trip-dialog .trip-details { border-top: none; padding: .4rem 0 0; }
+
+/* Kopf der Detailansicht: ab · Fahrt · an · Schließen, alles in EINER Zeile.
+   Die drei Angaben teilen sich den Platz gleichmäßig, damit die Zahlen
+   untereinander stehen und nicht wandern, wenn eine Verspätung dazukommt. */
+.triphead {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding-bottom: .55rem; margin-bottom: .25rem;
+  border-bottom: 1.5px solid var(--border);
+}
+/* Raster mit drei Spalten (ab · Fahrt · an) und drei Zeilen (Beschriftung ·
+   Sollzeit · gültige Zeit). Die beiden Wertzeilen haben eine MINDESTHÖHE — sonst
+   fällt bei durchweg pünktlichen Verbindungen eine Zeile auf null zusammen, und
+   die Trennlinie hätte keine definierte Lage mehr. */
+.th-times {
+  flex: 1; min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto;
+  grid-template-rows: auto minmax(1.15em, auto) minmax(1.15em, auto);
+  align-items: center; column-gap: .6rem;
+  font-size: 1rem; font-weight: 400;
+}
+.th-lab {
+  grid-row: 1;
+  font-size: .6rem; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--muted); line-height: 1.5;
+}
+.lab-ab { grid-column: 1; }
+.lab-an { grid-column: 3; text-align: right; }
+
+.th-v { font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap; }
+.th-v.ab  { grid-column: 1; }
+.th-v.mid { grid-column: 2; text-align: center; }
+.th-v.an  { grid-column: 3; text-align: right; }
+.th-v.alt { grid-row: 2; }
+.th-v.neu { grid-row: 3; }
+/* Ohne Verspätung gibt es nur EINE Zahl. Sie spannt beide Wertzeilen und sitzt
+   damit mittig auf der Linie — statt in die untere Zeile zu rutschen und tiefer
+   zu stehen als eine verspätete Zeit daneben. */
+.th-v.solo { grid-row: 2 / 4; align-self: center; }
+.th-times .th-v.neu, .th-times .th-v.solo { font-size: 1.05rem; font-weight: 700; }
+.th-times .th-v.alt.old-time {
+  text-decoration: line-through; color: var(--muted);
+  font-weight: 400; font-size: .78rem;
+}
+.th-times .th-v.mid.alt.t-plan { font-size: .82rem; font-weight: 600; color: var(--muted); }
+.th-times .th-v.mid.neu { font-size: .82rem; }
+
+/* Der Strich verbindet Start und Ziel und endet in einer Pfeilspitze. Er liegt
+   in der MITTLEREN Spalte und spannt beide Wertzeilen: mittig ausgerichtet trifft
+   er damit genau deren Grenze — über ihm die überholten Zahlen, darunter die
+   gültigen. An den Seiten hört er auf, die Zeiten bleiben unangetastet. */
+.th-line {
+  grid-column: 2; grid-row: 2 / 4; align-self: center;
+  height: 1px; background: var(--border);
+  position: relative; pointer-events: none;
+}
+.th-line::after {
+  content: ""; position: absolute; right: -1px; top: 50%;
+  width: 0; height: 0; transform: translateY(-50%);
+  border-left: 5px solid var(--border);
+  border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent;
 }
 
 /* ---------- Stationssuche ---------- */
@@ -1047,15 +1744,6 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
   border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent;
 }
 
-.th-close {
-  flex: none; width: 34px; height: 34px; margin-top: .1rem;
-  display: grid; place-items: center;
-  border: 1.5px solid var(--border); border-radius: 9px;
-  background: var(--bg); color: var(--muted);
-  font-size: .95rem; line-height: 1; cursor: pointer;
-}
-.th-close:hover, .th-close:focus-visible { color: var(--text); border-color: var(--muted); }
-.th-close:active { opacity: .6; }
 .steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: .4rem; font-size: .92rem; margin: .6rem 0; }
 #share-url {
   width: 100%; font-size: .78rem; padding: .55rem .6rem; margin: .4rem 0 .6rem;

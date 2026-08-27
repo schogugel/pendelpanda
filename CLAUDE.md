@@ -397,6 +397,13 @@ Was ansteht, steht in `TODO.md`.
      als stünde das Datum zwischen zwei Uhrzeiten.
   3. **Tagesschlüssel in Europe/Berlin bilden**, nicht über `toDateString()`. Das nähme
      die Zeitzone des Geräts, und für jemanden im Ausland kippte das Datum woanders.
+- **Mitternachtsmarke zwischen den Kacheln** (`.tl-head.daybreak::before`): ein Strich in
+  der Lücke links neben der ersten Kachel eines neuen Tages, genau so hoch wie sie. Er
+  hängt an der KACHEL, nicht an der Spalte — nur so hat er ihre Höhe und klebt beim
+  Scrollen mit ihr oben. Farbe `--text`, nicht reines Weiß: im dunklen Design ist das
+  nahezu weiß, im hellen wäre ein weißer Strich auf weißem Grund unsichtbar.
+  Der Tagesschlüssel-Formatierer steht AUSSERHALB der Funktion — beim Aufbau wird er
+  einmal je Spalte gebraucht, und `Intl.DateTimeFormat` neu zu bauen ist teuer.
 - **Zeitlinien sind einzelne Elemente** (`.tl-hline`), keine gekachelten Verläufe. Eine
   Kachelung mit gebrochener Höhe (60 min × 4,37 px/min = 262,2 px) sammelt über die
   Leinwand Rundungsfehler an: Linien wandern gegenüber der echten Uhrzeit und einzelne

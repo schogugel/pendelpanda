@@ -247,12 +247,10 @@
 
 <!-- VERBINDUNGSDETAILS (Grafikansicht) -->
 <dialog id="trip-dialog">
-  <!-- Der Knopf steht NEBEN der Überschrift, nicht darin: <h2> nimmt nur
-       Phrasing-Inhalt, ein <form> darin wäre ungültiges HTML. -->
+  <!-- Kein ✕ mehr: Geschlossen wird über den Zurück-Knopf in der Fußleiste.
+       Zwei Wege zum selben Ziel sind einer zu viel, und unten ist er erreichbar. -->
   <div class="triphead">
     <h2 class="th-times" id="trip-dialog-title"></h2>
-    <form method="dialog"><button class="th-close" aria-label="Details schließen"
-      title="Schließen">✕</button></form>
   </div>
   <div id="trip-dialog-body" class="trip-details"></div>
   <!-- Fußleiste klebt am unteren Rand: Auf einem Telefon ist die Daumenzone

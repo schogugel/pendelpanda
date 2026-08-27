@@ -650,9 +650,16 @@ function tlBuild(scroller) {
   const dominated = times.map((a, i) => times.some((b, j) =>
     j !== i && b.dep >= a.dep && b.arr <= a.arr && (b.dep > a.dep || b.arr < a.arr)));
 
+  /* Tageswechsel zwischen zwei Spalten: Der Strich gehört an die LINKE Kante
+     der ersten Spalte des neuen Tages, also in die Lücke dazwischen. Verglichen
+     werden die Abfahrten — danach sind die Spalten sortiert. */
   tl.itins.forEach((it, i) => {
     const left = TL.AXIS_W + TL.GAP + i * (tl.colW + TL.GAP);
-    canvas.appendChild(tlColumn(it, left, dominated[i]));
+    const vor = i > 0 ? transitLegs(tl.itins[i - 1]) : null;
+    const jetzt = transitLegs(it);
+    const tagWechsel = !!(vor && vor.length && jetzt.length
+      && tlTagKey(+new Date(vor[0].from.departure)) !== tlTagKey(+new Date(jetzt[0].from.departure)));
+    canvas.appendChild(tlColumn(it, left, dominated[i], tagWechsel));
   });
 
   scroller.innerHTML = "";
@@ -855,9 +862,12 @@ function tlTickStep(ppm = tl.ppm) {
 
 const TL_WOCHENTAG = new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "Europe/Berlin" });
 const TL_TAGMONAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "numeric", timeZone: "Europe/Berlin" });
-// Tagesschlüssel in Berliner Zeit — `toDateString()` würde die Zeitzone des
-// Geräts nehmen, und dann kippte das Datum für jemanden im Ausland woanders.
-const tlTagKey = ms => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date(ms));
+/* Tagesschlüssel in Berliner Zeit — `toDateString()` würde die Zeitzone des
+   Geräts nehmen, und dann kippte das Datum für jemanden im Ausland woanders.
+   Der Formatierer steht AUSSERHALB: Beim Aufbau wird er einmal je Spalte
+   gebraucht, und `Intl.DateTimeFormat` neu zu bauen ist teuer. */
+const TL_TAGKEY = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" });
+const tlTagKey = ms => TL_TAGKEY.format(new Date(ms));
 
 /* Datum in der Ecke oben links, wo sich Zeitachse und Kopf-Kacheln überlagern.
    Dort stand vorher nur ein Stück Skala, das nichts aussagt. Ohne Datum ist bei
@@ -929,7 +939,7 @@ function tlNowLine(canvas, w) {
   canvas.appendChild(line);
 }
 
-function tlColumn(it, left, isDominated = false) {
+function tlColumn(it, left, isDominated = false, tagWechsel = false) {
   const legs = transitLegs(it);
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
   const flagged = cancelledTransitLegs(it);
@@ -960,7 +970,10 @@ function tlColumn(it, left, isDominated = false) {
 
   // Kopf bleibt beim Scrollen sichtbar; Tipp darauf holt den Balken ins Bild
   const head = document.createElement("button");
-  head.className = "tl-head" + (cancelled ? " cancelled" : "");
+  /* Mitternachtsmarke: ein Strich in der Lücke links neben dieser Kachel.
+     Er hängt an der Kachel und nicht an der Spalte, damit er genau ihre Höhe
+     hat und beim Scrollen mit ihr oben kleben bleibt. */
+  head.className = "tl-head" + (cancelled ? " cancelled" : "") + (tagWechsel ? " daybreak" : "");
   /* In der Kopf-Kachel steht die SOLL-Abfahrt, nicht die Prognose. Dort steht
      direkt daneben das Verspätungs-Abzeichen, und „10:15 +5“ liest sich sonst
      wie eine Rechenaufgabe — man addiert im Kopf und landet fünf Minuten zu
