@@ -608,6 +608,21 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - Verspätungs-Abzeichen zeigt IMMER die Zahl (`+0`, `+3`, …), auch ohne Echtzeitdaten.
   Ein Sonderzustand „Plan“ war ausdrücklich unerwünscht — die Datenlage steckt in der
   Textfarbe der Uhrzeit, nicht im Abzeichen.
+- **Kopf-Kachel = SOLLZEIT, Balken = PROGNOSE.** In der Kachel steht das
+  Verspätungs-Abzeichen direkt daneben, und „10:15 +5“ liest sich sonst wie eine
+  Rechenaufgabe — man addiert im Kopf und landet fünf Minuten zu spät. Sollzeit plus
+  Abzeichen ergibt zusammen die Prognose, und die steht ausgeschrieben oben am Balken.
+  **Geändert wird dabei NUR der angezeigte Text**: `dep.departure` bleibt überall sonst
+  maßgeblich — daran hängen Balkenlage (`top`), Zeitachse (`geoCol.ms0`), aria-label und
+  das Einrasten. Wer dort die Variable tauscht statt der Anzeige, verschiebt die halbe
+  Grafik gegen ihre eigene Zeitachse.
+- **Verspätete Zeiten am Balken sind rot** (`.tl-dep.late` / `.tl-arr.late`), je Ende
+  einzeln entschieden: Eine Verbindung, die mit +2 losfährt und pünktlich ankommt, ist
+  oben rot und unten nicht. Grün für „bestätigt pünktlich“ gibt es hier bewusst nicht —
+  die Zeiten am Balken sollen zurückhaltend bleiben, die Datenlage steht im Abzeichen.
+- **Die LISTENANSICHT behält die Ist-Zeit neben dem Abzeichen.** Dort gibt es keinen
+  Balken, der die Prognose trägt; auf die Sollzeit umgestellt stünde die tatsächliche
+  Abfahrt nirgends mehr. Die beiden Ansichten dürfen hier auseinandergehen.
 - An beiden Balkenenden steht die Uhrzeit (`.tl-dep` / `.tl-arr`), klein und ohne
   „ab“/„an“ — die Position sagt, was gemeint ist. **Beide mit 3 px Abstand zum Balken.**
   Oben wird dafür die UNTERkante gesetzt (`transform: translateY(-100%)`), nicht ein

@@ -543,6 +543,12 @@ body[data-view="results"][data-mode="graph"] #timeline {
    eigene Höhe hält den Abstand zum Balken gleich, egal wie groß die Schrift in
    der jeweiligen Spaltenbreite gerade ist. */
 .tl-dep { transform: translateY(-100%); }
+/* Verspätete Zeiten am Balken rot. Die Kopf-Kachel zeigt die SOLL-Abfahrt plus
+   Abzeichen, hier steht die Prognose ausgeschrieben — die Farbe sagt, dass es
+   nicht die geplante Zeit ist. Grün für „bestätigt pünktlich“ gibt es hier
+   bewusst nicht: Diese Zeiten sollen zurückhaltend bleiben, und die Datenlage
+   steht ohnehin im Abzeichen darüber. */
+.tl-arr.late, .tl-dep.late { color: var(--bad); font-weight: 600; }
 /* Suchanzeige: Während gesucht wird, sind Liste UND Grafik ausgeblendet — es
    soll lieber kurz nichts zu sehen sein als eine veraltete Verbindung. Der
    Balken läuft ohne Prozentangabe: Wie lange es dauert, hängt an drei Anfragen

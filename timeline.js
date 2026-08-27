@@ -763,8 +763,16 @@ function tlColumn(it, left, isDominated = false) {
   // Kopf bleibt beim Scrollen sichtbar; Tipp darauf holt den Balken ins Bild
   const head = document.createElement("button");
   head.className = "tl-head" + (cancelled ? " cancelled" : "");
+  /* In der Kopf-Kachel steht die SOLL-Abfahrt, nicht die Prognose. Dort steht
+     direkt daneben das Verspätungs-Abzeichen, und „10:15 +5“ liest sich sonst
+     wie eine Rechenaufgabe — man addiert im Kopf und landet fünf Minuten zu
+     spät. Sollzeit + Abzeichen ergibt zusammen die Prognose, und die steht
+     ausgeschrieben oben am Balken (`tl-dep`).
+     NUR die Anzeige: `dep.departure` bleibt überall sonst maßgeblich — daran
+     hängen die Balkenlage (`top`), die Zeitachse (`geoCol.ms0`) und das
+     Einrasten. Wer hier die Variable tauscht, verschiebt die halbe Grafik. */
   head.innerHTML =
-    `<span class="tl-hl"><strong>${fmtTime(dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${riskMark(risk)}</span>` +
+    `<span class="tl-hl"><strong>${fmtTime(dep.scheduledDeparture || dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${riskMark(risk)}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
     `<small><span class="u-long">${it.transfers} Umst.</span>` +
     `<span class="u-short">${it.transfers}×</span></small>`;
@@ -814,8 +822,14 @@ function tlColumn(it, left, isDominated = false) {
   /* Zeiten an beiden Balkenenden — klein und zurückhaltend, damit sie den
      Balken nicht überstimmen. Ohne „ab“/„an“: Oben steht sie am Anfang des
      Balkens, unten am Ende; was gemeint ist, sagt die Position. */
+  /* Rot heißt hier: Diese Zeit ist nicht die geplante. Die Zeiten am Balken
+     sind die tatsächlich erwarteten, der Balken selbst liegt und misst nach
+     ihnen — verspätet rutscht er nach unten und wird kürzer oder länger.
+     Ohne die Farbe sieht man dem Balken nicht an, dass er verschoben ist. */
+  const arrDelay = diffMin(arr.scheduledArrival, arr.arrival);
+
   const t0lbl = document.createElement("span");
-  t0lbl.className = "tl-dep";
+  t0lbl.className = "tl-dep" + (delayMin > 0 ? " late" : "");
   /* Beide Zeiten bekommen denselben Abstand von 3 px zum Balken. Oben wird
      dafür die UNTERkante gesetzt (per translateY(-100%) im Stylesheet) — mit
      einem festen Versatz nach oben hinge der Abstand an der Texthöhe und wäre
@@ -825,7 +839,7 @@ function tlColumn(it, left, isDominated = false) {
   geoCol.dep = t0lbl;
 
   const t1lbl = document.createElement("span");
-  t1lbl.className = "tl-arr";
+  t1lbl.className = "tl-arr" + (arrDelay > 0 ? " late" : "");
   t1lbl.style.top = (top + height + 3) + "px";
   t1lbl.textContent = fmtTime(arr.arrival);
   geoCol.arr = t1lbl;
