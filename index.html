@@ -155,6 +155,13 @@
         Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
         mehr Übersicht, größerer Wert heißt mehr Detail.</p>
     </div>
+    <label class="countrow">Freie Fläche unten nutzen
+      <input type="checkbox" id="set-fitbottom">
+    </label>
+    <p class="finequote"><strong>Test.</strong> Enden alle sichtbaren Verbindungen deutlich
+      über dem unteren Rand, wird stärker gezoomt, bis die unterste Ankunft bei 90 % der
+      Höhe liegt. Reicht auch nur eine tiefer oder aus dem Bild heraus, bleibt der
+      normale Zoom stehen.</p>
     <h4>Kacheln auf der Startseite</h4>
     <label class="countrow">Mehr als 14 Kacheln
       <input type="checkbox" id="set-more">
@@ -252,7 +259,9 @@
        unten, und beide Knöpfe sollen erreichbar sein, ohne erst ans Ende einer
        langen Halteliste scrollen zu müssen. -->
   <div class="dlgfoot" id="trip-foot">
-    <form method="dialog"><button class="footbtn" aria-label="Zurück" title="Zurück">«</button></form>
+    <!-- Ohne <form>-Hülle: Als verschachtelte Rasterzelle saß der Knopf gemessen
+         16 px tiefer als der DB-Knopf daneben. Direkt im Raster stimmt es. -->
+    <button type="button" id="btn-trip-back" class="footbtn" aria-label="Zurück" title="Zurück">«</button>
   </div>
 </dialog>
 

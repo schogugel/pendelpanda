@@ -483,19 +483,17 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
   align-items: stretch;
 }
 .dlgfoot > * { pointer-events: auto; }
-/* Die Streckung muss DURCHGEREICHT werden. `align-self: stretch` am <form>
-   genügte nicht — gemessen blieb es bei 44 px, während die Zeile 60 hoch war,
-   und der Knopf darin konnte mit `height: 100%` folglich auch nur 44 werden.
-   Erst eine durchgehende Kette aus Prozenthöhen (Rasterzelle → form → Knopf)
-   macht beide gleich hoch. */
-.dlgfoot form { display: flex; height: 100%; }
+/* Der Zurück-Knopf ist DIREKT eine Rasterzelle, ohne <form>-Hülle: In der Hülle
+   saß er gemessen 16 px tiefer als der DB-Knopf daneben und ragte unten aus der
+   Zeile heraus. Geschlossen wird stattdessen per Klick-Handler. */
+.dlgfoot form { display: flex; }
 /* Einzelner Knopf (Einstellungen, Hilfe, Rechtliches) nimmt die ganze Breite */
 .dlgfoot form:only-child { grid-column: 1 / -1; }
 .dlgfoot .widebtn { margin-top: 0; width: 100%; height: 100%; box-shadow: var(--shadow); }
 /* Beide Knöpfe füllen die Zeilenhöhe — vorher war der Zurück-Knopf niedriger als
    der DB-Knopf, weil jeder seine eigene Polsterung mitbrachte. */
 .footbtn {
-  flex: 1; height: 100%; display: grid; place-items: center;
+  display: grid; place-items: center;
   padding: .6rem .5rem; font: inherit; font-size: 1.05rem; font-weight: 700;
   cursor: pointer; border-radius: 10px; border: 1.5px solid var(--border);
   background: var(--card); color: var(--text);

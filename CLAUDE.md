@@ -438,6 +438,28 @@ Was ansteht, steht in `TODO.md`.
   gesuchte Verbindung in der zweiten Spalte steht und rechts Nachbarn hat, statt am
   Rand zu kleben. Markiert wird sie gestrichelt an Kachel UND Balken (`.tl-focus`).
 - Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
+- **TESTFUNKTION `settings.fitBottom`** („Freie Fläche unten nutzen“, ⚙ → Ansicht,
+  standardmäßig AUS). Nachbearbeitung von `tlAutoZoom` (`tlFitBottom`): Enden ALLE
+  sichtbaren Verbindungen über 90 % der Höhe, wird der Maßstab so weit aufgezogen, dass
+  die tiefste Ankunft bei 85 % liegt. Die bestehende Zoom-Routine bleibt unangetastet —
+  es wird nur ihr Rückgabewert nachbehandelt, und zwar nur nach oben.
+  1. **Geprüft wird das MAXIMUM über alle sichtbaren Spalten**, nicht die hinterste
+     allein. Reicht auch nur eine tiefer als 90 % oder ganz aus dem Bild, bleibt der Wert
+     unverändert — über die hinterste allein zu urteilen hieße, den Rest abzuschneiden.
+  2. **Die Ankerzeit direkt über `tlAnchorMs` holen, nicht aus der Pixel-Lage
+     zurückrechnen.** Beim Aufbau steht über der ersten Abfahrt oft weniger Platz als die
+     Kachel hoch ist, `tlAlignTopFor` klemmt dann auf 0 — aus einer geklemmten Zahl lässt
+     sich die Zeit nicht mehr gewinnen, und die Funktion lief immer ins Leere.
+     `tlAnchorMs` ist dafür aus `tlAlignTopFor` herausgezogen; die Regel ist unverändert,
+     es gibt weiterhin nur EINE Entscheidung darüber, wo angedockt wird.
+  3. **Ziel 85 %, Auslösegrenze 90 %.** Nach dem Zoom baut die Ansicht neu auf, dabei
+     wird die Kachelhöhe erst wirklich gemessen und die Kopffreiheit nachkorrigiert —
+     das schiebt die Balken noch ein Stück nach unten. Mit 90 % als Ziel landete die
+     unterste Ankunft gemessen bei 95 %, also im unteren Zehntel, das frei bleiben soll.
+     Mit 85 % liegt sie bei 90 %.
+  Gemessen Nürnberg → Bayreuth, 3 Spalten, Höhe 40 %: ppm 2,74 → 3,38, tiefste Ankunft
+  76 % → 90 %. Ist `ppm` schon am Deckel (`TL.MAX_PPM`), passiert nichts — dort ist kein
+  Spielraum mehr.
 - **Selbst gezoomt schlägt automatisch** (`tl.manualZoom`, gesetzt in `tlSetZoom`, also
   bei Pinch und Strg+Rad). Ein Spaltenwechsel überschreibt den Maßstab dann NICHT mehr;
   die Y-Ausrichtung läuft davon unabhängig weiter. Zurück auf automatisch nur bei einer

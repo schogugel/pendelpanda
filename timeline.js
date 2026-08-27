@@ -536,25 +536,37 @@ function tlBarStartMs(legs, ppm = tl.ppm) {
   return h >= TL.LATE_MIN_H ? plan : real;
 }
 
-function tlAlignTopFor(idx, sc, ppm = tl.ppm) {
+/* An WELCHER ZEIT dockt die Ansicht an? Herausgezogen, damit es weiterhin nur
+   EINE Entscheidung gibt: `tlAlignTopFor` rechnet sie in Pixel um, andere
+   Stellen brauchen die Zeit selbst. Die Regel ist unverändert — Balkenanfang,
+   bei der nächsten erreichbaren Verbindung stattdessen die Jetzt-Linie, außer
+   davon bliebe weniger als 40 % des ersten Segments sichtbar. */
+function tlAnchorMs(idx, sc, ppm = tl.ppm) {
   const it = tl.itins[idx];
-  if (!it) return 0;
+  if (!it) return null;
   const legs = transitLegs(it);
   const px = ms => ((ms - tl.t0) / 60000) * ppm;
+  const clear = tlHeadClear() + TL.DEP_LBL;
+  const dep = +new Date(legs[0].from.departure);
+  const barMs = tlBarStartMs(legs, ppm);
+  if (!tlIsNextReachable(idx)) return barMs;
+  const viewH = sc ? sc.clientHeight : 0;
+  if (viewH) {
+    const nowTop = Math.max(0, px(Date.now()) - clear);
+    const seg1H = Math.max(1, px(+new Date(legs[0].to.arrival)) - px(dep));
+    const sichtbar = Math.min(seg1H, nowTop + viewH - px(dep));
+    if (sichtbar / seg1H < 0.4) return barMs;
+  }
+  return Date.now();
+}
+
+function tlAlignTopFor(idx, sc, ppm = tl.ppm) {
+  const a = tlAnchorMs(idx, sc, ppm);
+  if (a === null) return 0;
   // + DEP_LBL: Sonst rastet der Balkenanfang bündig unter der Kachel ein und
   //   verdeckt genau die Abfahrtszeit, die dort steht.
   const clear = tlHeadClear() + TL.DEP_LBL;
-  const dep = +new Date(legs[0].from.departure);
-  const barTop = Math.max(0, px(tlBarStartMs(legs, ppm)) - clear);
-  if (!tlIsNextReachable(idx)) return barTop;
-  const nowTop = Math.max(0, px(Date.now()) - clear);
-  const viewH = sc ? sc.clientHeight : 0;
-  if (viewH) {
-    const seg1H = Math.max(1, px(+new Date(legs[0].to.arrival)) - px(dep));
-    const sichtbar = Math.min(seg1H, nowTop + viewH - px(dep));
-    if (sichtbar / seg1H < 0.4) return barTop;
-  }
-  return nowTop;
+  return Math.max(0, ((a - tl.t0) / 60000) * ppm - clear);
 }
 
 // Tatsächlicher Platzbedarf der sticky Kopf-Kacheln: die höchste der ersten
@@ -736,7 +748,66 @@ function tlAutoZoom(sc, startIdx = 0) {
   const spanMin = Math.max(1, (arr - from) / 60000);
   const fill = Math.min(90, Math.max(40, settings.fill || 70)) / 100;
   const ppm = (usable * fill) / spanMin;
-  return Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
+  const roh = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
+  return settings.fitBottom ? tlFitBottom(sc, startIdx, roh) : roh;
+}
+
+/* TESTFUNKTION (⚙ → „Freie Fläche unten nutzen“), standardmäßig aus.
+
+   Der automatische Zoom bemisst sich an EINER Verbindung — der Fokusspalte.
+   Sind die übrigen sichtbaren Spalten kürzer, endet der tiefste Balken weit
+   über dem unteren Rand, und der Platz darunter bleibt ungenutzt. Diese
+   Nachbearbeitung zieht den Maßstab dann so weit auf, dass die TIEFSTE Ankunft
+   unter den sichtbaren Spalten bei 90 % der Höhe liegt.
+
+   Sie greift NUR, wenn wirklich alles hineinpasst. Reicht auch nur eine der
+   sichtbaren Verbindungen tiefer als 90 % — erst recht, wenn sie ganz aus dem
+   Bild läuft —, bleibt der Wert unverändert. Genau deshalb ist die Prüfung ein
+   Maximum über ALLE sichtbaren Spalten und nicht nur über die hinterste: Über
+   die hinterste allein zu urteilen hieße, den Rest abzuschneiden.
+
+   Der Maßstab kann dadurch nur GRÖSSER werden, nie kleiner: Fällt die
+   Bedingung, wird gar nichts überschrieben, und der Automatik-Wert steht
+   unverändert. Verkleinern könnte diese Funktion also nie etwas. */
+function tlFitBottom(sc, startIdx, ppm) {
+  const viewH = sc?.clientHeight || 0;
+  if (!viewH || !tl.itins.length) return ppm;
+  const idx = Math.min(tl.itins.length - 1, Math.max(0, startIdx));
+
+  /* Die Zeit an der Oberkante wird aus derselben Quelle abgeleitet, die auch
+     wirklich andockt (`tlAlignTopFor`) — eine eigene Rechnung liefe ihr über
+     kurz oder lang davon. `clear` ist ein PIXEL-Betrag und skaliert nicht mit,
+     deshalb steht er in beiden Formeln als Konstante. */
+  const clear = tlHeadClear() + TL.DEP_LBL;
+  /* Die Ankerzeit DIREKT holen, nicht aus der Pixel-Lage zurückrechnen: Beim
+     Aufbau steht über der ersten Abfahrt oft weniger Platz als die Kachel hoch
+     ist, `tlAlignTopFor` klemmt dann auf 0 — und aus einer geklemmten Zahl
+     lässt sich die Zeit nicht mehr gewinnen. Genau daran lief diese Funktion
+     im ersten Versuch immer ins Leere. */
+  const ankerMs = tlAnchorMs(idx, sc, ppm);
+  if (ankerMs === null) return ppm;
+
+  const cols = Math.min(7, Math.max(3, settings.cols || 3));
+  const bis = Math.min(tl.itins.length - 1, idx + cols - 1);
+  let weiteste = 0;   // größter Abstand Oberkante → Ankunft, in Minuten
+  for (let i = idx; i <= bis; i++) {
+    const legs = transitLegs(tl.itins[i]);
+    if (!legs.length) return ppm;
+    const arr = +new Date(legs[legs.length - 1].to.arrival);
+    weiteste = Math.max(weiteste, (arr - ankerMs) / 60000);
+  }
+  if (weiteste <= 0) return ppm;
+
+  const tiefste = weiteste * ppm + clear;      // wo die unterste Ankunft liegt
+  if (tiefste > viewH * 0.9) return ppm;       // reicht schon hinunter
+  /* Ausgelegt wird auf 85 %, nicht auf die 90 % der Auslösegrenze: Nach dem
+     Zoom baut die Ansicht neu auf, dabei wird die Kachelhöhe erst wirklich
+     gemessen und die Kopffreiheit nachkorrigiert — alles zusammen schiebt die
+     Balken noch ein Stück nach unten. Mit 90 % als Ziel landete die unterste
+     Ankunft gemessen bei 95 %, also genau in dem unteren Zehntel, das frei
+     bleiben soll. */
+  const neu = (viewH * 0.85 - clear) / weiteste;
+  return Math.min(TL.MAX_PPM, Math.max(ppm, neu));
 }
 
 /* Waagerechte Zeitlinien als EINZELNE Elemente, jede exakt auf ihrer Uhrzeit.

@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.40.0";
+const APP_VERSION = "1.41.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -61,6 +61,7 @@ function loadSettings() {
             bus: true, sonstige: true, fernbus: false },
     cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
     fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
+    fitBottom: false,  // TEST: freie Fläche unten durch stärkeren Zoom nutzen
     /* „Letzte“: Bis wann will ich ankommen, und wie lange darf ich NACHTS an
        einem einzelnen Umstieg warten? Die Wartegrenze galt früher rund um die
        Uhr — eine Stunde Aufenthalt um 15 Uhr ist aber harmlos, um 3 Uhr nicht. */
@@ -1497,6 +1498,8 @@ function tripHeadHTML(it) {
     + `<span class="th-line" aria-hidden="true"></span>`;
 }
 
+byId("btn-trip-back").addEventListener("click", () => byId("trip-dialog").close());
+
 function openTripDialog(it) {
   byId("trip-dialog-title").innerHTML = tripHeadHTML(it);
   const body = byId("trip-dialog-body");
@@ -1975,7 +1978,7 @@ const IMPRESSUM = {
 function configLink() {
   // v2: Kacheln UND Einstellungen wandern gemeinsam
   const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
-                    fill: settings.fill, connect: settings.connectMode,
+                    fill: settings.fill, fit: settings.fitBottom, connect: settings.connectMode,
                     lastArrival: settings.lastArrival, nightFrom: settings.nightFrom,
                     nightTo: settings.nightTo, nightWait: settings.nightWait,
                     xferLevel: settings.xferLevel };
@@ -2079,6 +2082,7 @@ function applyConfig(cfg, { ask = false } = {}) {
     const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
     if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
     if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
+    if (typeof imported.fit === "boolean") settings.fitBottom = imported.fit;
     if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
     for (const k of ["lastArrival", "nightFrom", "nightTo"]) {
       if (typeof imported[k] === "string" && /^\d{2}:\d{2}$/.test(imported[k])) settings[k] = imported[k];
@@ -2174,6 +2178,7 @@ byId("btn-settings").addEventListener("click", () => {
   });
   refreshTileOpts();
   renderColsControl();
+  byId("set-fitbottom").checked = !!settings.fitBottom;
   byId("set-fill").value = settings.fill;
   byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
   byId("set-lastarr").value = settings.lastArrival;
@@ -2227,6 +2232,18 @@ byId("set-xfer").addEventListener("input", (e) => {
   byId("set-xfer-val").textContent = XFER_LEVELS[settings.xferLevel].label;
 });
 byId("set-xfer").addEventListener("change", applySearchSetting);
+
+/* Testschalter: derselbe Weg wie beim Höhen-Regler — die Einstellung steuert
+   genau den Automatismus, den `forceAutoZoom` zurückholt. */
+byId("set-fitbottom").addEventListener("change", (e) => {
+  settings.fitBottom = e.target.checked;
+  saveSettings();
+  if (app.viewMode === "graph" && tl.itins.length) {
+    tl.lastZoomIdx = null;
+    tl.forceAutoZoom = true;
+    renderResults();
+  }
+});
 
 byId("set-fill").addEventListener("input", (e) => {
   settings.fill = Number(e.target.value);
