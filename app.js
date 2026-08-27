@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.48.0";
+const APP_VERSION = "1.49.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -555,6 +555,12 @@ function startSearch(from, to) {
 }
 
 function updateChips() {
+  const f = byId("btn-fast");
+  f.classList.toggle("active", !!app.hideDominated);
+  f.disabled = !app.itins.length;
+  f.title = app.hideDominated
+    ? "Langsamere Verbindungen sind ausgeblendet – antippen zeigt wieder alle"
+    : "Nur die besten Verbindungen zeigen – langsamere ausblenden";
   const b = byId("btn-full");
   const fertig = app.fullLoaded === app.searchTag;
   b.classList.toggle("active", fertig);
@@ -949,6 +955,9 @@ async function loadAllCategories() {
     app.refilling = false;
   }
   app.fullLoaded = app.searchTag;   // je Suche nur einmal nötig
+  /* Wer alles holt, will alles sehen: Sonst lädt man Verbindungen nach, die
+     der Filter im selben Moment wieder wegnimmt. */
+  app.hideDominated = false;
   updateChips();
   renderResults();
   return app.itins.length - vorher;
@@ -1540,15 +1549,27 @@ function renderResults() {
   }
   updateLastNote(visible);
   sameStopWarning();
-  updateChips();   // der „vollständig laden“-Knopf hängt am Ergebnis
+  updateChips();   // die beiden Knöpfe in der Mitte hängen am Ergebnis
+  /* „Nur die besten“: In der ANZEIGE-Schicht gefiltert, nicht im Pool. Die
+     Verbindungen bleiben geladen, der Fokus und das Nachladen rechnen weiter
+     mit allen — nur gezeigt werden sie nicht. Umschalten kostet dadurch keine
+     Anfrage und verliert nichts. */
+  const dom = app.hideDominated ? dominatedFlags(visible) : null;
+  const gezeigt = dom ? visible.filter((_, i) => !dom[i]) : visible;
+  if (!gezeigt.length) {
+    const msg = `<p class="status">Alle geladenen Verbindungen gelten als langsamer –
+      oben über das Zugsymbol wieder einblenden.</p>`;
+    if (graph) byId("timeline").innerHTML = msg; else resultsList.innerHTML = msg;
+    return;
+  }
   if (graph) {
     // Jede gewählte Uhrzeit hat eine Verbindung als Antwort — die wird angesteuert
     // und markiert. Nur „Jetzt“ hat keine feste: das macht die Jetzt-Linie.
-    const focus = hasFocus() ? searchFocusKey(visible) : "start";
-    renderTimeline(visible, focus);
+    const focus = hasFocus() ? searchFocusKey(gezeigt) : "start";
+    renderTimeline(gezeigt, focus);
   } else {
     resultsList.innerHTML = "";
-    renderItineraries(visible);
+    renderItineraries(gezeigt);
   }
 }
 
@@ -2405,6 +2426,15 @@ byId("set-full").addEventListener("change", (e) => {
 });
 
 byId("btn-full").addEventListener("click", () => loadAllCategories());
+
+/* Reiner Anzeige-Schalter: kein Nachladen, keine Anfrage. Die Grafik behält
+   dabei ihre Stelle nicht — die Spaltenzahl ändert sich ja —, deshalb wird der
+   Zoom neu bestimmt wie bei einer geänderten Frage. */
+byId("btn-fast").addEventListener("click", () => {
+  app.hideDominated = !app.hideDominated;
+  tl.forceAutoZoom = true;
+  renderResults();
+});
 
 byId("set-fitbottom").addEventListener("change", (e) => {
   settings.fitBottom = e.target.checked;

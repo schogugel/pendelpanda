@@ -22,6 +22,8 @@
   --seg-fernbus: #73DC04;
   --tl-line: rgba(0,0,0,.06);
   --tl-line-strong: rgba(0,0,0,.14);
+  /* Schraffur dominierter Verbindungen — in beiden Themen derselbe Ton */
+  --dom-stripe: rgba(45,52,64,.62);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -376,7 +378,14 @@ body[data-view="results"][data-mode="graph"] #timeline {
 }
 
 /* ---------- Zeit-Chips ---------- */
-.timechips { display: flex; gap: .5rem; margin-bottom: .7rem; align-items: center; flex: none; }
+/* Drei Gruppen, gleichmäßig verteilt: Zeitwahl · Laden+Filtern · Ansicht.
+   Die mittleren beiden gehören zusammen und stehen deshalb mit Abstand zu
+   beiden Seiten — sie tun etwas anderes als ihre Nachbarn. */
+.timechips {
+  display: flex; gap: .5rem; margin-bottom: .7rem;
+  align-items: center; justify-content: space-between; flex: none;
+}
+.chip-mid { display: flex; gap: .4rem; }
 .chip {
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   border-radius: 8px; padding: .42rem .9rem; font: inherit; font-size: .9rem; cursor: pointer;
@@ -402,7 +411,7 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .timeseg .chip + .chip { border-left: 1.5px solid var(--border); }
 .chip-icon { display: grid; place-items: center; padding: .42rem .8rem; }
 .chip svg { width: 19px; height: 19px; display: block; }
-#btn-viewmode, #btn-full { display: grid; place-items: center; padding: .42rem .75rem; }
+#btn-viewmode, #btn-full, #btn-fast { display: grid; place-items: center; padding: .42rem .7rem; }
 /* Erledigt heißt hier nicht „ausgewählt“, sondern „gibt nichts mehr zu holen“ —
    deshalb still abgeschaltet statt in der Akzentfarbe leuchtend. */
 .chip[disabled] { opacity: .45; cursor: default; }
@@ -716,6 +725,8 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
   box-shadow: 0 0 0 2px var(--card); /* 2px Flächen-Abstand zwischen Segmenten */
 }
 .tl-seg.nolabel { font-size: 0; }
+/* Über der Schraffur der dominierten Spalten, nicht darunter. */
+.seg-txt { position: relative; z-index: 1; }
 /* Ausgefallenes Teilstück: schwarz-rot schräg gestreift, Kategorie-Farbe egal */
 .tl-seg.seg-cancelled {
   background: repeating-linear-gradient(135deg, #161616 0 7px, #b02525 7px 14px);
@@ -1033,15 +1044,13 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 .tl-col.dominated .tl-seg::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit;
   pointer-events: none;
-  /* ZWEIFARBIG, und bewusst nicht themenabhängig: Eine dunkle und eine helle
-     Linie im Wechsel. Auf dem hellgrauen Fernzug (#C5C7C4) trägt die dunkle,
-     auf dunklen Flächen wie S-Bahn-Grün oder U-Bahn-Blau die helle. Ein
-     einzelner grauer Streifen wäre auf dem Fernzug praktisch unsichtbar
-     gewesen — genau die Farbe, bei der man ihn am ehesten braucht. */
+  /* Zwei Farben: die Kategoriefarbe bleibt stehen, darüber ein dunkles Grau.
+     Der Ton ist sonst mit nichts belegt und in beiden Themen gleich — wie die
+     Verkehrsmittel-Farben ist er eine Zuordnung, kein Kontrastmittel. Kräftig
+     genug, dass er auch auf dem hellgrauen Fernzug (#C5C7C4) trägt. */
   background: repeating-linear-gradient(135deg,
-    rgba(0,0,0,0) 0 4px,
-    rgba(0,0,0,.34) 4px 7px,
-    rgba(255,255,255,.42) 7px 10px);
+    rgba(0,0,0,0) 0 5px,
+    var(--dom-stripe) 5px 10px);
 }
 .tl-col.dominated .tl-head { opacity: .6; }
 .tl-col.dominated .tl-dep, .tl-col.dominated .tl-arr { opacity: .6; }

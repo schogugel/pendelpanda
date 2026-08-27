@@ -498,13 +498,21 @@ Was ansteht, steht in `TODO.md`.
   ICE 1103 durchgehend 19:25→20:46 gegen ICE 1103+ICE 881 mit Umstieg 19:25→20:45). Die
   Umstiegszahl als drittes Kriterium löst das OHNE willkürliche Schwelle — es braucht
   keine Regel „ab X Minuten lohnt ein Umstieg“, beide bleiben einfach stehen.
-- **Markiert wird mit zweifarbigen Schrägstreifen ÜBER der Kategoriefarbe**, nicht durch
-  Entfärben: Welches Verkehrsmittel es ist, bleibt ablesbar. Die Streifen sind bewusst
-  NICHT themenabhängig, sondern eine dunkle und eine helle Linie im Wechsel — auf dem
-  hellgrauen Fernzug (#C5C7C4) trägt die dunkle, auf S-Bahn-Grün oder U-Bahn-Blau die
-  helle. Ein einzelner grauer Streifen wäre ausgerechnet auf dem Fernzug unsichtbar.
-  Als `::after`-Auflage gebaut, damit die Muster für Ausfall und Ersatzverkehr nicht
-  überschrieben werden.
+- **Markiert wird mit Schrägstreifen ÜBER der Kategoriefarbe**, nicht durch Entfärben:
+  Welches Verkehrsmittel es ist, bleibt ablesbar. ZWEI Farben — die Kategoriefarbe und
+  ein dunkles Grau (`--dom-stripe`), das sonst mit nichts belegt und in beiden Themen
+  gleich ist. Als `::after`-Auflage gebaut, damit die Muster für Ausfall und
+  Ersatzverkehr nicht überschrieben werden.
+  **Die Beschriftung gehört ÜBER die Streifen** (`.seg-txt`, `z-index: 1`) — darunter ist
+  sie schlecht zu lesen. Dafür wird sie IMMER in eine Hülle gepackt: Ein nackter
+  Textknoten lässt sich nicht anheben.
+- **Der Filter „nur die besten“ (Zugsymbol im Kopf) sitzt in der ANZEIGE-Schicht**, nicht
+  im Pool: Die Verbindungen bleiben geladen, Fokus und Nachladen rechnen weiter mit
+  allen. Umschalten kostet dadurch keine Anfrage und verliert nichts.
+  `dominatedFlags()` ist dafür aus `tlBuild` herausgezogen — Schraffur und Filter müssen
+  garantiert dieselbe Antwort benutzen.
+  **„Alles laden“ schaltet den Filter aus**: Sonst lädt man Verbindungen nach, die der
+  Filter im selben Moment wieder wegnimmt.
   **Das CSS dafür fehlte von v1.3.0 bis v1.48.0 ganz** — bei einer Blockersetzung
   mitgelöscht (zusammen mit `.around-note` und `.loadbtn`). Die Klasse wurde über
   vierzig Versionen lang gesetzt, ohne dass man etwas sah.

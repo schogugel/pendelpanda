@@ -708,30 +708,7 @@ function tlBuild(scroller) {
 
   // Dominierte Verbindungen (fahren früher los, kommen nicht früher an als
   // eine später startende) werden ausgegraut dargestellt
-  /* Eine Verbindung ist erst dann wirklich schlechter, wenn eine andere in
-     KEINEM Punkt schlechter ist — Abfahrt, Ankunft UND Umstiege.
-
-     Vorher zählten nur die beiden Zeiten. Damit galt ein Direktzug als
-     überflüssig, sobald es irgendwo eine Verbindung gab, die eine Minute
-     früher ankommt — auch wenn man dafür umsteigen muss. Gemessen an
-     Nürnberg → München: ICE 1103 durchgehend, 19:25 → 20:46, gegen
-     ICE 1103 + ICE 881 mit Umstieg, 19:25 → 20:45. Eine Minute für einen
-     Umstieg ist kein besseres Angebot, sondern eine Abwägung.
-
-     Die Umstiegszahl als drittes Kriterium löst das ohne willkürliche Schwelle:
-     Es braucht keine Regel „ab X Minuten lohnt ein Umstieg“, weil beide
-     Verbindungen einfach nebeneinander stehen bleiben. */
-  const times = tl.itins.map(it => {
-    const legs = transitLegs(it);
-    return {
-      dep: +new Date(legs[0].from.departure),
-      arr: +new Date(legs[legs.length - 1].to.arrival),
-      um: Number.isFinite(it.transfers) ? it.transfers : legs.length - 1,
-    };
-  });
-  const dominated = times.map((a, i) => times.some((b, j) =>
-    j !== i && b.dep >= a.dep && b.arr <= a.arr && b.um <= a.um
-    && (b.dep > a.dep || b.arr < a.arr || b.um < a.um)));
+  const dominated = dominatedFlags(tl.itins);
 
   /* Tageswechsel zwischen zwei Spalten: Der Strich gehört an die LINKE Kante
      der ersten Spalte des neuen Tages, also in die Lücke dazwischen. Verglichen
@@ -1022,6 +999,37 @@ function tlNowLine(canvas, w) {
   canvas.appendChild(line);
 }
 
+/* Eine Verbindung ist erst dann wirklich schlechter, wenn eine andere in
+   KEINEM Punkt schlechter ist — Abfahrt, Ankunft UND Umstiege.
+
+   Vorher zählten nur die beiden Zeiten. Damit galt ein Direktzug als
+   überflüssig, sobald es irgendwo eine Verbindung gab, die eine Minute früher
+   ankommt — auch wenn man dafür umsteigen muss. Gemessen an Nürnberg → München:
+   ICE 1103 durchgehend, 19:25 → 20:46, gegen ICE 1103 + ICE 881 mit Umstieg,
+   19:25 → 20:45. Eine Minute für einen Umstieg ist kein besseres Angebot,
+   sondern eine Abwägung.
+
+   Die Umstiegszahl als drittes Kriterium löst das ohne willkürliche Schwelle:
+   Es braucht keine Regel „ab X Minuten lohnt ein Umstieg“, weil beide
+   Verbindungen einfach nebeneinander stehen bleiben.
+
+   Herausgezogen, damit Anzeige (Schraffur) und Filter („nur die besten“)
+   garantiert dieselbe Antwort benutzen. */
+function dominatedFlags(itins) {
+  const t = itins.map(it => {
+    const legs = transitLegs(it);
+    if (!legs.length) return null;
+    return {
+      dep: +new Date(legs[0].from.departure),
+      arr: +new Date(legs[legs.length - 1].to.arrival),
+      um: Number.isFinite(it.transfers) ? it.transfers : legs.length - 1,
+    };
+  });
+  return t.map((a, i) => !!a && t.some((b, j) =>
+    j !== i && b && b.dep >= a.dep && b.arr <= a.arr && b.um <= a.um
+    && (b.dep > a.dep || b.arr < a.arr || b.um < a.um)));
+}
+
 function tlColumn(it, left, isDominated = false, tagWechsel = false) {
   const legs = transitLegs(it);
   const dep = legs[0].from, arr = legs[legs.length - 1].to;
@@ -1124,8 +1132,12 @@ function tlColumn(it, left, isDominated = false, tagWechsel = false) {
     geoCol.segs.push({ el: seg, ms0: +new Date(l.from.departure), ms1: +new Date(l.to.arrival) });
     const name = lineParts(l).main; // Zusatznummer nur in der Detailansicht
     // Ausgefallene Teilstücke: Streifenmuster, Name als weißer Text auf Schwarz
-    if (isCancelled) seg.innerHTML = `<span class="seg-label">${escapeHtml(name)}</span>`;
-    else seg.textContent = name;
+    /* Immer in eine Hülle: Nur ein Element lässt sich über die Schraffur der
+       dominierten Spalten heben. Ein nackter Textknoten kann das nicht, und
+       unter den Streifen war die Linie schlecht zu lesen. */
+    seg.innerHTML = isCancelled
+      ? `<span class="seg-label">${escapeHtml(name)}</span>`
+      : `<span class="seg-txt">${escapeHtml(name)}</span>`;
     bar.appendChild(seg);
   }
 
