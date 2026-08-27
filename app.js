@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.43.0";
+const APP_VERSION = "1.44.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -540,6 +540,8 @@ function startSearch(from, to) {
   app.focusKey = null;       // die gesuchte Verbindung wird je Suche EINMAL bestimmt
   app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
   app.planLog = [];          // Antwortzeiten der laufenden Suche (Aufklapper)
+  app.leerFrueher = 0;       // wie oft eine Blätterseite gar nichts brachte
+  app.leerSpaeter = 0;
   byId("rhead-from").textContent = from.label || from.name;
   byId("rhead-to").textContent = to.label || to.name;
   updateChips();
@@ -772,12 +774,27 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
       : direction === "earlier" ? "Frühere Verbindungen"
       : modes ? "Fahrplan (ungefiltert + gefiltert)" : "Fahrplan",
       performance.now() - t0, add.length);
+    /* Der Fahrplanrechner gibt auch dann noch einen Cursor heraus, wenn hinter
+       ihm nichts mehr kommt (gemessen an einer Suche vom Bahnhof zu sich selbst:
+       erste Seite 10 Verbindungen, danach dauerhaft 0 — Cursor jedes Mal
+       vorhanden). Die App fragte dann bei jeder Randberührung erneut, zeigte den
+       Ladekreis und bekam nichts. Kommt ZWEIMAL hintereinander keine einzige
+       Verbindung, wird der Cursor in dieser Richtung fallen gelassen: Damit
+       verschwindet auch der „Spätere anzeigen“-Knopf, und die Ansicht sagt
+       ehrlich, dass es hier zu Ende ist.
+
+       Zweimal, nicht einmal: Eine einzelne leere Antwort kann eine echte Lücke
+       sein (Betriebspause nachts), hinter der es weitergeht. */
+    const leer = (data.itineraries || []).length === 0;
+    const zaehler = direction === "earlier" ? "leerFrueher" : "leerSpaeter";
+    app[zaehler] = leer ? (app[zaehler] || 0) + 1 : 0;
+    const amEnde = leer && app[zaehler] >= 2;
     if (direction === "earlier") {
       app.itins = add.concat(app.itins);
-      app.prevPageCursor = data.previousPageCursor || null;
+      app.prevPageCursor = amEnde ? null : (data.previousPageCursor || null);
     } else if (direction === "later") {
       app.itins = app.itins.concat(add);
-      app.nextPageCursor = data.nextPageCursor || null;
+      app.nextPageCursor = amEnde ? null : (data.nextPageCursor || null);
     } else {
       app.itins = add;
       app.prevPageCursor = data.previousPageCursor || null;
@@ -998,6 +1015,28 @@ function showSearching(text, step = 0, total = 1) {
   resultsList.innerHTML = "";
   byId("last-note").hidden = true;
   byId("around-note").hidden = true;
+  byId("same-note").hidden = true;
+}
+
+/* Start und Ziel am selben Bahnhof? Kommt leichter vor, als man denkt: „München
+   Ost“ und „Ostbahnhof“ sind zwei Einträge derselben Anlage, 57 m auseinander —
+   einmal die Fernbahn-Elternstation, einmal ein U-Bahn-Steig davon. Der
+   Fahrplanrechner beantwortet die Frage dann wörtlich und fährt eine Station
+   hinaus und wieder zurück (gemessen: U5·U5, S6·S4, jeweils fünf Minuten).
+
+   Bewusst nur ein HINWEIS, keine Sperre: Es kann Gründe geben, genau das zu
+   wollen, und wer die Suche selbst gestartet hat, soll ihr Ergebnis auch sehen. */
+const SAME_STOP_M = 250;
+function sameStopWarning() {
+  const el = byId("same-note");
+  const { from, to } = app.search || {};
+  const ok = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lon);
+  if (!ok(from) || !ok(to)) { el.hidden = true; return; }
+  const R = 6371000, p = Math.PI / 180;
+  const dLat = (to.lat - from.lat) * p, dLon = (to.lon - from.lon) * p;
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(from.lat * p) * Math.cos(to.lat * p) * Math.sin(dLon / 2) ** 2;
+  el.hidden = 2 * R * Math.asin(Math.sqrt(h)) > SAME_STOP_M;
 }
 
 /* Was der Fahrplanrechner bisher geliefert hat — aufklappbar unter dem Balken.
@@ -1436,6 +1475,7 @@ function renderResults() {
     return;
   }
   updateLastNote(visible);
+  sameStopWarning();
   if (graph) {
     // Jede gewählte Uhrzeit hat eine Verbindung als Antwort — die wird angesteuert
     // und markiert. Nur „Jetzt“ hat keine feste: das macht die Jetzt-Linie.

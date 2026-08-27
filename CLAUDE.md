@@ -62,6 +62,15 @@ Neuladen und blockierte sonst dauerhaft das Verbinden zweier Kacheln).
 
 ## Fallstrick: CSS-Blöcke per Skript ersetzen
 
+**Vor dem Schneiden IMMER prüfen, dass der Endmarker hinter dem Startmarker liegt.**
+In v1.42.0 lag er davor — aus `s[:start] + neu + s[end:]` wurde dadurch nicht ein Schnitt,
+sondern eine Verdopplung: Die Datei wuchs von 1191 auf 1885 Zeilen, 694 davon eine exakte
+Kopie. Sichtbar war nichts (gleiche Regeln, gleiche Darstellung), aber jede weitere
+Änderung an einer dieser Regeln hätte nur eine der beiden Kopien getroffen und wäre still
+wirkungslos geblieben. Aufgefallen ist es erst am `git diff --stat`.
+Gegenprobe nach jedem Blockschnitt: `grep -n "^\.tl-axis {\|^dialog {\|^\.rhead {" style.css`
+— jeder darf nur EINMAL vorkommen.
+
 Große Block-Ersetzungen in `style.css` (von Kommentar A bis Kommentar B) haben schon
 **fremde Regeln mitgelöscht** (Legende, Kategorie-Punkte, Einstellungsliste, Zeit-Dialog
 — erst Runden später bemerkt). Nach jedem Block-Ersatz gegenprüfen, dass die Selektoren
@@ -174,6 +183,21 @@ Was ansteht, steht in `TODO.md`.
   (gemessen 709 min bei 371 ms; mit 10 nur 156 min), also 1–3 Anfragen für den ganzen
   Bereich statt 5–8. **Die Cursor der laufenden Suche bleiben dabei unangetastet** —
   das Nachfüllen ist ein Seitenweg, kein Blättern.
+- **Bringt eine Blätterseite ZWEIMAL hintereinander gar nichts, fällt der Cursor.**
+  Der Fahrplanrechner gibt auch dann noch einen Cursor heraus, wenn dahinter nichts mehr
+  kommt — gemessen an einer Suche von einem Bahnhof zu sich selbst: erste Seite 11
+  Verbindungen, danach dauerhaft 0, Cursor jedes Mal vorhanden. Ohne diese Bremse fragte
+  die App bei jeder Randberührung erneut, zeigte den Ladekreis und bekam nichts.
+  **Zweimal, nicht einmal:** Eine einzelne leere Antwort kann eine echte Lücke sein
+  (Betriebspause nachts), hinter der es weitergeht. Gezählt werden nur Antworten mit
+  NULL Verbindungen, nicht solche mit lauter Dubletten — die können weiter draußen
+  durchaus noch etwas bringen.
+- **Start und Ziel am selben Bahnhof wird nur GEWARNT, nicht blockiert**
+  (`sameStopWarning`, 250 m). Der Fall ist leichter zu treffen, als er klingt: „München
+  Ost“ und „Ostbahnhof“ sind zwei Einträge derselben Anlage, 57 m auseinander — einmal
+  die Fernbahn-Elternstation, einmal ein U-Bahn-Steig davon. Der Router beantwortet die
+  Frage dann wörtlich und fährt eine Station hinaus und zurück (gemessen U5·U5, S6·S4).
+  Gesperrt wird bewusst nicht: Es kann Gründe geben, genau das zu wollen.
 - **Ausgegraut in der Legende heißt „nachweislich nichts da“** (`app.emptyCats`), und
   das weiß man erst NACH einer eigenen Anfrage für diese Kategorie. Vorher stand dort
   „Keine … im Zeitraum“, obwohl nur niemand danach gefragt hatte. Chips sind deshalb

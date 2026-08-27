@@ -26,7 +26,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SIZES = ["393x852", "393x740", "360x640", "412x915"];
 
 /* Zwei Ansichten, die beide bildschirmfüllend sein müssen. Die Ergebnisansicht
-   wird im UNGÜNSTIGSTEN Fall gemessen: mit BEIDEN Hinweiszeilen sichtbar. Genau
+   wird im UNGÜNSTIGSTEN Fall gemessen: mit ALLEN Hinweiszeilen sichtbar. Genau
    daran ist v1.15.1 gescheitert — bei „Letzte“ kommt eine Zeile dazu, die es bei
    „Jetzt“ nicht gibt, und die feste Grafikhöhe passte dann nicht mehr. */
 const VIEWS = {
@@ -36,6 +36,7 @@ const VIEWS = {
     document.body.dataset.view = "results";
     document.body.dataset.mode = "graph";
     document.getElementById("around-note").hidden = false;
+    document.getElementById("same-note").hidden = false;
     const ln = document.getElementById("last-note");
     ln.hidden = false;
     ln.textContent = "Später fährt noch etwas, aber nur mit Fernzug – in der Legende wieder einblenden.";
