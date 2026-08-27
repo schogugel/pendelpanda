@@ -1070,7 +1070,17 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
    entsteht dabei weiterhin aus der Inhaltsbreite und erst danach wird
    gewachsen — die Zeilenzahl kann sich dadurch nicht erhöhen, die Legende also
    auch nicht höher werden. Die Reihenfolge bleibt unangetastet. */
-.tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
+/* Unter 380 px passen fünf Felder nicht nebeneinander — dort rutschte das
+   fünfte in eine dritte Zeile und die Legende wurde 84 statt 54 px hoch.
+   Auf solchen Geräten zählt die Aufteilung weniger als die Höhe, deshalb
+   greift dort der natürliche Umbruch (4+4). `display: contents` löst die
+   Zeilen-Hüllen dafür auf, ohne die Reihenfolge anzutasten. */
+.tl-legend { display: flex; flex-wrap: wrap; gap: .35rem .95rem; margin-top: .6rem; }
+.leg-row { display: contents; }
+@media (min-width: 380px) {
+  .tl-legend { flex-direction: column; gap: .35rem; flex-wrap: nowrap; }
+  .leg-row { display: flex; }
+}
 .tl-key {
   flex: 1 1 auto;
   display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
@@ -1082,6 +1092,8 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
   font: inherit; font-size: .8rem; padding: .2rem 0; cursor: pointer;
   border-radius: 7px; white-space: nowrap;
 }
+/* Jede Zeile ist ein eigener Flex-Container (ab 380 px, siehe oben). */
+.leg-row { gap: .35rem .95rem; flex-wrap: wrap; }
 /* Kurz sichtbar machen, dass es ein Feld war, das man getroffen hat. */
 .tl-key:active { background: var(--accent-soft); }
 .tl-key i, .catdot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }

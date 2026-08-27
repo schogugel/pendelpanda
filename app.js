@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.51.0";
+const APP_VERSION = "1.51.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -49,6 +49,8 @@ const app = {
 /* ---------------- Einstellungen (Standard-Verkehrsmittel) ---------------- */
 
 const CATS = ["fern", "regio", "sbahn", "ubahn", "tram", "bus", "sonstige", "fernbus"];
+// Vor dieser Kategorie bricht die Legende um → 3 Felder oben, 5 unten
+const LEGEND_BREAK = 3;
 /* Stufen für die Umsteigezeit. `factor` skaliert die vom Router berechnete
    nötige Zeit (wächst also mit der Größe des Bahnhofs), `extra` legt einen
    kleinen festen Sockel darunter. An vier Strecken gemessen wächst der
@@ -1479,8 +1481,17 @@ function maybeAutoFill() {
 function renderLegend() {
   const el = byId("tl-legend");
   if (!el.dataset.built) {
-    el.innerHTML = CATS.map(c =>
-      `<button class="tl-key" data-cat="${c}"><i class="dot seg-${c}"></i>${CAT_LABEL[c]}</button>`).join("");
+    /* ZWEI echte Zeilen statt eines Umbruch-Elements: drei Felder oben, fünf
+       unten. Der Umbruch über ein Flex-Element voller Breite war der
+       naheliegende Weg, kostete aber eine zusätzliche Zeile der Höhe null —
+       und damit einen Zeilenabstand zu viel (gemessen 60 statt 54 px). Zwei
+       Zeilen ergeben exakt zwei Zeilen. Die Reihenfolge bleibt unangetastet,
+       geschnitten wird nur an einer Stelle. */
+    const feld = c =>
+      `<button class="tl-key" data-cat="${c}"><i class="dot seg-${c}"></i>${CAT_LABEL[c]}</button>`;
+    el.innerHTML =
+      `<span class="leg-row">${CATS.slice(0, LEGEND_BREAK).map(feld).join("")}</span>` +
+      `<span class="leg-row">${CATS.slice(LEGEND_BREAK).map(feld).join("")}</span>`;
     el.dataset.built = "1";
     el.addEventListener("click", async (e) => {
       const b = e.target.closest(".tl-key");

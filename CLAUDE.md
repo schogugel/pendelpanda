@@ -728,6 +728,14 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Beides vergrößert die Basisbreite und verschiebt damit den Umbruch. Mit Polsterung
   fielen bei 360 px nur noch drei Felder in die erste Zeile und die Legende wurde 89
   statt 54 px hoch; mit kleinerem Abstand kippte 393 px auf 5+3.
+- **Die Aufteilung 3 oben / 5 unten macht ZWEI echte Zeilen** (`.leg-row`), kein
+  Umbruch-Element. Ein Flex-Element voller Breite war der naheliegende Weg, kostete aber
+  eine zusätzliche Zeile der Höhe null und damit einen Zeilenabstand zu viel — gemessen
+  60 statt 54 px. Negative Ränder nehmen einen Flex-`gap` nicht zurück.
+  **Unter 380 px greift wieder der natürliche Umbruch** (`.leg-row { display: contents }`):
+  Dort passen fünf Felder nicht nebeneinander, das fünfte rutschte in eine dritte Zeile
+  und die Legende wurde 84 px hoch. Auf schmalen Geräten zählt die Höhe mehr als die
+  Aufteilung. Nachgemessen 360/393/412 px: überall 54 px, unten 4+4, darüber 3+5.
 - Legende statisch gebaut (alle immer sichtbar), 3 Zustände: farbiger Punkt (an),
   hohler Punkt (Daten da, ausgeblendet), ausgegraut+durchgestrichen (keine Daten).
   Toggle rein clientseitig; `hiddenCats` resettet NUR bei `startFreshSearch` (Grid),
