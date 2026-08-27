@@ -635,6 +635,20 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Kategorien & Legende
 
+- **Die GTFS-Streckenart (`routeType`) schlägt den `mode`, wenn sie eindeutig ist**
+  (`classFromRouteType` vor `productClass`). Gemessen Regensburg → München: Der RE25 kommt
+  als `mode: HIGHSPEED_RAIL` herein, trägt aber `routeType: 106` = „Regional Rail“. Damit
+  stand ein Regionalexpress unter „Fernzug“ — und wer den Fernverkehr abwählt, um nur
+  Deutschlandticket-Verbindungen zu sehen, verlor ihn. Zum Vergleich aus derselben
+  Antwort: ICE 881 hat 101, RE2/RE22/RB17 haben 106 wie der RE25.
+  **Nur EINDEUTIGE Werte zählen.** Die Sammelwerte 2 („Rail“) und 100 („Railway Service“)
+  sagen nichts über fern oder regio; bei ihnen bleibt es beim `mode`, sonst würde aus
+  einem ICE ein Regionalzug. Nachgemessen an 98 Linien aus acht Strecken: 97 unverändert,
+  genau eine korrigiert.
+  **Rest-Lücke:** Der SERVERSEITIGE Filter (`transitModes`) kennt nur `mode`. Wer
+  Fernverkehr ausblendet, bekommt in der gefilterten Zusatzanfrage keine RE25 — sichtbar
+  sind sie trotzdem, weil die ungefilterte Anfrage sie liefert und die Anzeige jetzt
+  richtig einstuft.
 - **8 Kategorien fix**: fern, regio, sbahn, **ubahn**, **tram**, bus, sonstige
   (Fähre/Rufbus/Rest), fernbus. U-Bahn und Tram waren bis v1.9.2 EINE Kategorie
   (`utram`) — gespeicherte Einstellungen und alte Übertragungslinks tragen sie noch,

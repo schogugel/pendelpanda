@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.46.1";
+const APP_VERSION = "1.47.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1208,7 +1208,7 @@ function updateLastNote(visible) {
   const cats = new Set();
   for (const it of later) {
     for (const l of transitLegs(it)) {
-      const c = productClass(l.mode);
+      const c = productClass(l.mode, l.routeType);
       if (app.hiddenCats.has(c)) cats.add(CAT_LABEL[c]);
     }
   }
@@ -1283,7 +1283,7 @@ byId("time-apply").addEventListener("click", () => {
 
 function visibleItins() {
   return app.itins.filter(it =>
-    transitLegs(it).every(l => !app.hiddenCats.has(productClass(l.mode))));
+    transitLegs(it).every(l => !app.hiddenCats.has(productClass(l.mode, l.routeType))));
 }
 
 // So viele Verbindungen sollten nach dem Filtern mindestens da sein:
@@ -1329,7 +1329,7 @@ const CROWD_SHARE = 0.6;
 function mainCat(it) {
   const zahl = new Map();
   for (const l of transitLegs(it)) {
-    const c = productClass(l.mode);
+    const c = productClass(l.mode, l.routeType);
     zahl.set(c, (zahl.get(c) || 0) + 1);
   }
   let best = null, n = 0;
@@ -1423,14 +1423,14 @@ function renderLegend() {
       }
       /* Kam trotz eigener Anfrage nichts dieser Art, gibt es hier wirklich
          nichts — erst DANN ist die Aussage „keine“ belegt. */
-      const gibts = app.itins.some(it => transitLegs(it).some(l => productClass(l.mode) === c));
+      const gibts = app.itins.some(it => transitLegs(it).some(l => productClass(l.mode, l.routeType) === c));
       if (!gibts) app.emptyCats.add(c); else app.emptyCats.delete(c);
       renderResults();
       maybeAutoFill();
     });
   }
   const present = new Set();
-  for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode));
+  for (const it of app.itins) for (const l of transitLegs(it)) present.add(productClass(l.mode, l.routeType));
   el.querySelectorAll(".tl-key").forEach(b => {
     const c = b.dataset.cat;
     const has = present.has(c);
@@ -1574,7 +1574,7 @@ function tripStripe(it) {
     if (s > cursor) teile.push({ cls: "st-wait", ms: s - cursor });   // Wartezeit
     const walk = l.mode === "WALK";
     teile.push({
-      cls: walk ? "st-walk" : `seg-${productClass(l.mode)}`
+      cls: walk ? "st-walk" : `seg-${productClass(l.mode, l.routeType)}`
         + (flagged.has(l) ? " seg-cancelled" : isReplacementService(l) ? " seg-sev" : ""),
       ms: e - s,
     });
@@ -1603,7 +1603,7 @@ function renderItineraries(itineraries) {
        der Detailansicht. Vorher stand hier „RE22 › S3“ als reiner Text; welche
        Verkehrsmittel das sind, musste man wissen. */
     const chips = legs.map(l => {
-      const cls = productClass(l.mode);
+      const cls = productClass(l.mode, l.routeType);
       const sev = !flagged.has(l) && isReplacementService(l);
       return `<span class="linechip seg-${cls}${sev ? " chip-sev" : ""}${flagged.has(l) ? " seg-cancelled" : ""}">` +
         `<span class="lc-icon">${modeIcon(l)}</span>` +
@@ -1678,7 +1678,7 @@ function fillDetails(container, it, foot = null) {
 
   const segBlock = (l) => {
     const lp = lineParts(l);
-    const cls = productClass(l.mode);
+    const cls = productClass(l.mode, l.routeType);
     const sev = !flagged.has(l) && isReplacementService(l);
     const stops = l.intermediateStops || [];
     const facts = [];

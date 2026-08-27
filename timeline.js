@@ -313,7 +313,35 @@ function modeIcon(l) {
   return "";
 }
 
-function productClass(mode) {
+/* Die GTFS-Streckenart (`routeType`) schlägt den `mode`, wenn sie eindeutig ist.
+
+   Gemessen Regensburg → München: Der RE25 kommt als `mode: HIGHSPEED_RAIL`
+   herein, trägt aber `routeType: 106` — und 106 heißt in GTFS „Regional Rail“.
+   Damit stand ein Regionalexpress unter „Fernzug“, und wer den Fernverkehr
+   abwählt, um nur Deutschlandticket-Verbindungen zu sehen, verlor ihn. Genau
+   dafür ist die Unterscheidung da, also darf sie nicht am schwächeren Feld
+   hängen. Zum Vergleich aus demselben Ergebnis: ICE 881 hat routeType 101
+   (Hochgeschwindigkeit), RE2/RE22/RB17 haben 106 wie der RE25.
+
+   Nur EINDEUTIGE Werte stehen hier. Die Sammelwerte 2 („Rail“) und 100
+   („Railway Service“) sagen nichts über fern oder regio — bei ihnen bleibt es
+   beim `mode`, sonst würde aus einem ICE ein Regionalzug. */
+function classFromRouteType(rt) {
+  if (!Number.isFinite(rt)) return null;
+  if (rt === 101 || rt === 102 || rt === 104 || rt === 105) return "fern";
+  if (rt === 103 || (rt >= 106 && rt <= 108) || rt === 110) return "regio";
+  if (rt === 109) return "sbahn";
+  if (rt === 1 || (rt >= 400 && rt <= 405)) return "ubahn";
+  if (rt === 0 || (rt >= 900 && rt <= 906)) return "tram";
+  if (rt >= 200 && rt <= 209) return "fernbus";
+  if (rt === 3 || (rt >= 700 && rt <= 716) || rt === 800) return "bus";
+  if (rt === 4 || rt === 1000 || rt === 1200) return "sonstige";
+  return null;   // unbekannt oder Sammelwert → `mode` entscheidet
+}
+
+function productClass(mode, routeType) {
+  const genau = classFromRouteType(routeType);
+  if (genau) return genau;
   if (["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"].includes(mode)) return "fern";
   if (["REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL"].includes(mode)) return "regio";
   if (["SUBURBAN", "METRO"].includes(mode)) return "sbahn";
@@ -1070,7 +1098,7 @@ function tlColumn(it, left, isDominated = false, tagWechsel = false) {
     const h = Math.max(6, s1 - s0);
     const isCancelled = flagged.has(l);
     const sev = !isCancelled && isReplacementService(l);
-    seg.className = `tl-seg seg-${productClass(l.mode)}` + (h < 20 ? " nolabel" : "") +
+    seg.className = `tl-seg seg-${productClass(l.mode, l.routeType)}` + (h < 20 ? " nolabel" : "") +
       (isCancelled ? " seg-cancelled" : "") + (sev ? " seg-sev" : "");
     if (sev) seg.title = "Schienenersatzverkehr";
     seg.style.top = s0 + "px";
