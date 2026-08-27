@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.51.2";
+const APP_VERSION = "1.52.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -704,9 +704,38 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
    von der Strecke ab — gemessen 30 Minuten zwischen München Hbf und Ost, aber
    285 Minuten zwischen Nürnberg und Bayreuth. In der Stadt sah man dadurch
    deutlich weniger als in der DB-App, obwohl keine Halte fehlten. */
-const PAGE_SIZE = 20;
+/* Geblättert wird nach ZEITFENSTER, nicht nach Trefferzahl.
 
-function planParams({ time = null, limit = PAGE_SIZE, cursor = null } = {}) {
+   Der Unterschied ist keine Feinheit, sondern die Ursache verschluckter
+   Verbindungen: Mit `numItineraries` dehnt der Router sein Fenster so lange
+   aus, bis er so viele Pareto-optimale Ergebnisse beisammen hat. Gemessen an
+   Regensburg → Nürnberg deckte EINE Seite damit 900 Minuten ab — und die
+   Folgeseiten kamen nicht einmal der Reihe nach:
+
+     Seite 0: Fr 12:45–03:45
+     Seite 1: Sa 04:20–13:58   ← einen Tag vorwärts gesprungen
+     Seite 2: Fr 14:45–Sa 04:20 ← wieder zurück
+
+   Beim Scrollen sah man deshalb nach 17:48 unvermittelt den nächsten Morgen,
+   samt zweitem Tagesstrich, und erst nach weiterem Hin und Her tauchten die
+   Abendzüge auf. Mit festem Fenster schließen die Seiten lückenlos an:
+   12:45–15:48, 16:45–17:48, 18:45–19:48, 20:45–21:49, 22:45–00:24.
+
+   Drei Stunden sind gemessen der richtige Schnitt. Pro Minute Abdeckung kostet
+   das genauso viel wie bisher (dicht: 1,65 gegen 1,66 KB/min), bei sechs
+   Stunden stieg eine Anfrage auf der dichtesten Strecke aber auf 399 KB und
+   905 ms. `numItineraries` muss dabei auf 1 stehen — sonst dehnt der Router
+   das Fenster doch wieder aus. `maxItineraries` ist nur ein Sicherheitsnetz für
+   sehr dichte Takte; wird dabei abgeschnitten, macht der Cursor an derselben
+   Stelle weiter, es entsteht keine Lücke. */
+const PAGE_WINDOW = 3 * 3600;   // Sekunden je Blätterschritt
+const PAGE_MAX = 60;            // Obergrenze je Anfrage
+/* Für Ankunftssuchen bleibt es bei der bisherigen Zahl: Dort ist sie die
+   MINDESTanzahl und bestimmt, wie viele frühere Alternativen mitkommen. 60
+   wären dieselbe Antwort, nur langsamer (gemessen 660 ms schon bei 20). */
+const ARRIVE_COUNT = 20;
+
+function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAGE_WINDOW } = {}) {
   const { from, to } = app.search;
   const t = app.searchTime;
   /* „Letzte“ nutzt die ANKUNFTSSUCHE bis Betriebsschluss: Der Router liefert
@@ -721,7 +750,20 @@ function planParams({ time = null, limit = PAGE_SIZE, cursor = null } = {}) {
     fromPlace: from.id,
     toPlace: to.id,
     time: baseTime.toISOString(),
-    numItineraries: String(limit),
+    /* Bei einer ABFAHRTSSUCHE 1, nicht `limit`: Jede höhere Zahl ist eine
+       MINDESTANZAHL, für die der Router sein Zeitfenster ausdehnt — genau das
+       soll hier nicht passieren.
+
+       Bei einer ANKUNFTSSUCHE dagegen bleibt es beim alten Weg. Dort meint das
+       Fenster die ANKUNFTSzeit, und der Router liefert darin faktisch eine
+       einzige Verbindung: die späteste, die es noch schafft. Nachgemessen an
+       Regensburg → Nürnberg und → Neustrelitz brachten 3, 6 und sogar 12
+       Stunden Fenster jedes Mal genau einen Treffer — richtig, aber zu wenig,
+       um die Spalten davor zu füllen. Mit `numItineraries` kommen die früheren
+       Alternativen mit, und genau die braucht „Letzte“ als Umfeld. */
+    ...(arriveBy
+      ? { numItineraries: String(Math.min(limit, ARRIVE_COUNT)) }
+      : { numItineraries: "1", searchWindow: String(window), maxItineraries: String(limit) }),
     language: "de",
     withScheduledSkippedStops: "true", // auch übersprungene Halte mitnehmen
     /* Ohne Streckengeometrie und Wegbeschreibungen: Die App zeichnet keine
@@ -754,7 +796,7 @@ function planParams({ time = null, limit = PAGE_SIZE, cursor = null } = {}) {
   return params;
 }
 
-async function fetchPage(direction, limit = PAGE_SIZE) {
+async function fetchPage(direction, limit = PAGE_MAX) {
   const myTag = app.searchTag;
   const signal = app.planAbort?.signal;
   const params = planParams({
@@ -880,7 +922,11 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
    ganze geladene Bereich kostet damit 1–3 Anfragen statt 5–8 — und nur beim
    Einblenden, nicht bei jedem Laden.
    --------------------------------------------------------------------------- */
-const REFILL_LIMIT = 30;
+/* Beim Nachfüllen eines bereits geladenen Bereichs darf das Fenster größer
+   sein: Hier geht es nicht ums Blättern, sondern darum, eine bekannte Spanne in
+   wenigen Anfragen abzudecken. */
+const REFILL_WINDOW = 8 * 3600;
+const REFILL_LIMIT = 60;
 
 async function refillLoadedRange(modes = null, runden = 4, nurImFenster = false) {
   modes = modes || enabledModes();
@@ -891,7 +937,8 @@ async function refillLoadedRange(modes = null, runden = 4, nurImFenster = false)
 
   let cursor = null, added = 0;
   for (let round = 0; round < runden; round++) {
-    const params = planParams({ time: round === 0 ? von : null, limit: REFILL_LIMIT, cursor });
+    const params = planParams({ time: round === 0 ? von : null, limit: REFILL_LIMIT,
+      cursor, window: REFILL_WINDOW });
     let data;
     try {
       const res = await fetch(`${API}/plan?${params}&transitModes=${encodeURIComponent(modes)}`,
@@ -1153,7 +1200,7 @@ function renderPlanLog() {
         : "");
 }
 
-async function runPlan(direction = null, limit = PAGE_SIZE) {
+async function runPlan(direction = null, limit = PAGE_MAX) {
   if (!direction) showSearching("Verbindungen suchen …", 0, 3);
   try {
     const { params } = await fetchPage(direction, limit);

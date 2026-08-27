@@ -284,6 +284,27 @@ Was ansteht, steht in `TODO.md`.
   Prüfung konnte eine langsame Antwort den Pool der neuen Suche ÜBERSCHREIBEN, man sah
   dann Verbindungen der vorher gewählten Strecke.
 - `AbortError` in `runPlan` still schlucken — ein Abbruch ist kein Fehler.
+- **Geblättert wird nach ZEITFENSTER, nicht nach Trefferzahl** (`PAGE_WINDOW = 3 h`,
+  `numItineraries: 1`, `maxItineraries` als Netz). Das ist die Ursache verschluckter
+  Verbindungen, nicht eine Feinheit: Mit `numItineraries` dehnt der Router sein Fenster
+  aus, bis er so viele Pareto-optimale Ergebnisse hat. Gemessen Regensburg → Nürnberg
+  deckte EINE Seite damit 900 Minuten ab — und die Folgeseiten kamen nicht der Reihe nach:
+  Seite 0 Fr 12:45–03:45, Seite 1 **Sa** 04:20–13:58, Seite 2 wieder Fr 14:45.
+  Beim Scrollen sah man deshalb nach 17:48 unvermittelt den nächsten Morgen samt zweitem
+  Tagesstrich, und die Abendzüge tauchten erst nach weiterem Hin und Her auf.
+  Mit festem Fenster schließen die Seiten lückenlos an: 12:45–15:48, 16:45–17:48,
+  18:45–19:48, 20:45–21:49, 22:45–00:24.
+  **`numItineraries` MUSS dabei 1 sein** — jede höhere Zahl ist eine Mindestanzahl und
+  dehnt das Fenster wieder aus.
+  **Drei Stunden sind gemessen der Schnitt:** Pro Minute Abdeckung kostet das so viel wie
+  vorher (dicht 1,65 gegen 1,66 KB/min), bei sechs Stunden stieg eine Anfrage auf der
+  dichtesten Strecke aber auf 399 KB und 905 ms.
+- **ANKUNFTSSUCHEN behalten `numItineraries`** (`ARRIVE_COUNT = 20`). Dort meint das
+  Fenster die ANKUNFTSzeit, und der Router liefert darin faktisch genau eine Verbindung:
+  die späteste, die es noch schafft. Nachgemessen brachten 3, 6 und 12 Stunden Fenster
+  jedes Mal einen Treffer — richtig, aber zu wenig, um die Spalten davor zu füllen.
+  „Letzte“ fiel damit von 39 auf 1 Verbindung auf der ersten Seite. Mit
+  `numItineraries` kommen die früheren Alternativen mit, und genau die braucht es.
 - **Seitengröße `PAGE_SIZE = 20`, nicht 10.** Was eine Seite an ZEIT abdeckt, hängt
   völlig von der Strecke ab — gemessen 30 min zwischen München Hbf und Ost, aber 285 min
   zwischen Nürnberg und Bayreuth. Mit 10 sah man in der Stadt deutlich weniger als in der
