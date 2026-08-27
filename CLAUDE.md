@@ -717,6 +717,17 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   in `icons/` nachgezeichnet (`tools/trace-icons.mjs`). Sie zeichnen mit `currentColor`
   und nehmen die Schriftfarbe des Segments an — als PNG eingebunden verschwänden sie auf
   der hellen Fernzug-Farbe. „Sonstige“ hat bewusst KEIN Symbol (außer Fähre).
+- **Die Legende verteilt den Platz JE ZEILE** (`flex: 1` an `.tl-key`): Sie ist auch die
+  Bedienung, und als reine Aufzählung blieb rechts Platz übrig — gemessen bei 393 px
+  35 px in der ersten und 92 px in der zweiten Zeile. Die Trefferflächen waren nur so
+  breit wie ihre Beschriftung.
+  **Der Umbruch entsteht weiterhin aus der Inhaltsbreite**, gewachsen wird erst danach —
+  die Zeilenzahl kann sich dadurch nicht erhöhen. Nachgemessen bei 360, 393 und 412 px:
+  überall unverändert 54 px hoch, 4+4 Felder, freier Rest 0 px.
+  **KEINE seitliche Polsterung an `.tl-key`** und den Spaltenabstand NICHT verkleinern:
+  Beides vergrößert die Basisbreite und verschiebt damit den Umbruch. Mit Polsterung
+  fielen bei 360 px nur noch drei Felder in die erste Zeile und die Legende wurde 89
+  statt 54 px hoch; mit kleinerem Abstand kippte 393 px auf 5+3.
 - Legende statisch gebaut (alle immer sichtbar), 3 Zustände: farbiger Punkt (an),
   hohler Punkt (Daten da, ausgeblendet), ausgegraut+durchgestrichen (keine Daten).
   Toggle rein clientseitig; `hiddenCats` resettet NUR bei `startFreshSearch` (Grid),

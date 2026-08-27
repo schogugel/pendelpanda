@@ -1061,12 +1061,29 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 .timeline-wrap { transition: opacity .16s ease; }
 .timeline-wrap.swap { opacity: 0; transition: none; }
 @media (prefers-reduced-motion: reduce) { .timeline-wrap { transition: none; } }
+/* Die Legende ist auch die Bedienung: Jedes Feld blendet ein Verkehrsmittel
+   ein und aus. Als reine Aufzählung blieb rechts Platz übrig — gemessen bei
+   393 px 35 px in der ersten und 92 px in der zweiten Zeile —, und die
+   Trefferflächen waren nur so breit wie ihre Beschriftung.
+
+   `flex: 1` verteilt den Rest JE ZEILE auf die Felder darin. Der Umbruch
+   entsteht dabei weiterhin aus der Inhaltsbreite und erst danach wird
+   gewachsen — die Zeilenzahl kann sich dadurch nicht erhöhen, die Legende also
+   auch nicht höher werden. Die Reihenfolge bleibt unangetastet. */
 .tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
 .tl-key {
-  display: inline-flex; align-items: center; gap: .4rem;
+  flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
   border: none; background: none; color: var(--text);
+  /* KEINE seitliche Polsterung: Sie vergrößert die Basisbreite, und danach
+     richtet sich der Umbruch. Gemessen fielen dadurch bei 360 px nur noch drei
+     Felder in die erste Zeile und die Legende wurde 89 statt 54 px hoch. Die
+     Trefferfläche wächst ohnehin über `flex`, dafür braucht es sie nicht. */
   font: inherit; font-size: .8rem; padding: .2rem 0; cursor: pointer;
+  border-radius: 7px; white-space: nowrap;
 }
+/* Kurz sichtbar machen, dass es ein Feld war, das man getroffen hat. */
+.tl-key:active { background: var(--accent-soft); }
 .tl-key i, .catdot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
 .tl-key.off i.dot { background: transparent; border: 1.5px solid var(--muted); }
 .tl-key.nodata { opacity: .38; text-decoration: line-through; cursor: default; }
