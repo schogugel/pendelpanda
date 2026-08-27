@@ -23,6 +23,26 @@ Offen bleibt:
 - Einmal mit Obtainium gegen das echte Repo prüfen — inklusive Update von einer
   älteren auf eine neuere Version, nicht nur Erstinstallation.
 
+## Lizenzdatei fürs Repo
+
+Der Quelltext liegt öffentlich auf GitHub, aber ohne Lizenz — damit gilt das
+gesetzliche Urheberrecht: niemand darf ihn nutzen, ändern oder weitergeben, nur
+ansehen. „Quelloffen“ im Rechtssinne ist das nicht.
+
+Das ist mehr als Formsache: Die neue EU-Produkthaftung für Software (ab
+09.12.2026, verschuldensunabhängig) nimmt in Art. 2 Abs. 2 ausdrücklich „freie
+und quelloffene Software, die außerhalb einer Geschäftstätigkeit entwickelt oder
+bereitgestellt wird“ aus. „Außerhalb einer Geschäftstätigkeit“ passt
+zweifelsfrei; „frei und quelloffen“ ist ohne Lizenz angreifbar — und mit einer
+Datei zu beheben. Übliche Open-Source-Lizenzen enthalten obendrein den
+anerkannten Gewährleistungsausschluss („AS IS, WITHOUT WARRANTY OF ANY KIND“).
+
+Zu entscheiden ist nur, welche:
+- **MIT** — elf Zeilen, maximal erlaubend, jeder darf alles.
+- **GPL-3.0** — wer weitergibt, muss wieder quelloffen weitergeben.
+
+Begründung ausführlich in `Notizen/haftung.md`.
+
 ## Kleineres
 
 - **Exakten DB-Link auf einem echten Gerät prüfen.** Die vbid-Kette ist gegen
