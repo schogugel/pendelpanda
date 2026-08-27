@@ -616,6 +616,26 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   maßgeblich — daran hängen Balkenlage (`top`), Zeitachse (`geoCol.ms0`), aria-label und
   das Einrasten. Wer dort die Variable tauscht statt der Anzeige, verschiebt die halbe
   Grafik gegen ihre eigene Zeitachse.
+- **Der Balken beginnt an der SOLL-Abfahrt, nicht an der Prognose.** Verspätet sich die
+  Verbindung, liegt zwischen beiden ein eigenes Stück (`.seg-late`) — die Zeit, in der
+  man am Bahnsteig steht. Erst danach beginnt die Fahrt. Damit stimmen Kopf-Kachel,
+  Balkenanfang und Zeitachse wieder überein: Steht in der Kachel 09:20, fängt der Balken
+  auf Höhe 09:20 an. Am Übergang steht die Prognose in Rot (`.tl-real`).
+  Drei Fallen, alle beim Bauen aufgelaufen:
+  1. **NICHT die Ausfall-Streifen verwenden.** Schwarz-Rot heißt „fällt aus“, Gelb-Schräg
+     „Ersatzverkehr“ — ein drittes Muster darf keinem ähneln, sonst sehen zwei
+     verschiedene Aussagen gleich aus. Deshalb feine Rot-Schraffur auf deckendem Grund.
+  2. **`tlAlignTopFor` MUSS denselben Balkenanfang rechnen** wie `tlColumn` — dafür gibt
+     es `tlBarStartMs(legs, ppm)` als eine Wahrheit für beide. Ohne das dockt die Ansicht
+     an der Prognose an und schiebt das Verspätungsstück hinter die Kopf-Kachel; bei
+     +32 min war davon nichts mehr zu sehen. Fiel erst im Screenshot auf, nicht im Code.
+  3. **Deckender Grund unter der Schraffur.** Der Balken zeichnet eine senkrechte
+     Wartelinie über seine ganze Höhe; die schien mitten durch das Verspätungsstück und
+     sah aus wie ein Zeichenfehler.
+  Unterhalb von `TL.LATE_MIN_H` (16 px) wird das Stück NICHT gezeichnet — bei einer
+  Minute Verspätung und weit herausgezoomter Ansicht wären es zwei Pixel mit zwei
+  Uhrzeiten übereinander. Dann bleibt es beim Balken ab der Prognose, und die Abweichung
+  ist zu klein, um aufzufallen. `tlRescale` muss Stück und Beschriftung mitziehen.
 - **Verspätete Zeiten am Balken sind rot** (`.tl-dep.late` / `.tl-arr.late`), je Ende
   einzeln entschieden: Eine Verbindung, die mit +2 losfährt und pünktlich ankommt, ist
   oben rot und unten nicht. Grün für „bestätigt pünktlich“ gibt es hier bewusst nicht —

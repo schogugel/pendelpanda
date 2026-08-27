@@ -16,6 +16,11 @@ const TL = {
   PAD_MIN: 14,      // Minuten Luft über erster Abfahrt / unter letzter Ankunft
   HEAD_H: 58,
   DEP_LBL: 18,      // Zeile für die Abfahrtszeit über dem Balken
+  /* Ab dieser Höhe lohnt sich das Verspätungsstück mit eigener Beschriftung.
+     Darunter (weit herausgezoomt, kleine Verspätung) wären es ein paar Pixel
+     mit zwei Uhrzeiten übereinander — dann bleibt es beim schlichten Balken ab
+     der Prognose. 16 px trägt eine Zeile knapp und lässt die Zeit noch lesen. */
+  LATE_MIN_H: 16,
 };
 
 const tl = {
@@ -350,7 +355,9 @@ function renderTimeline(itins, focus = "start") {
   let min = Infinity, max = -Infinity;
   for (const it of tl.itins) {
     const legs = transitLegs(it);
-    min = Math.min(min, +new Date(legs[0].from.departure));
+    // Der Balken beginnt an der SOLL-Abfahrt (das Verspätungsstück davor gehört
+    // dazu) — sonst reicht die Leinwand oben nicht bis zu seinem Anfang
+    min = Math.min(min, +new Date(legs[0].from.scheduledDeparture || legs[0].from.departure));
     max = Math.max(max, +new Date(legs[legs.length - 1].to.arrival));
   }
   tl.t0 = min - TL.PAD_MIN * 60000;
@@ -468,6 +475,21 @@ function renderTimeline(itins, focus = "start") {
    der aktuellen Uhrzeit an — aber nur, wenn dabei mindestens 40 % des ersten
    Segments sichtbar bleiben; sonst gewinnt der Balken (sonst sähe man bei
    großem Abstand nur die Jetzt-Linie und keine Verbindung). */
+/* Wo FÄNGT der Balken an? Mit sichtbarem Verspätungsstück an der Soll-Abfahrt,
+   sonst an der Prognose. Diese eine Wahrheit brauchen zwei Stellen: das Zeichnen
+   (`tlColumn`) und das Andocken (`tlAlignTopFor`) — und letzteres rechnet für
+   eine Zoomstufe, die es noch gar nicht gibt, deshalb geht `ppm` mit hinein.
+   Ohne diesen gemeinsamen Nenner dockt die Ansicht an der Prognose an und
+   schiebt das Verspätungsstück hinter die Kopf-Kachel; bei +32 min war davon
+   nichts mehr zu sehen. */
+function tlBarStartMs(legs, ppm = tl.ppm) {
+  const from = legs[0].from;
+  const plan = +new Date(from.scheduledDeparture || from.departure);
+  const real = +new Date(from.departure);
+  const h = ((real - plan) / 60000) * ppm;
+  return h >= TL.LATE_MIN_H ? plan : real;
+}
+
 function tlAlignTopFor(idx, sc, ppm = tl.ppm) {
   const it = tl.itins[idx];
   if (!it) return 0;
@@ -477,7 +499,7 @@ function tlAlignTopFor(idx, sc, ppm = tl.ppm) {
   //   verdeckt genau die Abfahrtszeit, die dort steht.
   const clear = tlHeadClear() + TL.DEP_LBL;
   const dep = +new Date(legs[0].from.departure);
-  const barTop = Math.max(0, px(dep) - clear);
+  const barTop = Math.max(0, px(tlBarStartMs(legs, ppm)) - clear);
   if (!tlIsNextReachable(idx)) return barTop;
   const nowTop = Math.max(0, px(Date.now()) - clear);
   const viewH = sc ? sc.clientHeight : 0;
@@ -752,7 +774,21 @@ function tlColumn(it, left, isDominated = false) {
   const cancelled = flagged.size > 0;
   const risk = cancelled ? null : itinIssues(it).level;
   const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
-  const top = tlY(+new Date(dep.departure));
+  /* Der Balken beginnt an der SOLL-Abfahrt. Verspätet sich die Verbindung, liegt
+     zwischen Soll und Prognose ein eigenes Stück — die verlorene Zeit, in der
+     man am Bahnsteig steht. Erst danach beginnt die eigentliche Fahrt.
+     Damit stimmen Kopf-Kachel, Balkenanfang und Zeitachse wieder überein:
+     Steht in der Kachel 10:15, fängt der Balken auf Höhe 10:15 an.
+
+     Nur wenn das Stück auch sichtbar wäre. Bei einer Minute Verspätung und weit
+     herausgezoomter Ansicht sind das zwei Pixel — dafür ein zweites Zeitlabel
+     zu setzen bringt nichts als Gedränge. Dann bleibt es beim alten Verhalten
+     (Balken ab Prognose), und die Abweichung ist zu klein, um aufzufallen. */
+  const msPlan = +new Date(dep.scheduledDeparture || dep.departure);
+  const msReal = +new Date(dep.departure);
+  const showLate = tlBarStartMs(legs) === msPlan && msReal > msPlan;
+  const lateH = showLate ? tlY(msReal) - tlY(msPlan) : 0;
+  const top = tlY(showLate ? msPlan : msReal);
   const height = Math.max(10, tlY(+new Date(arr.arrival)) - top);
 
   const col = document.createElement("div");
@@ -790,14 +826,30 @@ function tlColumn(it, left, isDominated = false) {
   col.appendChild(head);
 
   const bar = document.createElement("button");
-  const geoCol = { bar, segs: [], dep: null, arr: null,
-                   ms0: +new Date(dep.departure), ms1: +new Date(arr.arrival) };
+  const geoCol = { bar, segs: [], dep: null, arr: null, late: null,
+                   ms0: showLate ? msPlan : msReal, ms1: +new Date(arr.arrival) };
   tl.geo.cols.push(geoCol);
   bar.className = "tl-bar";
   bar.style.top = top + "px";
   bar.style.height = height + "px";
   bar.setAttribute("aria-label", `${fmtTime(dep.departure)} bis ${fmtTime(arr.arrival)}`);
   bar.addEventListener("click", () => openTripDialog(it));
+
+  /* Das Verspätungsstück: eigene Optik, KEINE Ausfall-Streifen. Schwarz-Rot ist
+     in dieser Grafik für „fällt aus“ vergeben, Gelb-Schräg für Ersatzverkehr —
+     ein drittes Muster darf keinem der beiden ähneln, sonst heißen zwei
+     verschiedene Dinge dasselbe. Deshalb hier ein feines Rot-Schraffur-Muster
+     auf durchscheinendem Grund: erkennbar „hier fährt noch nichts“, aber ohne
+     die Wucht der Ausfall-Streifen. */
+  if (showLate) {
+    const late = document.createElement("span");
+    late.className = "tl-seg seg-late";
+    late.style.top = "0px";
+    late.style.height = lateH + "px";
+    late.title = `${delayMin} Min. später als geplant`;
+    bar.appendChild(late);
+    geoCol.late = { el: late, ms0: msPlan, ms1: msReal };
+  }
 
   for (const l of legs) {
     const s0 = tlY(+new Date(l.from.departure)) - top;
@@ -829,14 +881,28 @@ function tlColumn(it, left, isDominated = false) {
   const arrDelay = diffMin(arr.scheduledArrival, arr.arrival);
 
   const t0lbl = document.createElement("span");
-  t0lbl.className = "tl-dep" + (delayMin > 0 ? " late" : "");
+  // Rot nur, wenn diese Beschriftung selbst die verspätete Zeit zeigt
+  t0lbl.className = "tl-dep" + (!showLate && delayMin > 0 ? " late" : "");
   /* Beide Zeiten bekommen denselben Abstand von 3 px zum Balken. Oben wird
      dafür die UNTERkante gesetzt (per translateY(-100%) im Stylesheet) — mit
      einem festen Versatz nach oben hinge der Abstand an der Texthöhe und wäre
      in den engen Spaltenstufen wieder ein anderer. */
   t0lbl.style.top = (top - 3) + "px";
-  t0lbl.textContent = fmtTime(dep.departure);
+  /* Über dem Balken steht immer die Zeit, an der er ANFÄNGT. Mit Verspätungs-
+     stück ist das die Sollzeit — dieselbe wie in der Kopf-Kachel, und damit
+     stimmt endlich beides überein. Die Prognose wandert an den Übergang. */
+  t0lbl.textContent = fmtTime(showLate ? dep.scheduledDeparture : dep.departure);
   geoCol.dep = t0lbl;
+
+  /* Am Übergang die neue Abfahrtszeit, rot: Genau dort geht es wirklich los. */
+  let realLbl = null;
+  if (showLate) {
+    realLbl = document.createElement("span");
+    realLbl.className = "tl-real late";
+    realLbl.style.top = (top + lateH) + "px";
+    realLbl.textContent = fmtTime(dep.departure);
+    geoCol.real = { el: realLbl, ms: msReal };
+  }
 
   const t1lbl = document.createElement("span");
   t1lbl.className = "tl-arr" + (arrDelay > 0 ? " late" : "");
@@ -846,6 +912,7 @@ function tlColumn(it, left, isDominated = false) {
 
   col.appendChild(bar);
   col.appendChild(t0lbl);
+  if (realLbl) col.appendChild(realLbl);
   col.appendChild(t1lbl);
 
   tl.bars.push({ colLeft: left, top, height, itin: it, head, el: bar });
@@ -1091,6 +1158,13 @@ function tlRescale(sc, ppm) {
       s.el.style.height = sh + "px";
       s.el.classList.toggle("nolabel", sh < 20);
     }
+    /* Das Verspätungsstück und seine Beschriftung müssen bei jedem Bild
+       mitwandern — sonst laufen sie während des Zoomens gegen den Balken. */
+    if (c.late) {
+      const lh = Math.max(1, y(c.late.ms1) - y(c.late.ms0));
+      c.late.el.style.height = lh + "px";
+    }
+    if (c.real) c.real.el.style.top = y(c.real.ms) + "px";
     if (c.dep) c.dep.style.top = (top - 3) + "px";
     if (c.arr) c.arr.style.top = (top + h + 3) + "px";
   });

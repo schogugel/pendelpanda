@@ -549,6 +549,43 @@ body[data-view="results"][data-mode="graph"] #timeline {
    bewusst nicht: Diese Zeiten sollen zurückhaltend bleiben, und die Datenlage
    steht ohnehin im Abzeichen darüber. */
 .tl-arr.late, .tl-dep.late { color: var(--bad); font-weight: 600; }
+
+/* Verspätungsstück: die Zeit zwischen Soll-Abfahrt und Prognose — man steht am
+   Bahnsteig, es fährt noch nichts. Der Balken beginnt dadurch wieder dort, wo
+   die Kopf-Kachel es sagt.
+
+   Bewusst NICHT die Ausfall-Streifen: Schwarz-Rot heißt in dieser Grafik
+   „fällt aus“, Gelb-Schräg heißt „Ersatzverkehr“. Ein drittes Muster darf
+   keinem der beiden ähneln, sonst sehen zwei verschiedene Aussagen gleich aus.
+   Deshalb feine Rot-Schraffur auf durchscheinendem Grund: leichter als der
+   Ausfall, aber unmissverständlich „hier fährt noch nichts“. */
+/* Deckender Grund UNTER der Schraffur: Der Balken zeichnet eine senkrechte
+   Wartelinie über seine ganze Höhe (`--tl-link`, siehe .tl-bar). Die gehört zu
+   den Umstiegs-Lücken und schien vorher mitten durch das Verspätungsstück —
+   dort bedeutet sie nichts und sah aus wie ein Zeichenfehler. */
+.tl-seg.seg-late {
+  background:
+    repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--bad) 26%, transparent) 0 4px,
+      color-mix(in srgb, var(--bad) 6%, transparent) 4px 9px),
+    var(--card);
+  border: 1px solid color-mix(in srgb, var(--bad) 55%, transparent);
+  border-bottom: 2px solid var(--bad);
+  border-radius: 3px 3px 0 0;
+  box-sizing: border-box;
+}
+/* Die untere Kante ist die eigentliche Abfahrt — der Übergang vom Warten zur
+   Fahrt. Sie trägt deshalb die volle Farbe und die Uhrzeit direkt daneben. */
+.tl-real {
+  position: absolute; right: 3px;
+  transform: translateY(-100%);
+  font-size: .68rem; font-weight: 700; color: var(--bad);
+  font-variant-numeric: tabular-nums; pointer-events: none;
+  background: var(--card); padding: 0 3px; border-radius: 3px;
+  line-height: 1.25;
+}
+#timeline.narrow .tl-real { font-size: .6rem; }
+#timeline.tiny .tl-real { display: none; }
 /* Suchanzeige: Während gesucht wird, sind Liste UND Grafik ausgeblendet — es
    soll lieber kurz nichts zu sehen sein als eine veraltete Verbindung. Der
    Balken läuft ohne Prozentangabe: Wie lange es dauert, hängt an drei Anfragen
