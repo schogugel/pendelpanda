@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.36.0";
+const APP_VERSION = "1.37.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1452,10 +1452,33 @@ byId("btn-viewmode").addEventListener("click", () => {
   renderResults();
 });
 
-function openTripDialog(it) {
+/* Kopf der Detailansicht: Abfahrt · Fahrzeit · Ankunft, dazu der Schließknopf —
+   alles in EINER Zeile. Jede der drei Angaben kann zwei Zahlen tragen: die
+   geplante und die tatsächlich erwartete. Unterschieden werden sie nicht durch
+   eine Beschriftung, sondern durch dieselbe Darstellung wie in den Zeilen direkt
+   darunter — Sollzeit durchgestrichen und grau, Prognose in Farbe. Wer die eine
+   Zeile gelesen hat, versteht alle. Ohne Verspätung steht nur EINE Zahl da; ein
+   „(planmäßig)“ dahinter wäre Lärm für den Normalfall. */
+function tripHeadHTML(it) {
   const legs = transitLegs(it);
-  byId("trip-dialog-title").textContent =
-    `${fmtTime(legs[0].from.departure)} – ${fmtTime(legs[legs.length - 1].to.arrival)} · ${fmtDur(it.duration)}`;
+  const ab = legs[0].from, an = legs[legs.length - 1].to;
+  /* Die Fahrzeit aus DENSELBEN zwei Zeitpunkten rechnen, die daneben stehen —
+     `it.duration` zählt auch Fußwege davor und danach mit, dann widerspräche
+     die mittlere Zahl den beiden äußeren. */
+  const soll = (+new Date(an.scheduledArrival) - +new Date(ab.scheduledDeparture)) / 1000;
+  const ist = (+new Date(an.arrival) - +new Date(ab.departure)) / 1000;
+  const dauer = Math.abs(ist - soll) >= 30
+    ? `<span class="old-time">${fmtDur(soll)}</span><span class="t-real ${ist > soll ? "bad" : "ok"}">${fmtDur(ist)}</span>`
+    : `<span class="t-plan">${fmtDur(soll)}</span>`;
+  const teil = (label, inhalt) =>
+    `<span class="th-part"><small>${label}</small><span class="th-val">${inhalt}</span></span>`;
+  return teil("ab", timeWithDelay(ab.scheduledDeparture, ab.departure, legs[0].realTime))
+    + teil("Fahrt", dauer)
+    + teil("an", timeWithDelay(an.scheduledArrival, an.arrival, legs[legs.length - 1].realTime));
+}
+
+function openTripDialog(it) {
+  byId("trip-dialog-title").innerHTML = tripHeadHTML(it);
   const body = byId("trip-dialog-body");
   body.innerHTML = "";
   fillDetails(body, it);

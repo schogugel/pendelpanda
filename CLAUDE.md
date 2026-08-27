@@ -482,6 +482,20 @@ Was ansteht, steht in `TODO.md`.
 
 ## Verbindungs-Detailansicht (`fillDetails` + `updateJourneyLine`)
 
+**Kopfzeile** (`tripHeadHTML`): ab · Fahrt · an · Schließen, alles in EINER Zeile. Jede
+der drei Angaben trägt bis zu ZWEI Zahlen — Sollzeit durchgestrichen und grau darüber,
+gültige Zeit darunter in Farbe. Unterschieden wird also nicht über Beschriftungen,
+sondern über dieselbe Darstellung wie in den Zeilen direkt darunter (`timeWithDelay`):
+Wer eine Zeile gelesen hat, versteht alle. Ohne Verspätung steht nur EINE Zahl da — ein
+„(planmäßig)“ dahinter wäre Lärm für den Normalfall. Übereinander statt nebeneinander,
+weil in einer Zeile mit drei Angaben waagerecht kein Platz für sechs Zahlen ist.
+- **Die Fahrzeit aus DENSELBEN zwei Zeitpunkten rechnen**, die daneben stehen, nicht aus
+  `it.duration` — das zählt Fußwege davor und danach mit, dann widerspräche die mittlere
+  Zahl den beiden äußeren. Verschiebt die Verspätung die Fahrzeit (Abfahrt +2, Ankunft
+  +5), zeigt auch sie beide Werte.
+- **Der Schließknopf steht NEBEN der Überschrift, nicht darin.** `<h2>` nimmt nur
+  Phrasing-Inhalt; ein `<form method="dialog">` darin ist ungültiges HTML.
+
 Aufbau wie bei der Bahn (Referenz in `../design-refs/`): **Halt zuerst, darunter die
 Fahrt**, die dort abfährt — nicht umgekehrt. Reihenfolge je Abschnitt:
 Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …

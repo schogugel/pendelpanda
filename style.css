@@ -909,7 +909,53 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 /* ---------- Dialoge: Details & Übertragen ---------- */
 #trip-dialog { width: min(520px, calc(100vw - 2rem)); }
 #trip-dialog .trip-details { border-top: none; padding: .4rem 0 0; }
-#trip-dialog .viewhead { margin-bottom: .3rem; }
+
+/* Kopf der Detailansicht: ab · Fahrt · an · Schließen, alles in EINER Zeile.
+   Die drei Angaben teilen sich den Platz gleichmäßig, damit die Zahlen
+   untereinander stehen und nicht wandern, wenn eine Verspätung dazukommt. */
+.triphead {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding-bottom: .55rem; margin-bottom: .25rem;
+  border-bottom: 1.5px solid var(--border);
+}
+.th-times {
+  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: .5rem;
+  font-size: 1rem; font-weight: 400;
+}
+.th-part { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
+/* Die mittlere Angabe ist die Herleitung der beiden äußeren, keine dritte
+   gleichrangige Zahl — deshalb zentriert und eine Spur leiser. */
+.th-part:nth-child(2) { text-align: center; }
+.th-part:nth-child(2) .th-val { font-size: .92rem; }
+.th-part:nth-child(3) { text-align: right; }
+.th-part small {
+  font-size: .6rem; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--muted); line-height: 1.4;
+}
+.th-val {
+  font-size: 1.05rem; font-weight: 700; line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  display: flex; flex-direction: column;
+}
+.th-part:nth-child(2) .th-val { align-items: center; }
+.th-part:nth-child(3) .th-val { align-items: flex-end; }
+/* Soll über Prognose statt nebeneinander: In einer Zeile mit drei Angaben ist
+   waagerecht kein Platz für sechs Zahlen, senkrecht schon — und die Reihenfolge
+   „durchgestrichen oben, gültig unten“ liest sich von selbst. */
+.triphead .old-time {
+  text-decoration: line-through; color: var(--muted);
+  font-weight: 400; font-size: .78rem; line-height: 1.2;
+}
+.triphead .t-plan { font-weight: 700; }
+.th-close {
+  flex: none; width: 34px; height: 34px; margin-top: .1rem;
+  display: grid; place-items: center;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  background: var(--bg); color: var(--muted);
+  font-size: .95rem; line-height: 1; cursor: pointer;
+}
+.th-close:hover, .th-close:focus-visible { color: var(--text); border-color: var(--muted); }
+.th-close:active { opacity: .6; }
 .steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: .4rem; font-size: .92rem; margin: .6rem 0; }
 #share-url {
   width: 100%; font-size: .78rem; padding: .55rem .6rem; margin: .4rem 0 .6rem;
