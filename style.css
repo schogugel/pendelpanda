@@ -413,18 +413,80 @@ body[data-view="results"][data-mode="graph"] #timeline {
   background: var(--card); border: 1.5px solid var(--border);
   border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
 }
-.trip-main { display: flex; align-items: center; gap: .8rem; padding: .8rem .9rem; cursor: pointer; width: 100%; background: none; border: none; color: inherit; font: inherit; text-align: left; }
-.trip-times { font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
-.trip-times .arr { color: var(--muted); font-weight: 500; }
-.trip-meta { flex: 1; min-width: 0; }
-.trip-lines { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trip-sub { color: var(--muted); font-size: .85rem; margin-top: .15rem; }
+/* Verbindungskachel der Listenansicht. Sie benutzt dieselben Bausteine wie die
+   Balkengrafik und die Detailansicht — Kategoriefarben, Fahrzeugsymbole,
+   Verspätungs-Abzeichen —, damit man nicht zwei Bildsprachen lernen muss.
+   Vorher stand hier nur Text („RE22 › S3“); welche Verkehrsmittel das sind,
+   musste man wissen. */
+.trip-main {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; column-gap: .8rem;
+  padding: .7rem .85rem .6rem; cursor: pointer; width: 100%;
+  background: none; border: none; color: inherit; font: inherit; text-align: left;
+}
+/* Ab- und Ankunft untereinander, dazwischen ein kurzer Strich: dieselbe
+   Leserichtung wie im Kopf der Detailansicht. */
+.trip-when {
+  display: flex; flex-direction: column; align-items: center; gap: .1rem;
+  font-size: 1.1rem; font-weight: 700; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.trip-when .old-time {
+  display: block; text-decoration: line-through; color: var(--muted);
+  font-weight: 400; font-size: .72rem; line-height: 1.1;
+}
+.trip-rule { width: 1.5px; height: 10px; background: var(--border); border-radius: 1px; }
+.trip-arr { font-weight: 600; }
+.trip-arr .t-plan, .trip-arr .t-real { color: var(--muted); }
+.trip-arr .t-real.bad { color: var(--bad); }
+
+.trip-body { min-width: 0; }
+.trip-chips { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.trip-chips .linechip { font-size: .82rem; padding: .12em .45em; }
+.trip-chips .mi { width: 1.1em; height: 1.1em; }
+.trip-arrow { color: var(--muted); font-weight: 700; }
+.trip-sub {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  color: var(--muted); font-size: .82rem; margin-top: .3rem;
+}
+.trip-sub .trackchip { font-size: .78rem; }
+
+.trip-side { display: flex; align-items: center; gap: .35rem; white-space: nowrap; }
+/* Das Winkelzeichen ist die einzige Einladung, die Kachel überhaupt
+   aufzuklappen — ohne es sieht sie aus wie reine Anzeige. */
+.trip-more { color: var(--muted); font-size: 1.15rem; transition: transform .18s ease; }
+.trip.open .trip-more { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .trip-more { transition: none; } }
+
+/* Maßstäblicher Streifen über die ganze Kachelbreite: die Verbindung in klein.
+   Er sitzt in der dritten Rasterzeile und spannt alle Spalten. */
+.trip-stripe {
+  grid-column: 1 / -1; display: flex; gap: 1px;
+  height: 5px; margin-top: .6rem; border-radius: 999px; overflow: hidden;
+}
+.trip-stripe i { display: block; min-width: 2px; }
+.trip-stripe .st-walk { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+.trip-stripe .st-wait { background: color-mix(in srgb, var(--muted) 18%, transparent); }
 .delay { font-weight: 700; font-size: .9rem; white-space: nowrap; }
 .delay.ok { color: var(--ok); }
 .delay.warn { color: var(--warn); }
 .delay.bad { color: var(--bad); }
 .cancelled-label { color: var(--bad); font-weight: 700; }
-.trip.cancelled .trip-times { text-decoration: line-through; opacity: .6; }
+.trip.cancelled .trip-when { opacity: .55; }
+
+/* „Frühere/Spätere anzeigen“ — vorher völlig ungestylt, also ein nackter
+   Systemknopf mitten zwischen den Kacheln. Jetzt dieselbe Form wie die
+   Dialog-Knöpfe, aber in der Akzentfarbe: Er lädt etwas nach, er schließt
+   nichts ab. */
+.loadbtn {
+  display: block; width: 100%; margin: .1rem 0 .7rem;
+  padding: .75rem; font: inherit; font-weight: 700; cursor: pointer;
+  border-radius: 12px; border: 1.5px solid var(--accent);
+  background: var(--accent-soft); color: var(--accent);
+  box-shadow: var(--shadow);
+}
+#list-later { margin: .7rem 0 .1rem; }
+.loadbtn:active { opacity: .6; }
 
 .trip-details { border-top: 1px solid var(--border); padding: .7rem .9rem; display: flex; flex-direction: column; gap: .55rem; }
 .leg { display: grid; grid-template-columns: auto 1fr; gap: .15rem .6rem; font-size: .92rem; }

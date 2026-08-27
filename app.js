@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.44.0";
+const APP_VERSION = "1.45.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1552,32 +1552,89 @@ function openTripDialog(it) {
 
 function transitLegs(it) { return it.legs.filter(l => l.mode !== "WALK"); }
 
+/* Streifen unter der Kachel: die Verbindung in klein, maßstäblich nach Dauer
+   und in den Kategoriefarben der Balkengrafik. Er beantwortet auf einen Blick,
+   was die Textzeile erst nach dem Lesen verrät — wie viel der Fahrt womit
+   zurückgelegt wird und wo gewartet wird. Fußwege und Umstiege bleiben neutral,
+   Ausfälle bekommen die Streifung aus der Grafik. */
+function tripStripe(it) {
+  const T = transitLegs(it);
+  if (!T.length) return "";
+  const von = +new Date(T[0].from.departure);
+  const bis = +new Date(T[T.length - 1].to.arrival);
+  const ganz = bis - von;
+  if (!(ganz > 0)) return "";
+  const flagged = cancelledTransitLegs(it);
+  const teile = [];
+  let cursor = von;
+  for (const l of it.legs) {
+    const a = +new Date(l.from.departure), b = +new Date(l.to.arrival);
+    if (b <= von || a >= bis) continue;               // führende/abschließende Fußwege
+    const s = Math.max(a, von), e = Math.min(b, bis);
+    if (s > cursor) teile.push({ cls: "st-wait", ms: s - cursor });   // Wartezeit
+    const walk = l.mode === "WALK";
+    teile.push({
+      cls: walk ? "st-walk" : `seg-${productClass(l.mode)}`
+        + (flagged.has(l) ? " seg-cancelled" : isReplacementService(l) ? " seg-sev" : ""),
+      ms: e - s,
+    });
+    cursor = e;
+  }
+  if (cursor < bis) teile.push({ cls: "st-wait", ms: bis - cursor });
+  return `<span class="trip-stripe" aria-hidden="true">` + teile
+    .map(t => `<i class="${t.cls}" style="flex:${Math.max(1, t.ms)}"></i>`).join("") + `</span>`;
+}
+
 function renderItineraries(itineraries) {
   for (const it of itineraries) {
     const legs = transitLegs(it);
     if (!legs.length) continue; // reine Fußwege ausblenden
     const first = legs[0], last = legs[legs.length - 1];
     const dep = first.from, arr = last.to;
-    const cancelled = cancelledTransitLegs(it).size > 0;
+    const flagged = cancelledTransitLegs(it);
+    const cancelled = flagged.size > 0;
     const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
+    const risk = cancelled ? null : itinIssues(it).level;
 
     const card = document.createElement("article");
     card.className = "trip" + (cancelled ? " cancelled" : "");
 
-    const lines = legs.map(l => lineParts(l).main || l.mode).join(" › ");
-    const dur = fmtDur(it.duration);
-    const trackInfo = dep.track ? `Gl. ${dep.track}` : "";
-    const trackChanged = dep.track && dep.scheduledTrack && dep.track !== dep.scheduledTrack;
+    /* Linien als farbige Marken mit Fahrzeugsymbol — dieselben Bausteine wie in
+       der Detailansicht. Vorher stand hier „RE22 › S3“ als reiner Text; welche
+       Verkehrsmittel das sind, musste man wissen. */
+    const chips = legs.map(l => {
+      const cls = productClass(l.mode);
+      const sev = !flagged.has(l) && isReplacementService(l);
+      return `<span class="linechip seg-${cls}${sev ? " chip-sev" : ""}${flagged.has(l) ? " seg-cancelled" : ""}">` +
+        `<span class="lc-icon">${modeIcon(l)}</span>` +
+        `<span class="lc-name">${escapeHtml(lineParts(l).main || l.mode)}</span></span>`;
+    }).join(`<span class="trip-arrow" aria-hidden="true">›</span>`);
+
+    /* Nur MIT Gleisangabe: Ohne Gleis liefert `trackChip` bloß den Karten-Pin,
+       und der steht in der Übersichtszeile als einzelnes Zeichen ohne Bezug da.
+       In der aufgeklappten Detailansicht ist er weiterhin an jedem Halt. */
+    const track = dep.track ? trackChip(dep, "Abfahrtsgleis") : "";
+    const umst = it.transfers === 1 ? "1 Umstieg" : `${it.transfers} Umstiege`;
 
     const main = document.createElement("button");
     main.className = "trip-main";
-    main.innerHTML = `
-      <span class="trip-times">${fmtTime(dep.departure)}<br><span class="arr">${fmtTime(arr.arrival)}</span></span>
-      <span class="trip-meta">
-        <span class="trip-lines">${escapeHtml(lines)}</span>
-        <span class="trip-sub">${dur} · ${it.transfers} Umst.${trackInfo ? " · " + (trackChanged ? `<span class="track-changed">${trackInfo}</span>` : trackInfo) : ""}${cancelled ? "" : (issues => issues.level ? ` · ${riskMark(issues.level)}` : "")(itinIssues(it))}</span>
-      </span>
-      ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}`;
+    main.innerHTML =
+      `<span class="trip-when">` +
+        `<span class="trip-dep">${timeWithDelay(dep.scheduledDeparture, dep.departure, first.realTime)}</span>` +
+        `<span class="trip-rule" aria-hidden="true"></span>` +
+        `<span class="trip-arr">${timeWithDelay(arr.scheduledArrival, arr.arrival, last.realTime)}</span>` +
+      `</span>` +
+      `<span class="trip-body">` +
+        `<span class="trip-chips">${chips}</span>` +
+        `<span class="trip-sub">${fmtDur(it.duration)} · ${umst}` +
+          `${track ? ` <span class="trip-track">${track}</span>` : ""}</span>` +
+      `</span>` +
+      `<span class="trip-side">` +
+        `${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}` +
+        `${risk ? riskMark(risk) : ""}` +
+        `<span class="trip-more" aria-hidden="true">›</span>` +
+      `</span>` +
+      tripStripe(it);
 
     const details = document.createElement("div");
     details.className = "trip-details";
@@ -1585,6 +1642,7 @@ function renderItineraries(itineraries) {
     main.addEventListener("click", () => {
       if (details.hidden && !details.childNodes.length) fillDetails(details, it);
       details.hidden = !details.hidden;
+      card.classList.toggle("open", !details.hidden);
     });
 
     card.appendChild(main);

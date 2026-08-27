@@ -611,6 +611,24 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   eingefärbt nach Kategorie; darunter „nach <Ziel>“.
 - Gleis nur an Ein-/Ausstieg (`trackChip`), nie an Zwischenhalten.
 
+## Listenansicht
+
+- **Dieselben Bausteine wie Grafik und Detailansicht** — Kategoriefarben,
+  Fahrzeugsymbole (`linechip` + `modeIcon`), Verspätungs-Abzeichen, SEV-Streifung,
+  `trackChip`. Vorher stand dort nur Text („RE22 › S3“); welches Verkehrsmittel das ist,
+  musste man wissen. Zwei Bildsprachen für dieselbe Sache wären eine zu viel.
+- **`tripStripe` ist die Verbindung in klein**: ein maßstäblicher Streifen über die ganze
+  Kachelbreite, Segmente nach Dauer, Wartezeiten und Fußwege neutral. Er beantwortet auf
+  einen Blick, was die Textzeile erst nach dem Lesen verrät.
+- **Das Gleis-Chip nur MIT Gleisangabe.** Ohne Gleis liefert `trackChip` bloß den
+  Karten-Pin, und der steht in der Übersichtszeile als einzelnes Zeichen ohne Bezug da.
+  In der aufgeklappten Detailansicht bleibt er an jedem Halt.
+- **Die Grafikansicht bleibt davon unberührt** — das war ausdrücklich so gewollt.
+- `.loadbtn` („Frühere/Spätere anzeigen“) hatte gar kein CSS und war ein nackter
+  Systemknopf mitten zwischen den Kacheln. Jetzt dieselbe Form wie die Dialog-Knöpfe,
+  aber in der Akzentfarbe: Er lädt nach, er schließt nichts ab. Eine Regel für BEIDE
+  Knöpfe — sie teilen sich die Klasse.
+
 ## Kategorien & Legende
 
 - **8 Kategorien fix**: fern, regio, sbahn, **ubahn**, **tram**, bus, sonstige
