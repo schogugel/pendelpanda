@@ -576,9 +576,15 @@ body[data-view="results"][data-mode="graph"] #timeline {
 }
 /* Die untere Kante ist die eigentliche Abfahrt — der Übergang vom Warten zur
    Fahrt. Sie trägt deshalb die volle Farbe und die Uhrzeit direkt daneben. */
+/* Mittig über dem Übergang, wie die Zeiten an den Balkenenden. Nicht über
+   `width: 100%` + `text-align: center` wie jene — dieses Label hat einen
+   deckenden Hintergrund, der sonst die ganze Spaltenbreite überzöge. Also das
+   Element selbst auf die Mitte setzen und um seine halbe Breite zurückziehen;
+   der Kasten bleibt so eng am Text. Der Balken sitzt symmetrisch in der Spalte
+   (`left: 8px`, `width: calc(100% - 16px)`), Spaltenmitte ist also Balkenmitte. */
 .tl-real {
-  position: absolute; right: 3px;
-  transform: translateY(-100%);
+  position: absolute; left: 50%;
+  transform: translate(-50%, -100%);
   font-size: .68rem; font-weight: 700; color: var(--bad);
   font-variant-numeric: tabular-nums; pointer-events: none;
   background: var(--card); padding: 0 3px; border-radius: 3px;
