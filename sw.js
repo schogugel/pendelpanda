@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE = "pendelpanda-v1.42.0";
+const CACHE = "pendelpanda-v1.43.0";
 const SHELL = [
   "./",
   "./index.html",

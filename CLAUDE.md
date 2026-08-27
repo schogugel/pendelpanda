@@ -335,6 +335,26 @@ Was ansteht, steht in `TODO.md`.
 
 ## Grafik (timeline.js)
 
+- **Die Zoom-Grenzen sind DYNAMISCH** (`tl.minPpm` / `tl.maxPpm`); `TL.MIN_PPM` und
+  `TL.MAX_PPM` sind nur noch Notbremsen für Sonderfälle.
+  **Die feste Obergrenze von 14 px/min war für eine Pendler-App der falsche Wert.**
+  Genau die kurzen Stadtfahrten brauchen viel mehr, und dort band sie immer: Gemessen bei
+  393×852 und Höhe 70 % erreichte Nürnberg → Fürth nur 19 %, München Hbf → Ost 27 %,
+  Regensburg → Burgweinting 34 %, Berlin Alexanderplatz → Zoo 46 %. Nötig wären 21 bis
+  51 px/min gewesen. Auf Fernstrecken band sie nie (1,1 bis 6,5) — deshalb fiel es nie
+  auf. Die Einstellung „Höhe der vordersten Verbindung“ wurde also stillschweigend
+  ignoriert, und ausgerechnet im Hauptanwendungsfall.
+  **Ein höherer Zoom kostet nichts** — nachgemessen: `tlBuild` dauert über ppm 4 bis 140
+  unverändert rund 12 ms, und die Zahl der Zeitlinien deckelt sich bei 75 von selbst
+  (Mindestabstand 44 px). Was wächst, ist allein die Leinwandhöhe.
+  Die Obergrenze ergibt sich daher aus zwei Größen: dem NUTZEN (das kürzeste Viertel der
+  Verbindungen soll die Fläche ganz füllen können — weiter hinein zeigt nichts mehr,
+  es schneidet nur ab) und der LEINWAND (`TL.CANVAS_MAX`). Der alte Wert 14 bleibt als
+  UNTERgrenze der Obergrenze: Wo er gereicht hat, ändert sich nichts.
+  **Folge, die man kennen muss:** Auf Stadtstrecken sieht die Grafik jetzt deutlich
+  anders aus — statt vier kleiner Balken eine große Verbindung, weil `fill` endlich
+  wirkt. Wer die alte Übersicht will, stellt `fill` niedriger (bei 11-Minuten-Fahrten
+  entspricht 40 % ungefähr dem früheren Bild).
 - Y-Zoom: Zielspalten-Verbindung belegt **`settings.fill` %** der Fläche (Standard 70,
   einstellbar 40–90). Im **„Jetzt“-Modus wird von JETZT bis zur Ankunft gemessen**, nicht
   nur die Fahrtdauer — die Ansicht dockt dort an der Jetzt-Linie an, und bei langer

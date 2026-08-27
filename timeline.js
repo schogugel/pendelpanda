@@ -8,8 +8,17 @@
  */
 
 const TL = {
-  MIN_PPM: 1.5,
+  /* Absolute Notbremsen, nicht die eigentlichen Grenzen — die stehen dynamisch
+     in `tl.minPpm` / `tl.maxPpm` (siehe renderTimeline). Diese beiden fangen nur
+     Sonderfälle ab (leere Liste, Division durch fast null). */
+  MIN_PPM: 0.4,
   MAX_PPM: 14,
+  /* Wie hoch die Leinwand höchstens werden soll. Gemessen kostet ein höherer
+     Zoom NICHTS: Bei 393×852 dauert `tlBuild` über ppm 4 bis 140 unverändert
+     rund 12 ms, und die Zahl der Zeitlinien deckelt sich bei 75 von selbst
+     (Mindestabstand 44 px). Was wächst, ist allein die Leinwandhöhe — und die
+     bleibt hiermit im Rahmen. */
+  CANVAS_MAX: 60000,
   COL_W: 100,
   GAP: 8,
   AXIS_W: 50,
@@ -391,6 +400,34 @@ function renderTimeline(itins, focus = "start") {
   tl.t1 = max + TL.PAD_MIN * 60000;
   tl.t1Base = tl.t1;   // Bezug für die Fußfreiheit, siehe tlEnsureTail
 
+  /* Zoom-OBERGRENZE, dynamisch statt fest.
+
+     Fest bei 14 px/min war sie für eine Pendler-App der falsche Wert: Genau die
+     kurzen Stadtfahrten, für die sie gedacht ist, brauchen VIEL mehr. Gemessen
+     (393×852, Höhe 70 %) erreichte Nürnberg → Fürth statt der eingestellten
+     70 % nur 19 %, München Hbf → Ost 27 %, Regensburg → Burgweinting 34 %,
+     Berlin Alexanderplatz → Zoo 46 %. Nötig wären dort 21 bis 51 px/min
+     gewesen. Auf Fernstrecken band der Deckel nie (1,1 bis 6,5) — deshalb fiel
+     es nie auf. Die Einstellung „Höhe der vordersten Verbindung“ wurde also
+     stillschweigend ignoriert, und zwar im Hauptanwendungsfall.
+
+     Zwei Größen setzen die Grenze:
+     · NUTZEN — das kürzeste Viertel der Verbindungen soll die Fläche ganz
+       füllen können. Weiter hineinzuzoomen zeigt nichts mehr, es schneidet nur
+       oben und unten ab.
+     · LEINWAND — sie soll nicht ins Uferlose wachsen (`TL.CANVAS_MAX`).
+     Der alte Wert bleibt als UNTERgrenze der Obergrenze stehen: Wo 14 schon
+     gereicht hat, ändert sich dadurch nichts. */
+  const dauern = tl.itins.map(it => {
+    const L = transitLegs(it);
+    return (+new Date(L[L.length - 1].to.arrival) - +new Date(L[0].from.departure)) / 60000;
+  }).filter(x => x > 0).sort((a, b) => a - b);
+  const p25dauer = dauern[Math.floor(dauern.length * 0.25)] || 30;
+  const nutzbar = Math.max(180, (scroller.clientHeight || 400) - TL.HEAD_H - 60);
+  const spanneMin = Math.max(1, (tl.t1 - tl.t0) / 60000);
+  tl.maxPpm = Math.max(TL.MAX_PPM,
+    Math.min(nutzbar / p25dauer, TL.CANVAS_MAX / spanneMin));
+
   /* Startspalte: im „Jetzt“-Modus die erste noch erreichbare Verbindung, sonst
      die fokussierte (z. B. die letzte des Tages). Das ist WICHTIG für den Zoom
      — tlAutoZoom richtet sich danach. Stand hier immer 0, wurde die Ansicht auf
@@ -755,7 +792,7 @@ function tlAutoZoom(sc, startIdx = 0) {
   const spanMin = Math.max(1, (arr - from) / 60000);
   const fill = Math.min(90, Math.max(40, settings.fill || 70)) / 100;
   const ppm = (usable * fill) / spanMin;
-  const roh = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
+  const roh = Math.min(tl.maxPpm || TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
   return settings.fitBottom ? tlFitBottom(sc, startIdx, roh) : roh;
 }
 
@@ -814,7 +851,7 @@ function tlFitBottom(sc, startIdx, ppm) {
      Ankunft gemessen bei 95 %, also genau in dem unteren Zehntel, das frei
      bleiben soll. */
   const neu = (viewH * 0.85 - clear) / weiteste;
-  return Math.min(TL.MAX_PPM, Math.max(ppm, neu));
+  return Math.min(tl.maxPpm || TL.MAX_PPM, Math.max(ppm, neu));
 }
 
 /* Waagerechte Zeitlinien als EINZELNE Elemente, jede exakt auf ihrer Uhrzeit.
@@ -1106,7 +1143,7 @@ function tlColumn(it, left, isDominated = false, tagWechsel = false) {
 function tlSetZoom(newPpm) {
   tl.manualZoom = true;
   const sc = byId("timeline");
-  newPpm = Math.min(TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, newPpm));
+  newPpm = Math.min(tl.maxPpm || TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, newPpm));
   if (Math.abs(newPpm - tl.ppm) < 0.01) return;
   const anchorTime = tl.t0 + (sc.scrollTop / tl.ppm) * 60000;
   const left = sc.scrollLeft;
