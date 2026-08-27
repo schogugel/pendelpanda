@@ -381,6 +381,22 @@ Was ansteht, steht in `TODO.md`.
   einen fertigen Balken. Nur so lässt sich das Ziel für eine Zoomstufe ausrechnen, die
   noch gar nicht gebaut ist. Vorher wurde dafür kurz auf die Zielstufe gebaut und wieder
   zurück — zwei vollständige Neuaufbauten unmittelbar VOR der Bewegung. Jetzt null.
+- **Datumskachel in der Ecke oben links** (`.tl-date` in `.tl-datewrap`, gesetzt von
+  `tlUpdateDate`). Dort überlagern sich Zeitachse und Kopf-Kacheln, und es stand nur ein
+  Stück Skala, das nichts aussagt. Ohne Datum ist bei einer über Mitternacht laufenden
+  Ansicht schwer zu sehen, für welchen Tag die Zeiten gelten.
+  **Angezeigt wird der Tag der LINKESTEN sichtbaren Spalte** — damit springt das Datum
+  genau dann, wenn keine Verbindung des alten Tages mehr zu sehen ist. Das passt zur
+  Leserichtung: Das Datum steht links, neue Zeiten kommen von rechts herein.
+  Drei Punkte, ohne die es nicht funktioniert:
+  1. Die Kachel muss das **erste Kind der Achse im Fluss** sein — nur dann liegt ihre
+     Ausgangslage oben und `sticky` hält sie dort. Die Zeitmarken sind absolut gesetzt und
+     stören das nicht. Die Achse klebt waagerecht, die Kachel senkrecht: zusammen Ecke.
+  2. **Der deckende Rahmen ist Pflicht**, nicht Zierde: Ohne ihn lugt die Zeitmarke, die
+     zufällig ganz oben liegt, über der Kachel hervor und reiht sich in die Skala ein —
+     als stünde das Datum zwischen zwei Uhrzeiten.
+  3. **Tagesschlüssel in Europe/Berlin bilden**, nicht über `toDateString()`. Das nähme
+     die Zeitzone des Geräts, und für jemanden im Ausland kippte das Datum woanders.
 - **Zeitlinien sind einzelne Elemente** (`.tl-hline`), keine gekachelten Verläufe. Eine
   Kachelung mit gebrochener Höhe (60 min × 4,37 px/min = 262,2 px) sammelt über die
   Leinwand Rundungsfehler an: Linien wandern gegenüber der echten Uhrzeit und einzelne

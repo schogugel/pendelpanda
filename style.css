@@ -540,6 +540,34 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
   background: linear-gradient(to right, var(--card) 94%, transparent);
   pointer-events: none;
 }
+/* Datumskachel in der Ecke oben links. Sie sitzt IN der Zeitachse (die klebt
+   waagerecht) und klebt selbst senkrecht — zusammen ergibt das eine Kachel, die
+   in der Ecke stehen bleibt, egal wohin man scrollt. `pointer-events` bleibt
+   aus, sie ist reine Auskunft. Höhe und Rand halten sich an die Kopf-Kacheln
+   daneben, damit die Reihe oben eine Linie bildet. */
+/* Der deckende Rahmen ist nötig, nicht nur Zierde: Ohne ihn lugt die Zeitmarke,
+   die zufällig ganz oben liegt, über der Kachel hervor und reiht sich in die
+   Skala ein — als stünde das Datum zwischen zwei Uhrzeiten. Der Rahmen klebt
+   ganz oben, die Kachel darin hält den Abstand der Kopf-Kacheln daneben. */
+.tl-datewrap {
+  position: sticky; top: 0; z-index: 4;
+  padding: 6px 3px 9px; background: var(--card);
+}
+.tl-date {
+  width: 44px;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: .3rem 0 .32rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--card); box-shadow: var(--shadow);
+  line-height: 1.15;
+}
+.tl-date b {
+  font-size: .64rem; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tl-date span { font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+#timeline.narrow .tl-date b { font-size: .58rem; }
+#timeline.narrow .tl-date span { font-size: .72rem; }
 .tl-tick {
   position: absolute; left: 6px; transform: translateY(-50%);
   font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums;

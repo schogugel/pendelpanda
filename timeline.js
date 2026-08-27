@@ -499,6 +499,9 @@ function renderTimeline(itins, focus = "start") {
     scroller.scrollTop = tlAlignTopFor(startIdx, scroller);
   }
   tl.lastAlignLeft = scroller.scrollLeft;
+  // Nach dem Setzen der Scrollposition, sonst zeigte die Kachel den Tag der
+  // Spalte 0 statt den der Spalte, auf die die Ansicht gerade gesprungen ist.
+  tlUpdateDate(scroller);
 }
 
 /* Vertikales Einrast-Ziel für eine Spalte: normalerweise die Abfahrt des
@@ -611,7 +614,8 @@ function tlBuild(scroller) {
      tlRescale die Ansicht während einer Bewegung verschieben, ohne sie neu zu
      bauen — der Neuaufbau pro Bild war zu teuer und wurde als Stottern
      sichtbar, sobald der Zoom mitlief. */
-  tl.geo = { canvas: null, axis: null, lines: [], ticks: [], now: null, cols: [] };
+  tl.geo = { canvas: null, axis: null, lines: [], ticks: [], now: null, cols: [], dateEl: null };
+  tl.dateKey = null;   // beim Neuaufbau ist die Datumskachel leer, also neu setzen
   const heightPx = tlY(tl.t1);
   const widthPx = TL.AXIS_W + tl.itins.length * (tl.colW + TL.GAP) + TL.GAP;
 
@@ -778,11 +782,55 @@ function tlTickStep(ppm = tl.ppm) {
   return 240;
 }
 
+const TL_WOCHENTAG = new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "Europe/Berlin" });
+const TL_TAGMONAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "numeric", timeZone: "Europe/Berlin" });
+// Tagesschlüssel in Berliner Zeit — `toDateString()` würde die Zeitzone des
+// Geräts nehmen, und dann kippte das Datum für jemanden im Ausland woanders.
+const tlTagKey = ms => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date(ms));
+
+/* Datum in der Ecke oben links, wo sich Zeitachse und Kopf-Kacheln überlagern.
+   Dort stand vorher nur ein Stück Skala, das nichts aussagt. Ohne Datum ist bei
+   einer über Mitternacht laufenden Ansicht schwer zu sehen, für welchen Tag die
+   Zeiten gelten — den Tagessprung übersieht man leicht.
+
+   Angezeigt wird der Tag der LINKESTEN sichtbaren Spalte. Damit springt das
+   Datum genau dann, wenn keine Verbindung des alten Tages mehr zu sehen ist.
+   Das passt zur Leserichtung: Das Datum steht links, neue Zeiten kommen von
+   rechts herein. */
+function tlUpdateDate(sc) {
+  const el = tl.geo?.dateEl;
+  if (!el || !tl.itins.length) return;
+  const step = tlStep();
+  /* Erste Spalte, deren rechte Kante rechts der Achse liegt — die Achse deckt
+     die linken TL.AXIS_W Pixel ab, was darunter liegt, ist nicht zu sehen. */
+  const i = Math.min(tl.itins.length - 1,
+    Math.max(0, Math.ceil((sc.scrollLeft - TL.GAP - tl.colW) / step)));
+  const legs = transitLegs(tl.itins[i]);
+  if (!legs.length) return;
+  const ms = +new Date(legs[0].from.scheduledDeparture || legs[0].from.departure);
+  const key = tlTagKey(ms);
+  if (key === tl.dateKey) return;          // nichts anfassen, wenn gleich
+  tl.dateKey = key;
+  const d = new Date(ms);
+  el.innerHTML = `<b>${escapeHtml(TL_WOCHENTAG.format(d).replace(".", ""))}</b>`
+    + `<span>${escapeHtml(TL_TAGMONAT.format(d))}</span>`;
+}
+
 function tlAxis(h) {
   const axis = document.createElement("div");
   tl.geo.axis = axis;
   axis.className = "tl-axis";
   axis.style.height = h + "px";
+  /* Muss das ERSTE Kind im Fluss sein: Nur dann liegt seine Ausgangslage am
+     oberen Rand der Achse, und `sticky` hält es dort fest. Die Zeitmarken sind
+     absolut gesetzt und stören diese Lage nicht. */
+  const rahmen = document.createElement("div");
+  rahmen.className = "tl-datewrap";
+  const datum = document.createElement("div");
+  datum.className = "tl-date";
+  tl.geo.dateEl = datum;
+  rahmen.appendChild(datum);
+  axis.appendChild(rahmen);
   const step = tlTickStep() * 60000;
   let t = Math.ceil(tl.t0 / step) * step;
   for (; t < tl.t1; t += step) {
@@ -1128,6 +1176,7 @@ function tlInitInteractions() {
   }, true);
 
   sc.addEventListener("scroll", () => {
+    tlUpdateDate(sc);
     tlEdgeCheck(sc); // auch beim Gleiten an den Rand → Nachladen
     if (tl.autoScrolling) return;
     clearTimeout(tl.followTimer);
