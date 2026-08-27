@@ -235,7 +235,7 @@
   </section>
 
   <p class="version-line">PendelPanda <span id="app-version">–</span></p>
-  <form method="dialog"><button class="widebtn">Fertig</button></form>
+  <div class="dlgfoot"><form method="dialog"><button class="widebtn">Fertig</button></form></div>
 </dialog>
 
 <!-- VERBINDUNGSDETAILS (Grafikansicht) -->
@@ -248,6 +248,12 @@
       title="Schließen">✕</button></form>
   </div>
   <div id="trip-dialog-body" class="trip-details"></div>
+  <!-- Fußleiste klebt am unteren Rand: Auf einem Telefon ist die Daumenzone
+       unten, und beide Knöpfe sollen erreichbar sein, ohne erst ans Ende einer
+       langen Halteliste scrollen zu müssen. -->
+  <div class="dlgfoot" id="trip-foot">
+    <form method="dialog"><button class="footbtn">‹ Zurück</button></form>
+  </div>
 </dialog>
 
 <!-- BUTTONS ÜBERTRAGEN -->
@@ -286,7 +292,7 @@
     keiner Verbindung zur Deutschen Bahn AG oder zu einem anderen Verkehrs&shy;unternehmen;
     Namen und Linienbezeichnungen stammen aus offenen Fahrplandaten und dienen allein der
     Beschreibung der Verbindungen.</p>
-  <form method="dialog"><button class="widebtn">Schließen</button></form>
+  <div class="dlgfoot"><form method="dialog"><button class="widebtn">Schließen</button></form></div>
 </dialog>
 
 <!-- DATEN & DATENSCHUTZ -->
@@ -319,7 +325,7 @@
     vollständige Liste der Quellen samt Lizenzen steht unter
     <a href="https://transitous.org/sources/" target="_blank" rel="noopener">transitous.org/sources</a>.
     Geodaten von OpenStreetMap-Mitwirkenden.</p>
-  <form method="dialog"><button class="widebtn">Alles klar</button></form>
+  <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>
 </dialog>
 
 <!-- HILFE -->
@@ -339,7 +345,7 @@
   </ul>
   <p class="finequote"><a href="HILFE.md" target="_blank" rel="noopener">Ausführliche Hilfe</a> · Fahrplandaten: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> ·
     <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Datenquellen</a></p>
-  <form method="dialog"><button class="widebtn">Alles klar</button></form>
+  <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>
 </dialog>
 
 <script src="platform.js"></script>

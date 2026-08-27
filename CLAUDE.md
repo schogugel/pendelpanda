@@ -602,6 +602,20 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Vorher gab es gar keine Grenze, und der Text bestimmt die Höhe der Kopfkarte. 28 lässt
   jeden echten Bahnhofsnamen zu — gemessen an 75 Namen: Median 14, 90 % unter 19,
   längster gefundener 23 („Bochum Ruhr-Universität“).
+- **Dialog-Knöpfe kleben unten** (`.dlgfoot`, `position: sticky; bottom: 0`). Auf einem
+  Telefon liegt die Daumenzone unten, und in einem langen Dialog (Einstellungen,
+  Halteliste, Datenschutz) müsste man sonst erst ans Ende scrollen, nur um zu schließen.
+  **`dialog:has(.dlgfoot) { padding-bottom: 0 }` ist Pflicht:** Der untere Innenabstand
+  gehört zur SCROLLFLÄCHE — bleibt er stehen, klebt die Leiste 1,2 rem über dem Rand und
+  der Inhalt scrollt sichtbar darunter durch. Die Leiste übernimmt den Abstand selbst.
+  Der deckende Grund ist ebenfalls Pflicht, sonst liest sich der Text hindurch.
+  **Extra Fußraum braucht es NICHT:** Die Leiste steht im Fluss ganz am Ende — ganz nach
+  unten gescrollt sitzt sie an ihrer natürlichen Stelle und verdeckt nichts. Verdeckt
+  wird nur unterwegs, und dorthin scrollt man ohnehin weiter.
+- **Der DB-Knopf wandert im Dialog in die Fußleiste**, in der aufklappbaren Listenansicht
+  bleibt er am Ende des Inhalts (`fillDetails(container, it, foot)`): Dort gibt es keine
+  Fußleiste, an die er kleben könnte. Beim Öffnen der nächsten Verbindung muss der alte
+  Knopf entfernt werden, sonst sammeln sie sich.
 - **Dialoge sind Fenster, keine Vollbildseiten**: `max-height` mit `2 * max(inset-top,
   inset-bottom)` Abzug, innen `overflow-y: auto`. Sie liegen in der obersten Ebene und
   erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie

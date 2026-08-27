@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.37.1";
+const APP_VERSION = "1.38.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1500,8 +1500,10 @@ function tripHeadHTML(it) {
 function openTripDialog(it) {
   byId("trip-dialog-title").innerHTML = tripHeadHTML(it);
   const body = byId("trip-dialog-body");
+  const foot = byId("trip-foot");
   body.innerHTML = "";
-  fillDetails(body, it);
+  foot.querySelector(".dblink")?.remove();   // Knopf der vorher geöffneten Verbindung
+  fillDetails(body, it, foot);
   byId("trip-dialog").showModal();
 }
 
@@ -1550,7 +1552,10 @@ function renderItineraries(itineraries) {
 
 let jrnGroup = 0; // laufende Nummer für Zwischenhalt-Gruppen
 
-function fillDetails(container, it) {
+/* `foot` ist optional: Im Dialog wandert der DB-Knopf in die klebende
+   Fußleiste, in der aufklappbaren Listenansicht bleibt er am Ende des
+   Inhalts — dort gibt es keine Fußleiste, an die er kleben könnte. */
+function fillDetails(container, it, foot = null) {
   const flagged = cancelledTransitLegs(it);
   const T = transitLegs(it);
   if (!T.length) return;
@@ -1711,7 +1716,7 @@ function fillDetails(container, it) {
       { name: aus.name, lat: aus.lat, lon: aus.lon, mode: T[T.length - 1].mode },
       ein.scheduledDeparture, aus.scheduledArrival, T.length);
   }
-  container.appendChild(a);
+  (foot || container).appendChild(a);
 }
 
 /* Durchgehende Linie über die GESAMTE Verbindung: Sie verbindet alle Halte,
