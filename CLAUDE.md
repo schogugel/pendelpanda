@@ -512,7 +512,16 @@ Was ansteht, steht in `TODO.md`.
   **Die Beschriftung gehört ÜBER die Streifen** (`.seg-txt`, `z-index: 1`) — darunter ist
   sie schlecht zu lesen. Dafür wird sie IMMER in eine Hülle gepackt: Ein nackter
   Textknoten lässt sich nicht anheben.
-- **Der Filter „nur die besten“ (Zugsymbol im Kopf) sitzt in der ANZEIGE-Schicht**, nicht
+- **Der Filterzustand wird GERÄTEWEIT gemerkt** (`localStorage` `pp.fastonly`), wie die
+  Listen-/Grafikansicht — und ausdrücklich NICHT in `settings`. Damit steht er auch nicht
+  im Übertragungslink: Der gibt Kacheln und Vorlieben weiter, nicht den Zustand, in dem
+  jemand die App zufällig verlassen hat. Sonst schleppte ein geteilter Link einen
+  Anzeigefilter mit, den der Empfänger nie gewählt hat.
+  **Voreinstellung beim allerersten Öffnen: AN** (`!== "0"`, nicht `=== "1"`). Für den
+  ersten Eindruck ist das Gedränge aus dominierten Doppelungen das schlechtere Bild.
+  Es gibt bewusst KEINEN Schalter dafür in den Einstellungen — der Knopf im Kopf IST die
+  Einstellung, sie merkt sich nur.
+- **Der Filter „nur die besten“ (Trichter im Kopf) sitzt in der ANZEIGE-Schicht**, nicht
   im Pool: Die Verbindungen bleiben geladen, Fokus und Nachladen rechnen weiter mit
   allen. Umschalten kostet dadurch keine Anfrage und verliert nichts.
   `dominatedFlags()` ist dafür aus `tlBuild` herausgezogen — Schraffur und Filter müssen

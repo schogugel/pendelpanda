@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.49.1";
+const APP_VERSION = "1.50.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -25,6 +25,17 @@ const app = {
   itins: [],             // geladene Verbindungen (inkl. „Später“-Seiten)
   nextPageCursor: null,
   viewMode: localStorage.getItem("pp.view") || "graph", // "graph" | "list"
+  /* Ob langsamere Verbindungen ausgeblendet sind, wird GERÄTEWEIT gemerkt —
+     wie die Listen-/Grafikansicht, nicht wie eine Einstellung.
+
+     Bewusst NICHT in `settings` und damit nicht im Übertragungslink: Der Link
+     gibt Kacheln und Vorlieben weiter, nicht den Zustand, in dem man die App
+     gerade zufällig verlassen hat. Sonst schleppte man beim Teilen einen
+     Anzeigefilter mit, den der andere nie gewählt hat.
+
+     Voreinstellung beim allerersten Öffnen: AN. Für den ersten Eindruck ist
+     das Gedränge aus dominierten Doppelungen das schlechtere Bild. */
+  hideDominated: localStorage.getItem("pp.fastonly") !== "0",
   // Zeitnavigation: kind = now | custom | letzte
   searchTime: { kind: "now", time: null, arriveBy: false },
   prevPageCursor: null,
@@ -956,8 +967,11 @@ async function loadAllCategories() {
   }
   app.fullLoaded = app.searchTag;   // je Suche nur einmal nötig
   /* Wer alles holt, will alles sehen: Sonst lädt man Verbindungen nach, die
-     der Filter im selben Moment wieder wegnimmt. */
+     der Filter im selben Moment wieder wegnimmt. Das zählt als bewusste
+     Entscheidung und wird deshalb genauso gemerkt wie ein Tippen auf den
+     Trichter — sonst stünde beim nächsten Start wieder der Filter davor. */
   app.hideDominated = false;
+  localStorage.setItem("pp.fastonly", "0");
   updateChips();
   renderResults();
   return app.itins.length - vorher;
@@ -2432,6 +2446,7 @@ byId("btn-full").addEventListener("click", () => loadAllCategories());
    Zoom neu bestimmt wie bei einer geänderten Frage. */
 byId("btn-fast").addEventListener("click", () => {
   app.hideDominated = !app.hideDominated;
+  localStorage.setItem("pp.fastonly", app.hideDominated ? "1" : "0");
   tl.forceAutoZoom = true;
   /* Kurzes Überblenden statt hartem Umschalten. Bewusst NUR die Deckkraft des
      Rahmens — an Bewegung, Zoom und Einrasten wird dafür nichts angefasst. */
