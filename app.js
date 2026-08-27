@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.37.0";
+const APP_VERSION = "1.37.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1467,14 +1467,34 @@ function tripHeadHTML(it) {
      die mittlere Zahl den beiden äußeren. */
   const soll = (+new Date(an.scheduledArrival) - +new Date(ab.scheduledDeparture)) / 1000;
   const ist = (+new Date(an.arrival) - +new Date(ab.departure)) / 1000;
-  const dauer = Math.abs(ist - soll) >= 30
-    ? `<span class="old-time">${fmtDur(soll)}</span><span class="t-real ${ist > soll ? "bad" : "ok"}">${fmtDur(ist)}</span>`
-    : `<span class="t-plan">${fmtDur(soll)}</span>`;
-  const teil = (label, inhalt) =>
-    `<span class="th-part"><small>${label}</small><span class="th-val">${inhalt}</span></span>`;
-  return teil("ab", timeWithDelay(ab.scheduledDeparture, ab.departure, legs[0].realTime))
-    + teil("Fahrt", dauer)
-    + teil("an", timeWithDelay(an.scheduledArrival, an.arrival, legs[legs.length - 1].realTime));
+  const dauerAnders = Math.abs(ist - soll) >= 30;
+
+  /* Eine Zeitangabe belegt ZWEI Rasterzeilen: oben die überholte Sollzeit,
+     unten die gültige. Gibt es keine Verspätung, steht nur eine Zahl da — die
+     rutscht dann nicht nach unten, sondern spannt beide Zeilen und sitzt mittig
+     auf der Linie (`solo`). Sonst stünden pünktliche Zeiten tiefer als
+     verspätete, und die Zeile wirkte schief. */
+  const zeit = (spalte, plan, ist2, rt) => {
+    const d = diffMin(plan, ist2);
+    if (!rt || d === 0) {
+      return `<span class="th-v solo ${spalte} ${rt ? "t-real ok" : "t-plan"}">${fmtTime(ist2 || plan)}</span>`;
+    }
+    return `<span class="th-v alt ${spalte} old-time">${fmtTime(plan)}</span>`
+      + `<span class="th-v neu ${spalte} t-real ${d > 0 ? "bad" : "ok"}">${fmtTime(ist2)}</span>`;
+  };
+
+  /* Die Fahrzeit steht immer ÜBER der Linie, ihre geänderte Fassung darunter —
+     „vorher so lang, jetzt so lang“ liest sich in dieser Richtung von selbst. */
+  const dauer = dauerAnders
+    ? `<span class="th-v alt mid old-time">${fmtDur(soll)}</span>`
+      + `<span class="th-v neu mid t-real ${ist > soll ? "bad" : "ok"}">${fmtDur(ist)}</span>`
+    : `<span class="th-v alt mid t-plan">${fmtDur(soll)}</span>`;
+
+  return `<span class="th-lab lab-ab">ab</span><span class="th-lab lab-an">an</span>`
+    + zeit("ab", ab.scheduledDeparture, ab.departure, legs[0].realTime)
+    + dauer
+    + zeit("an", an.scheduledArrival, an.arrival, legs[legs.length - 1].realTime)
+    + `<span class="th-line" aria-hidden="true"></span>`;
 }
 
 function openTripDialog(it) {

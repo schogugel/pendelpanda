@@ -918,35 +918,60 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
   padding-bottom: .55rem; margin-bottom: .25rem;
   border-bottom: 1.5px solid var(--border);
 }
+/* Raster mit drei Spalten (ab · Fahrt · an) und drei Zeilen (Beschriftung ·
+   Sollzeit · gültige Zeit). Die beiden Wertzeilen haben eine MINDESTHÖHE — sonst
+   fällt bei durchweg pünktlichen Verbindungen eine Zeile auf null zusammen, und
+   die Trennlinie hätte keine definierte Lage mehr. */
 .th-times {
-  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: .5rem;
+  flex: 1; min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto;
+  grid-template-rows: auto minmax(1.15em, auto) minmax(1.15em, auto);
+  align-items: center; column-gap: .6rem;
   font-size: 1rem; font-weight: 400;
 }
-.th-part { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
-/* Die mittlere Angabe ist die Herleitung der beiden äußeren, keine dritte
-   gleichrangige Zahl — deshalb zentriert und eine Spur leiser. */
-.th-part:nth-child(2) { text-align: center; }
-.th-part:nth-child(2) .th-val { font-size: .92rem; }
-.th-part:nth-child(3) { text-align: right; }
-.th-part small {
+.th-lab {
+  grid-row: 1;
   font-size: .6rem; font-weight: 700; letter-spacing: .13em;
-  text-transform: uppercase; color: var(--muted); line-height: 1.4;
+  text-transform: uppercase; color: var(--muted); line-height: 1.5;
 }
-.th-val {
-  font-size: 1.05rem; font-weight: 700; line-height: 1.25;
-  font-variant-numeric: tabular-nums;
-  display: flex; flex-direction: column;
-}
-.th-part:nth-child(2) .th-val { align-items: center; }
-.th-part:nth-child(3) .th-val { align-items: flex-end; }
-/* Soll über Prognose statt nebeneinander: In einer Zeile mit drei Angaben ist
-   waagerecht kein Platz für sechs Zahlen, senkrecht schon — und die Reihenfolge
-   „durchgestrichen oben, gültig unten“ liest sich von selbst. */
-.triphead .old-time {
+.lab-ab { grid-column: 1; }
+.lab-an { grid-column: 3; text-align: right; }
+
+.th-v { font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap; }
+.th-v.ab  { grid-column: 1; }
+.th-v.mid { grid-column: 2; text-align: center; }
+.th-v.an  { grid-column: 3; text-align: right; }
+.th-v.alt { grid-row: 2; }
+.th-v.neu { grid-row: 3; }
+/* Ohne Verspätung gibt es nur EINE Zahl. Sie spannt beide Wertzeilen und sitzt
+   damit mittig auf der Linie — statt in die untere Zeile zu rutschen und tiefer
+   zu stehen als eine verspätete Zeit daneben. */
+.th-v.solo { grid-row: 2 / 4; align-self: center; }
+.th-times .th-v.neu, .th-times .th-v.solo { font-size: 1.05rem; font-weight: 700; }
+.th-times .th-v.alt.old-time {
   text-decoration: line-through; color: var(--muted);
-  font-weight: 400; font-size: .78rem; line-height: 1.2;
+  font-weight: 400; font-size: .78rem;
 }
-.triphead .t-plan { font-weight: 700; }
+.th-times .th-v.mid.alt.t-plan { font-size: .82rem; font-weight: 600; color: var(--muted); }
+.th-times .th-v.mid.neu { font-size: .82rem; }
+
+/* Der Strich verbindet Start und Ziel und endet in einer Pfeilspitze. Er liegt
+   in der MITTLEREN Spalte und spannt beide Wertzeilen: mittig ausgerichtet trifft
+   er damit genau deren Grenze — über ihm die überholten Zahlen, darunter die
+   gültigen. An den Seiten hört er auf, die Zeiten bleiben unangetastet. */
+.th-line {
+  grid-column: 2; grid-row: 2 / 4; align-self: center;
+  height: 1px; background: var(--border);
+  position: relative; pointer-events: none;
+}
+.th-line::after {
+  content: ""; position: absolute; right: -1px; top: 50%;
+  width: 0; height: 0; transform: translateY(-50%);
+  border-left: 5px solid var(--border);
+  border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent;
+}
+
 .th-close {
   flex: none; width: 34px; height: 34px; margin-top: .1rem;
   display: grid; place-items: center;

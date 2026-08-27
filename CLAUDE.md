@@ -493,6 +493,18 @@ weil in einer Zeile mit drei Angaben waagerecht kein Platz für sechs Zahlen ist
   `it.duration` — das zählt Fußwege davor und danach mit, dann widerspräche die mittlere
   Zahl den beiden äußeren. Verschiebt die Verspätung die Fahrzeit (Abfahrt +2, Ankunft
   +5), zeigt auch sie beide Werte.
+- **Raster, nicht drei Blöcke nebeneinander:** drei Spalten (ab · Fahrt · an) mal drei
+  Zeilen (Beschriftung · Sollzeit · gültige Zeit). Nur so fluchten die Zahlen über alle
+  drei Spalten. Ein Strich in der mittleren Spalte spannt beide Wertzeilen und trifft
+  mittig ausgerichtet genau deren Grenze — darüber die überholten Zahlen, darunter die
+  gültigen —, endet in einer Pfeilspitze und hört vor den Zeiten auf.
+- **Beide Wertzeilen brauchen eine MINDESTHÖHE** (`minmax(1.15em, auto)`). Ohne sie fällt
+  bei durchweg pünktlichen Verbindungen eine Zeile auf null zusammen, und der Strich hat
+  keine definierte Lage mehr — er läge dann mitten im Text.
+- **Ohne Verspätung steht nur EINE Zahl** (`.th-v.solo`): Sie spannt beide Wertzeilen und
+  sitzt mittig auf dem Strich, statt in die untere Zeile zu rutschen. Sonst stünden
+  pünktliche Zeiten tiefer als verspätete daneben, und die Zeile wirkte schief. Gilt je
+  Seite einzeln — Abfahrt verspätet und Ankunft pünktlich ist ein echter Fall.
 - **Der Schließknopf steht NEBEN der Überschrift, nicht darin.** `<h2>` nimmt nur
   Phrasing-Inhalt; ein `<form method="dialog">` darin ist ungültiges HTML.
 
