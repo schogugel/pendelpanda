@@ -22,8 +22,6 @@
   --seg-fernbus: #73DC04;
   --tl-line: rgba(0,0,0,.06);
   --tl-line-strong: rgba(0,0,0,.14);
-  /* Schraffur dominierter Verbindungen — in beiden Themen derselbe Ton */
-  --dom-stripe: rgba(45,52,64,.62);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -1034,25 +1032,24 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
    Diese Regeln standen bis v1.3.0 schon einmal hier und sind damals bei einer
    Blockersetzung mitgelöscht worden (zusammen mit `.around-note` und
    `.loadbtn`). Die Klasse wurde seitdem gesetzt, ohne dass man etwas sah. */
-/* Graue Schrägstreifen ÜBER der Kategoriefarbe, statt sie zu entfärben: Welches
-   Verkehrsmittel es ist, bleibt so ablesbar — das ist Information, die beim
-   Ausgrauen verlorenging. Als Auflage (`::after`) gebaut, damit sie die
-   Muster für Ausfall und Ersatzverkehr nicht überschreibt, sondern sich
-   darüberlegt. Unterscheidbar bleibt es, weil dieses Muster NEUTRAL grau ist
-   und die ganze Spalte samt Kopf-Kachel betrifft, während Ausfall (schwarz-rot)
-   und Ersatzverkehr (gelb) farbig sind und nur einzelne Abschnitte treffen. */
-.tl-col.dominated .tl-seg::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-  pointer-events: none;
-  /* Zwei Farben: die Kategoriefarbe bleibt stehen, darüber ein dunkles Grau.
-     Der Ton ist sonst mit nichts belegt und in beiden Themen gleich — wie die
-     Verkehrsmittel-Farben ist er eine Zuordnung, kein Kontrastmittel. Kräftig
-     genug, dass er auch auf dem hellgrauen Fernzug (#C5C7C4) trägt. */
-  background: repeating-linear-gradient(135deg,
-    rgba(0,0,0,0) 0 5px,
-    var(--dom-stripe) 5px 10px);
-}
-.tl-col.dominated .tl-head { opacity: .6; }
+/* Dominierte Verbindung: leicht entsättigt und blasser, NICHT schraffiert.
+
+   Die Schraffur war der erste Versuch und ging daneben: Auf dem Regio-Rot sah
+   sie aus wie die schwarz-rote Ausfall-Streifung — ausgerechnet die Verwechslung
+   mit der teuersten Aussage der ganzen Grafik.
+
+   Gewählt aus drei durchgespielten Stufen (an allen acht Kategoriefarben in
+   hell und dunkel verglichen): Bei grayscale(.3) war der Unterschied zu schwach,
+   bei .6 verlor die Tram ihr Orange Richtung Beige und war vom Braun der
+   Kategorie „Sonstige“ kaum noch zu trennen. .45 mit 70 % Deckkraft hält beides
+   — Rot bleibt Rot, Blau bleibt Blau, und trotzdem sieht man auf einen Blick,
+   was zurücktritt. */
+/* Deckkraft am BALKEN, Entsättigung am Segment: Läge beides am Segment, würde
+   es durchscheinend, und die senkrechte Wartelinie des Balkens schimmerte
+   mitten durch die Fläche. So verblassen Linie und Segment gemeinsam. */
+.tl-col.dominated .tl-bar { opacity: .72; }
+.tl-col.dominated .tl-seg { filter: grayscale(.45); }
+.tl-col.dominated .tl-head { opacity: .62; }
 .tl-col.dominated .tl-dep, .tl-col.dominated .tl-arr { opacity: .6; }
 
 /* Feste Legende mit drei Zuständen:

@@ -504,11 +504,16 @@ Was ansteht, steht in `TODO.md`.
   ICE 1103 durchgehend 19:25→20:46 gegen ICE 1103+ICE 881 mit Umstieg 19:25→20:45). Die
   Umstiegszahl als drittes Kriterium löst das OHNE willkürliche Schwelle — es braucht
   keine Regel „ab X Minuten lohnt ein Umstieg“, beide bleiben einfach stehen.
-- **Markiert wird mit Schrägstreifen ÜBER der Kategoriefarbe**, nicht durch Entfärben:
-  Welches Verkehrsmittel es ist, bleibt ablesbar. ZWEI Farben — die Kategoriefarbe und
-  ein dunkles Grau (`--dom-stripe`), das sonst mit nichts belegt und in beiden Themen
-  gleich ist. Als `::after`-Auflage gebaut, damit die Muster für Ausfall und
-  Ersatzverkehr nicht überschrieben werden.
+- **Markiert wird durch leichtes Entsättigen und Verblassen — NICHT durch Schraffur.**
+  Die Schraffur war ein Fehlversuch (v1.48–v1.50): Auf dem Regio-Rot sah sie aus wie die
+  schwarz-rote Ausfall-Streifung, also ausgerechnet die Verwechslung mit der teuersten
+  Aussage der Grafik. Gewählt aus drei durchgespielten Stufen, an allen acht
+  Kategoriefarben in hell und dunkel verglichen: `grayscale(.3)` war zu schwach,
+  `.6` verlor die Tram Richtung Beige und machte sie vom Braun der Kategorie „Sonstige“
+  ununterscheidbar. `.45` bei 72 % Deckkraft hält beides.
+  **Deckkraft am BALKEN, Entsättigung am Segment.** Läge beides am Segment, würde es
+  durchscheinend, und die senkrechte Wartelinie des Balkens schimmerte mitten durch die
+  Fläche.
   **Die Beschriftung gehört ÜBER die Streifen** (`.seg-txt`, `z-index: 1`) — darunter ist
   sie schlecht zu lesen. Dafür wird sie IMMER in eine Hülle gepackt: Ein nackter
   Textknoten lässt sich nicht anheben.
