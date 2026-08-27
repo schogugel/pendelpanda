@@ -748,8 +748,15 @@ function tlBuild(scroller) {
     const left = TL.AXIS_W + TL.GAP + i * (tl.colW + TL.GAP);
     const vor = i > 0 ? transitLegs(tl.itins[i - 1]) : null;
     const jetzt = transitLegs(it);
+    /* Verglichen wird die SOLL-Abfahrt — dieselbe Zahl, die in der Kachel steht
+       (seit v1.31.0) und die auch die Datumskachel links auswertet. Mit der
+       Ist-Zeit zählte eine für 23:59 geplante, über Mitternacht verspätete
+       Verbindung als „nächster Tag": Der Strich stand dann LINKS von 23:59,
+       obwohl das noch heute ist. Wer nach der angezeigten Zahl geht, muss auch
+       nach ihr trennen. */
+    const sollAb = l => +new Date(l[0].from.scheduledDeparture || l[0].from.departure);
     const tagWechsel = !!(vor && vor.length && jetzt.length
-      && tlTagKey(+new Date(vor[0].from.departure)) !== tlTagKey(+new Date(jetzt[0].from.departure)));
+      && tlTagKey(sollAb(vor)) !== tlTagKey(sollAb(jetzt)));
     canvas.appendChild(tlColumn(it, left, dominated[i], tagWechsel));
   });
 

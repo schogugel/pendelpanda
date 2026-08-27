@@ -456,6 +456,11 @@ Was ansteht, steht in `TODO.md`.
   hängt an der KACHEL, nicht an der Spalte — nur so hat er ihre Höhe und klebt beim
   Scrollen mit ihr oben. Farbe `--text`, nicht reines Weiß: im dunklen Design ist das
   nahezu weiß, im hellen wäre ein weißer Strich auf weißem Grund unsichtbar.
+  **Verglichen wird die SOLL-Abfahrt**, dieselbe Zahl, die in der Kachel steht und die
+  auch die Datumskachel auswertet. Mit der Ist-Zeit zählte eine für 23:59 geplante, über
+  Mitternacht verspätete Verbindung als „nächster Tag“, und der Strich stand LINKS von
+  23:59 — obwohl das noch heute ist. Wer nach der angezeigten Zahl geht, muss auch nach
+  ihr trennen.
   Der Tagesschlüssel-Formatierer steht AUSSERHALB der Funktion — beim Aufbau wird er
   einmal je Spalte gebraucht, und `Intl.DateTimeFormat` neu zu bauen ist teuer.
 - **Zeitlinien sind einzelne Elemente** (`.tl-hline`), keine gekachelten Verläufe. Eine
