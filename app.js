@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.47.0";
+const APP_VERSION = "1.48.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -62,6 +62,7 @@ function loadSettings() {
     cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
     fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
     fitBottom: false,  // TEST: freie Fläche unten durch stärkeren Zoom nutzen
+    fullSearch: false, // bei jeder Suche eine Anfrage je Verkehrsmittel
     /* „Letzte“: Bis wann will ich ankommen, und wie lange darf ich NACHTS an
        einem einzelnen Umstieg warten? Die Wartegrenze galt früher rund um die
        Uhr — eine Stunde Aufenthalt um 15 Uhr ist aber harmlos, um 3 Uhr nicht. */
@@ -554,6 +555,12 @@ function startSearch(from, to) {
 }
 
 function updateChips() {
+  const b = byId("btn-full");
+  const fertig = app.fullLoaded === app.searchTag;
+  b.classList.toggle("active", fertig);
+  b.disabled = fertig || !app.itins.length;
+  b.title = fertig ? "Alle Verkehrsmittel wurden für diese Suche geladen"
+    : "Alle Verbindungen laden – eine Anfrage je Verkehrsmittel";
   byId("chip-now").classList.toggle("active", app.searchTime.kind === "now");
   byId("chip-last").classList.toggle("active", app.searchTime.kind === "letzte");
   byId("chip-time").classList.toggle("active", app.searchTime.kind === "custom");
@@ -856,15 +863,15 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
    --------------------------------------------------------------------------- */
 const REFILL_LIMIT = 30;
 
-async function refillLoadedRange() {
-  const modes = enabledModes();
+async function refillLoadedRange(modes = null, runden = 4, nurImFenster = false) {
+  modes = modes || enabledModes();
   if (!modes || !app.itins.length) return 0;   // alles an → nichts zu ergänzen
   const deps = app.itins.map(depOf).filter(Number.isFinite);
   if (!deps.length) return 0;
   const von = Math.min(...deps), bis = Math.max(...deps);
 
   let cursor = null, added = 0;
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < runden; round++) {
     const params = planParams({ time: round === 0 ? von : null, limit: REFILL_LIMIT, cursor });
     let data;
     try {
@@ -875,7 +882,14 @@ async function refillLoadedRange() {
     } catch { break; }
 
     const known = new Set(app.itins.map(itKey));
-    const fresh = (data.itineraries || []).filter(it => transitLegs(it).length);
+    /* Beim Sammeln JE KATEGORIE auf den bereits geladenen Zeitraum beschneiden.
+       Ohne das sprengt es den Pool: Eine Fernverkehrs-Anfrage ab dem frühesten
+       geladenen Halt liefert 30 Verbindungen quer über den Tag — gemessen wuchs
+       München Ost → Hbf von 33 auf 352 Verbindungen, mit Nachtzügen und
+       Westbahn weit außerhalb dessen, was auf dem Schirm war. Gesucht ist
+       Vollständigkeit IM Fenster, nicht ein größeres Fenster. */
+    const fresh = (data.itineraries || []).filter(it => transitLegs(it).length)
+      .filter(it => !nurImFenster || (depOf(it) >= von && depOf(it) <= bis));
     for (const it of fresh) {
       const k = itKey(it);
       if (known.has(k)) continue;
@@ -885,12 +899,59 @@ async function refillLoadedRange() {
     }
     /* Die Cursor der laufenden Suche bleiben UNANGETASTET — dieses Nachfüllen
        ist ein Seitenweg, kein Blättern. */
-    const juengste = fresh.length ? Math.max(...fresh.map(depOf)) : -Infinity;
+    /* Für den Abbruch die UNBESCHNITTENE Antwort messen — sonst sähe es nach
+       „nichts mehr da“ aus, sobald der Rechner über das Fenster hinausgelaufen
+       ist, und die Seite dazwischen fehlte. */
+    const roh = (data.itineraries || []).filter(it => transitLegs(it).length);
+    const juengste = roh.length ? Math.max(...roh.map(depOf)) : -Infinity;
     if (!data.nextPageCursor || juengste >= bis) break;
     cursor = data.nextPageCursor;
   }
   if (added) app.itins.sort((a, b) => depOf(a) - depOf(b));
   return added;
+}
+
+/* Vollständig suchen: EINE Anfrage je sichtbarer Kategorie statt einer
+   ungefilterten.
+
+   Warum das nötig ist: Der Fahrplanrechner antwortet Pareto-optimal und wirft
+   weg, was nicht zugleich später losfährt und früher ankommt. Auf dichten
+   Strecken verschwindet dabei viel — gemessen München Ost → Hbf: Die
+   ungefilterte Antwort enthielt S1, S2, S4, S6; eine reine S-Bahn-Anfrage
+   brachte zehn weitere Verbindungen, darunter S3 und S8 vollständig. Die
+   U5 braucht 7 Minuten, die S-Bahn 8 bis 14 — jede U5 verdrängt die S-Bahn
+   kurz davor.
+
+   Die Entlastung aus `relievedModes` hilft dagegen NICHT: Sie schließt die
+   erdrückende Kategorie aus, hier fehlen die Linien aber INNERHALB einer
+   Kategorie (70 % der Treffer waren bereits S-Bahn). Nur eine Anfrage je
+   Kategorie findet sie.
+
+   Kostet je Kategorie eine Anfrage — deshalb nicht der Standard, sondern ein
+   Knopf. Zwei Runden statt vier je Kategorie, sonst wird es zu viel auf
+   einmal; Transitous drosselt ab etwa zwölf Anfragen in kurzer Folge. */
+async function loadAllCategories() {
+  if (app.refilling || !app.itins.length) return;
+  const offen = CATS.filter(c => !app.hiddenCats.has(c) && !app.emptyCats.has(c));
+  if (!offen.length) return;
+  app.refilling = true;
+  const vorher = app.itins.length;
+  /* Position sichern, bevor `showSearching` die Grafik leert — sonst springt die
+     Ansicht danach auf die erste Spalte (dieselbe Falle wie bei der Legende). */
+  tl.keepAnchor = tlAnchor();
+  tl.forceAutoZoom = true;
+  try {
+    for (let i = 0; i < offen.length; i++) {
+      showSearching(`${CAT_LABEL[offen[i]]} …`, i, offen.length);
+      await refillLoadedRange(CAT_MODES[offen[i]], 3, true);
+    }
+  } finally {
+    app.refilling = false;
+  }
+  app.fullLoaded = app.searchTag;   // je Suche nur einmal nötig
+  updateChips();
+  renderResults();
+  return app.itins.length - vorher;
 }
 
 /* Kontext um das Ergebnis herum nachladen — NACH der Umkreis-Rückfallebene.
@@ -1093,6 +1154,9 @@ async function runPlan(direction = null, limit = PAGE_SIZE) {
           ? "Letzte Verbindung eingrenzen …" : "Umgebung laden …", 1, 3);
       }
       await loadContext();
+      /* Vollständig suchen: NACH dem Kontext, sonst würde die Fokusspalte auf
+         einem unvollständigen Pool bestimmt und wanderte danach. */
+      if (settings.fullSearch) { await loadAllCategories(); return; }
     }
     renderResults();
     if (!direction) maybeAutoFill();
@@ -1476,6 +1540,7 @@ function renderResults() {
   }
   updateLastNote(visible);
   sameStopWarning();
+  updateChips();   // der „vollständig laden“-Knopf hängt am Ergebnis
   if (graph) {
     // Jede gewählte Uhrzeit hat eine Verbindung als Antwort — die wird angesteuert
     // und markiert. Nur „Jetzt“ hat keine feste: das macht die Jetzt-Linie.
@@ -2276,6 +2341,7 @@ byId("btn-settings").addEventListener("click", () => {
   });
   refreshTileOpts();
   renderColsControl();
+  byId("set-full").checked = !!settings.fullSearch;
   byId("set-fitbottom").checked = !!settings.fitBottom;
   byId("set-fill").value = settings.fill;
   byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
@@ -2333,6 +2399,13 @@ byId("set-xfer").addEventListener("change", applySearchSetting);
 
 /* Testschalter: derselbe Weg wie beim Höhen-Regler — die Einstellung steuert
    genau den Automatismus, den `forceAutoZoom` zurückholt. */
+byId("set-full").addEventListener("change", (e) => {
+  settings.fullSearch = e.target.checked;
+  saveSettings();
+});
+
+byId("btn-full").addEventListener("click", () => loadAllCategories());
+
 byId("set-fitbottom").addEventListener("change", (e) => {
   settings.fitBottom = e.target.checked;
   saveSettings();

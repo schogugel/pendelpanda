@@ -402,7 +402,11 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .timeseg .chip + .chip { border-left: 1.5px solid var(--border); }
 .chip-icon { display: grid; place-items: center; padding: .42rem .8rem; }
 .chip svg { width: 19px; height: 19px; display: block; }
-#btn-viewmode { display: grid; place-items: center; padding: .42rem .75rem; }
+#btn-viewmode, #btn-full { display: grid; place-items: center; padding: .42rem .75rem; }
+/* Erledigt heißt hier nicht „ausgewählt“, sondern „gibt nichts mehr zu holen“ —
+   deshalb still abgeschaltet statt in der Akzentfarbe leuchtend. */
+.chip[disabled] { opacity: .45; cursor: default; }
+.chip[disabled].active { background: var(--card); border-color: var(--border); color: var(--muted); }
 
 /* ---------- Ergebnisliste ---------- */
 .results-list { display: flex; flex-direction: column; gap: .7rem; }
@@ -1014,6 +1018,33 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 .jrn-toggle .risk { margin-left: .15rem; }
 .jrn-transfer.risk-broken .jrn-body, .jrn-transfer.risk-tight .jrn-body { color: var(--text); }
 .stop-cancelled { color: var(--bad); text-decoration: line-through; }
+/* Dominierte Verbindung: eine andere fährt nicht früher, kommt nicht später an
+   und braucht nicht mehr Umstiege — sie ist also in keinem Punkt schlechter.
+   Diese Regeln standen bis v1.3.0 schon einmal hier und sind damals bei einer
+   Blockersetzung mitgelöscht worden (zusammen mit `.around-note` und
+   `.loadbtn`). Die Klasse wurde seitdem gesetzt, ohne dass man etwas sah. */
+/* Graue Schrägstreifen ÜBER der Kategoriefarbe, statt sie zu entfärben: Welches
+   Verkehrsmittel es ist, bleibt so ablesbar — das ist Information, die beim
+   Ausgrauen verlorenging. Als Auflage (`::after`) gebaut, damit sie die
+   Muster für Ausfall und Ersatzverkehr nicht überschreibt, sondern sich
+   darüberlegt. Unterscheidbar bleibt es, weil dieses Muster NEUTRAL grau ist
+   und die ganze Spalte samt Kopf-Kachel betrifft, während Ausfall (schwarz-rot)
+   und Ersatzverkehr (gelb) farbig sind und nur einzelne Abschnitte treffen. */
+.tl-col.dominated .tl-seg::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  pointer-events: none;
+  /* ZWEIFARBIG, und bewusst nicht themenabhängig: Eine dunkle und eine helle
+     Linie im Wechsel. Auf dem hellgrauen Fernzug (#C5C7C4) trägt die dunkle,
+     auf dunklen Flächen wie S-Bahn-Grün oder U-Bahn-Blau die helle. Ein
+     einzelner grauer Streifen wäre auf dem Fernzug praktisch unsichtbar
+     gewesen — genau die Farbe, bei der man ihn am ehesten braucht. */
+  background: repeating-linear-gradient(135deg,
+    rgba(0,0,0,0) 0 4px,
+    rgba(0,0,0,.34) 4px 7px,
+    rgba(255,255,255,.42) 7px 10px);
+}
+.tl-col.dominated .tl-head { opacity: .6; }
+.tl-col.dominated .tl-dep, .tl-col.dominated .tl-arr { opacity: .6; }
 
 /* Feste Legende mit drei Zuständen:
    on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·

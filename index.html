@@ -76,7 +76,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5V6M16 3.5V6"/><circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none"/></svg>
       </button>
     </div>
-    <button id="btn-viewmode" class="chip chip-right" title="Listen-/Grafikansicht" aria-label="Listen-/Grafikansicht">
+    <button id="btn-full" class="chip chip-icon chip-right" title="Alle Verbindungen laden – eine Anfrage je Verkehrsmittel" aria-label="Alle Verbindungen laden">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 18h16"/></svg>
+    </button>
+    <button id="btn-viewmode" class="chip" title="Listen-/Grafikansicht" aria-label="Listen-/Grafikansicht">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
   </div>
@@ -156,6 +159,13 @@
         Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
         mehr Übersicht, größerer Wert heißt mehr Detail.</p>
     </div>
+    <label class="countrow">Immer vollständig suchen
+      <input type="checkbox" id="set-full">
+    </label>
+    <p class="finequote">Holt bei jeder Suche zusätzlich eine Anfrage je Verkehrsmittel.
+      Der Fahrplanrechner liefert sonst nur die jeweils besten Verbindungen und lässt
+      langsamere weg — auf dichten Strecken fehlt dadurch ein Teil der S-Bahnen. Vollständig
+      dauert länger; ohne die Einstellung holt der Knopf ⤓ oben dasselbe auf Zuruf.</p>
     <label class="countrow">Freie Fläche unten nutzen
       <input type="checkbox" id="set-fitbottom">
     </label>

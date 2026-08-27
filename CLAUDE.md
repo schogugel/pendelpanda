@@ -492,7 +492,36 @@ Was ansteht, steht in `TODO.md`.
 - Bei „Letzte“ werden bewusst 4 Verbindungen NACH dem Fokus nachgeladen, damit die
   gesuchte Verbindung in der zweiten Spalte steht und rechts Nachbarn hat, statt am
   Rand zu kleben. Markiert wird sie gestrichelt an Kachel UND Balken (`.tl-focus`).
-- Dominierte Verbindungen (später los wäre besser) ausgegraut, Label weiß.
+- **Dominiert heißt: in KEINEM Punkt besser — Abfahrt, Ankunft UND Umstiege.** Mit nur
+  den beiden Zeiten galt ein Direktzug als überflüssig, sobald irgendwo eine Verbindung
+  eine Minute früher ankam, auch mit zusätzlichem Umstieg (gemessen Nürnberg → München:
+  ICE 1103 durchgehend 19:25→20:46 gegen ICE 1103+ICE 881 mit Umstieg 19:25→20:45). Die
+  Umstiegszahl als drittes Kriterium löst das OHNE willkürliche Schwelle — es braucht
+  keine Regel „ab X Minuten lohnt ein Umstieg“, beide bleiben einfach stehen.
+- **Markiert wird mit zweifarbigen Schrägstreifen ÜBER der Kategoriefarbe**, nicht durch
+  Entfärben: Welches Verkehrsmittel es ist, bleibt ablesbar. Die Streifen sind bewusst
+  NICHT themenabhängig, sondern eine dunkle und eine helle Linie im Wechsel — auf dem
+  hellgrauen Fernzug (#C5C7C4) trägt die dunkle, auf S-Bahn-Grün oder U-Bahn-Blau die
+  helle. Ein einzelner grauer Streifen wäre ausgerechnet auf dem Fernzug unsichtbar.
+  Als `::after`-Auflage gebaut, damit die Muster für Ausfall und Ersatzverkehr nicht
+  überschrieben werden.
+  **Das CSS dafür fehlte von v1.3.0 bis v1.48.0 ganz** — bei einer Blockersetzung
+  mitgelöscht (zusammen mit `.around-note` und `.loadbtn`). Die Klasse wurde über
+  vierzig Versionen lang gesetzt, ohne dass man etwas sah.
+- **„Vollständig laden“ (⤓ im Kopf, `loadAllCategories`): eine Anfrage JE Kategorie.**
+  Der Router antwortet Pareto-optimal; auf dichten Strecken verschwindet dabei viel.
+  Gemessen München Ost → Hbf: ungefiltert S1/S2/S4/S6, eine reine S-Bahn-Anfrage brachte
+  zehn weitere Verbindungen — S3 und S8 fehlten vollständig, weil die U5 (7 min) jede
+  S-Bahn (8–14 min) kurz davor verdrängt.
+  **`relievedModes` kann das NICHT finden:** Es schließt die erdrückende Kategorie aus,
+  hier fehlen die Linien aber INNERHALB einer Kategorie (70 % der Treffer waren schon
+  S-Bahn). Nur eine Anfrage je Kategorie erreicht sie.
+  **Auf das geladene Zeitfenster beschneiden** (`nurImFenster`): Ohne das wuchs der Pool
+  von 33 auf 352 Verbindungen, mit Nachtzügen und Westbahn weit außerhalb des Bildes.
+  Gesucht ist Vollständigkeit IM Fenster, nicht ein größeres Fenster. Mit Beschneidung
+  35 → 78. Für den Abbruch zählt die UNBESCHNITTENE Antwort, sonst bricht es ab, sobald
+  der Rechner einmal über das Fenster hinausläuft.
+  Standard ist aus (Knopf); `settings.fullSearch` macht es zur Regel.
 - **TESTFUNKTION `settings.fitBottom`** („Freie Fläche unten nutzen“, ⚙ → Ansicht,
   standardmäßig AUS). Nachbearbeitung von `tlAutoZoom` (`tlFitBottom`): Enden ALLE
   sichtbaren Verbindungen über 90 % der Höhe, wird der Maßstab so weit aufgezogen, dass
