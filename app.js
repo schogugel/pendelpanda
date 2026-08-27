@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.32.1";
+const APP_VERSION = "1.33.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1307,6 +1307,10 @@ function renderLegend() {
          und zwar über den ganzen geladenen Zeitraum. */
       app.hiddenCats.delete(c);
       app.refilling = true;
+      /* Position sichern, BEVOR showSearching die Grafik leert: Ein geleertes
+         Scrollfeld meldet scrollLeft = 0, der Anker käme also von „ganz links“
+         und die Ansicht spränge nach dem Nachladen auf die erste Spalte. */
+      tl.keepAnchor = tlAnchor();
       showSearching(`${CAT_LABEL[c]} nachladen …`);
       try {
         await refillLoadedRange();

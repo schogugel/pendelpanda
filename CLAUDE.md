@@ -585,6 +585,22 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   ein eigenes Scrollfeld und ragt innen absichtlich darüber hinaus. Alle Kacheln in
   `layout-messung.png` müssen „PASST“ zeigen. Dieselbe Fehlerklasse ist inzwischen
   viermal ausgeliefert worden — ohne Messung geht es offensichtlich nicht.
+- **Wer die Grafik leert, muss die Position VORHER sichern** (`tlAnchor()` →
+  `tl.keepAnchor`). Ein geleertes Scrollfeld meldet `scrollLeft = 0`; der Anker wurde
+  danach also von „ganz links“ genommen und die Ansicht sprang auf die erste Spalte.
+  Genau das passierte beim Einblenden eines Verkehrsmittels: Der Legenden-Handler ruft
+  `showSearching()` (leert `#timeline`), lädt nach und rendert neu. Gemessen sprang die
+  linke Spalte von 04:57 auf 04:28. Betrifft alle Zeitmodi gleich.
+- **Nach einer geänderten FRAGE bleibt X stehen und Y richtet sich neu aus.** Ist
+  `tl.forceAutoZoom` gesetzt (Legende, „Höhe der vordersten Verbindung“), wird der Zoom
+  neu bestimmt — dann ist die gemerkte Oberkanten-Zeit kein sinnvolles Ziel mehr, sie
+  stammt aus einem anderen Maßstab. Also: Spalte über den Schlüssel halten,
+  senkrecht `tlAlignTopFor`. Das Flag muss VOR dem Zoom-Block gemerkt werden, der es
+  zurücksetzt.
+- **Der Zoom richtet sich dabei nach der ANKERSPALTE, nicht nach `startIdx`.** Sonst
+  zoomt er auf die Fokus- oder Jetzt-Spalte, die woanders steht: Die Ansicht bleibt
+  seitlich stehen, wird aber für eine andere Verbindung skaliert — und das sieht aus wie
+  ein Sprung, obwohl sich die Scrollposition gar nicht geändert hat.
 - **Die Fokus-Markierung gehört in `tlBuild`, nicht in `renderTimeline`.** Jede
   Zoomänderung ruft `tlBuild` erneut auf und wirft alle Spalten weg — eine Ebene höher
   gesetzt, verschwand die Markierung beim ersten Scrollen von selbst.

@@ -36,7 +36,25 @@ const tl = {
   tickStepFest: null, // Linienraster während der Bewegung eingefroren
   manualZoom: false,  // hat der Nutzer selbst gezoomt? dann nicht überschreiben
   forceAutoZoom: false, // einmalig zurück auf automatisch (Legende, Einstellung)
+  keepAnchor: null,   // vorab gesicherte Position, wenn die Grafik zwischendurch geleert wird
 };
+
+/* Wo steht die Ansicht GERADE? Muss abrufbar sein, BEVOR jemand die Grafik
+   leert: Das Einblenden eines Verkehrsmittels lädt nach und zeigt dabei den
+   Suchbalken, wodurch `#timeline` geleert wird — und ein geleertes Scrollfeld
+   meldet `scrollLeft = 0`. Der Anker wurde also anschließend von der Position
+   „ganz links“ genommen, und die Ansicht sprang auf die erste Spalte.
+   Deshalb: vorher sichern (`tl.keepAnchor`), nachher einsetzen. */
+function tlAnchor() {
+  const sc = byId("timeline");
+  if (!sc || !tl.ppm || !tl.itins.length) return null;
+  const idx = Math.max(0, colIndexFor(sc.scrollLeft));
+  return {
+    time: tl.t0 + (sc.scrollTop / tl.ppm) * 60000,
+    key: tl.itins[idx] ? itKey(tl.itins[idx]) : null,
+    offset: sc.scrollLeft - colScrollLeft(idx),
+  };
+}
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
 
@@ -317,7 +335,10 @@ function renderTimeline(itins, focus = "start") {
      ein reiner Index-Vergleich die Ansicht. Der Zeit-Anker ist zusätzlich
      robust gegen geänderte Zoomstufen. */
   let anchor = null;
-  if (keepScroll && tl.ppm) {
+  if (tl.keepAnchor) {
+    anchor = tl.keepAnchor;      // vor dem Leeren gesichert, siehe tlAnchor()
+    tl.keepAnchor = null;
+  } else if (keepScroll && tl.ppm) {
     const idx = Math.max(0, colIndexFor(prev.left));
     anchor = {
       time: tl.t0 + (prev.top / tl.ppm) * 60000,
@@ -325,6 +346,12 @@ function renderTimeline(itins, focus = "start") {
       offset: prev.left - colScrollLeft(idx),
     };
   }
+  /* Bei einer geänderten FRAGE (Legende, „Höhe der vordersten Verbindung“) wird
+     der Zoom neu bestimmt — dann ist die alte Oberkanten-Zeit kein sinnvolles
+     Ziel mehr, sie stammt aus einem anderen Maßstab. Die Spalte bleibt, wo sie
+     war, aber senkrecht greift wieder die automatische Ausrichtung.
+     Muss VOR dem Zoom-Block gemerkt werden, der das Flag zurücksetzt. */
+  const wantAutoY = tl.forceAutoZoom;
 
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
@@ -379,6 +406,16 @@ function renderTimeline(itins, focus = "start") {
   } else if (focusIdx >= 0) {
     startIdx = focusIdx;
   }
+  /* Wird der Zoom wegen einer geänderten Frage neu bestimmt, während die
+     Ansicht auf ihrer Spalte stehen bleibt, muss er sich nach GENAU DIESER
+     Spalte richten. Sonst zoomt er auf die Fokus- oder Jetzt-Spalte, die
+     woanders steht — die Ansicht bleibt zwar seitlich, wird aber für eine
+     andere Verbindung skaliert, und das sieht aus wie ein Sprung.
+     Gilt für alle Zeitmodi gleichermaßen: Jetzt, Letzte und Datumsauswahl. */
+  if (wantAutoY && anchor?.key) {
+    const i = tl.itins.findIndex(it => itKey(it) === anchor.key);
+    if (i >= 0) startIdx = i;
+  }
 
   /* Zoom automatisch bestimmen — bei einer neuen Suche und immer dann, wenn
      sich die Frage geändert hat (Zeitwahl, ein-/ausgeblendete Verkehrsmittel).
@@ -414,11 +451,17 @@ function renderTimeline(itins, focus = "start") {
   }
   tlEnsureTail(scroller);
 
-  if (keepScroll && anchor) {
+  if (anchor) {
     // Ankerspalte an derselben Bildschirmposition halten; Zeit-Anker für oben
     const newIdx = anchor.key ? tl.itins.findIndex(it => itKey(it) === anchor.key) : -1;
     scroller.scrollLeft = newIdx >= 0 ? Math.max(0, colScrollLeft(newIdx) + anchor.offset) : prev.left;
-    scroller.scrollTop = Math.max(0, tlY(anchor.time));
+    /* Senkrecht: normalerweise die gemerkte Zeit halten (beim Blättern darf sich
+       nichts bewegen). Hat sich die Frage geändert und der Zoom damit auch, wird
+       stattdessen wieder automatisch ausgerichtet — bezogen auf die Spalte, die
+       jetzt links steht, nicht auf irgendeine andere. */
+    scroller.scrollTop = wantAutoY && newIdx >= 0
+      ? tlAlignTopFor(newIdx, scroller)
+      : Math.max(0, tlY(anchor.time));
     // Zoom-Index mitziehen, sonst zoomt das Einrasten die Spalte neu (Sprung)
     if (newIdx >= 0) tl.lastZoomIdx = newIdx;
   } else if (focus === "end") {
