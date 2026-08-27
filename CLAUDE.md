@@ -394,6 +394,12 @@ Was ansteht, steht in `TODO.md`.
 - `keepScroll` hängt NUR an „gleiche Suche + es gab schon Spalten“ — nie an einer
   geänderten Trefferzahl. Sonst wirft ein Nachladen ohne Treffer die Ansicht auf den
   Startzustand zurück (sichtbar als „springt auf Jetzt zurück“).
+- **Fällt die Ankerspalte weg, geht es zur NÄCHSTEN zeitlich folgenden** (`tlNearestIdx`),
+  nicht auf die alte Pixelposition zurück. Genau daran sprang die Ansicht beim Ausblenden
+  der langsameren Verbindungen: Der Schlüssel war nicht mehr zu finden, der Scrollwert
+  blieb stehen — und mit weniger Spalten zeigt derselbe Pixelwert auf eine ganz andere
+  Verbindung, gemessen über mehrere verbliebene hinweg. Der Anker führt dafür neben dem
+  Schlüssel auch die Abfahrtszeit mit (`anchor.dep`).
 - Scroll-Anker beim Nachladen: Ankerspalte über den **Schlüssel** (neue Verbindungen
   werden chronologisch auch MITTEN einsortiert — ein Index-Anker verschiebt dann alles)
   plus Zeit-Anker für die Vertikale; `tl.lastZoomIdx` mitziehen, sonst zoomt das
