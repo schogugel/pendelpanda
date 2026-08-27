@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.35.0";
+const APP_VERSION = "1.36.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -538,6 +538,7 @@ function startSearch(from, to) {
   app.searchTag = (app.searchTag || 0) + 1;
   app.focusKey = null;       // die gesuchte Verbindung wird je Suche EINMAL bestimmt
   app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
+  app.planLog = [];          // Antwortzeiten der laufenden Suche (Aufklapper)
   byId("rhead-from").textContent = from.label || from.name;
   byId("rhead-to").textContent = to.label || to.name;
   updateChips();
@@ -742,6 +743,7 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
      ihn noch nicht und holt sie in derselben Runde nach. */
   const frisch = direction !== "later" && direction !== "earlier";
   const modes = (frisch ? null : relievedModes()) || enabledModes();
+  const t0 = performance.now();
   const filtered = modes
     ? fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(modes)}`, { signal })
         .then(r => (r.ok ? r.json() : null)).catch(() => null)
@@ -765,6 +767,10 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
       known.add(k);
       add.push(it);
     }
+    logPlan(direction === "later" ? "Spätere Verbindungen"
+      : direction === "earlier" ? "Frühere Verbindungen"
+      : modes ? "Fahrplan (ungefiltert + gefiltert)" : "Fahrplan",
+      performance.now() - t0, add.length);
     if (direction === "earlier") {
       app.itins = add.concat(app.itins);
       app.prevPageCursor = data.previousPageCursor || null;
@@ -790,6 +796,7 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
     if (frisch) {
       const rel = relievedModes(app.itins);
       if (rel) {
+        const tr = performance.now();
         const r = await fetch(`${API}/plan?${new URLSearchParams(params)}&transitModes=${encodeURIComponent(rel)}`, { signal })
           .then(x => (x.ok ? x.json() : null)).catch(() => null);
         if (myTag !== app.searchTag) return { added: add.length, params };
@@ -802,6 +809,7 @@ async function fetchPage(direction, limit = PAGE_SIZE) {
         }
         // Cursor bleiben unangetastet — die Entlastung ist ein Seitenweg,
         // kein Blättern (dieselbe Regel wie bei refillLoadedRange).
+        logPlan("Verdeckte Verbindungen", performance.now() - tr, extra);
         if (extra) app.itins.sort((a, b) => depOf(a) - depOf(b));
       }
     }
@@ -966,9 +974,22 @@ function findFocusItin(visible) {
    bis der neue kam: Beim Wechsel zwischen „Jetzt“ und „Letzte“ sah man kurz die
    Verbindungen der anderen Ansicht. Lieber einen Moment nichts als etwas
    Falsches. */
-function showSearching(text) {
+/* Der Balken zeigt SCHRITTE, keine erfundenen Prozente: ein Feld je Schritt,
+   erledigte gefüllt, der laufende wandert. Wie lange ein Schritt dauert, hängt
+   an einem fremden Dienst — das lässt sich nicht vorhersagen. Wie viele Schritte
+   es sind, dagegen schon, und das ist die ehrliche Auskunft. */
+function showSearching(text, step = 0, total = 1) {
   tlStop();   // nichts aus der vorherigen Suche darf weiterzeichnen
   byId("searching-text").textContent = text;
+  const bar = byId("searchbar");
+  if (bar.children.length !== total) {
+    bar.innerHTML = "";
+    for (let i = 0; i < total; i++) bar.appendChild(document.createElement("i"));
+  }
+  [...bar.children].forEach((el, i) => {
+    el.className = i < step ? "done" : i === step ? "run" : "";
+  });
+  renderPlanLog();
   byId("searching").hidden = false;
   byId("timeline-wrap").hidden = true;
   resultsList.hidden = true;
@@ -978,8 +999,36 @@ function showSearching(text) {
   byId("around-note").hidden = true;
 }
 
+/* Was der Fahrplanrechner bisher geliefert hat — aufklappbar unter dem Balken.
+   Bei einer zügigen Suche sieht das niemand; wartet man dagegen länger, will man
+   wissen, ob überhaupt etwas passiert. Gemessen drosselt Transitous ab etwa der
+   zwölften Anfrage in kurzer Folge auf konstante ~3 s, und genau das steht dann
+   hier schwarz auf weiß, statt dass die App bloß hängt. */
+function logPlan(label, ms, added) {
+  (app.planLog ||= []).push({ label, ms: Math.round(ms), added });
+  renderPlanLog();
+}
+
+function renderPlanLog() {
+  const el = byId("searching-log");
+  if (!el) return;
+  const log = app.planLog || [];
+  if (!log.length) { el.innerHTML = `<p class="logline muted">Noch keine Antwort.</p>`; return; }
+  const gesamt = log.reduce((s, x) => s + x.ms, 0);
+  const traege = log.filter(x => x.ms >= 1500).length;
+  el.innerHTML = log.map(x =>
+    `<p class="logline"><span>${escapeHtml(x.label)}</span>` +
+    `<span class="logval${x.ms >= 1500 ? " slow" : ""}">${x.ms} ms` +
+    `${x.added === null ? "" : ` · ${x.added} neu`}</span></p>`).join("")
+    + `<p class="logline sum"><span>${log.length} Anfragen</span><span class="logval">${gesamt} ms</span></p>`
+    + (traege >= 2
+        ? `<p class="logline muted">Mehrere Antworten über 1,5 s – der Fahrplandienst drosselt
+           gerade. Nach ein paar Sekunden Pause ist er wieder schnell.</p>`
+        : "");
+}
+
 async function runPlan(direction = null, limit = PAGE_SIZE) {
-  if (!direction) showSearching("Verbindungen suchen …");
+  if (!direction) showSearching("Verbindungen suchen …", 0, 3);
   try {
     const { params } = await fetchPage(direction, limit);
     if (!direction) {
@@ -987,7 +1036,7 @@ async function runPlan(direction = null, limit = PAGE_SIZE) {
       // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
       if (!app.itins.length && !app.aroundTried) {
         app.aroundTried = true;
-        showSearching("Nichts am Halt selbst – Umgebung prüfen …");
+        showSearching("Nichts am Halt selbst – Umgebung prüfen …", 1, 3);
         const around = await planAround(params);
         const fresh2 = (around?.itineraries || []).filter(it => transitLegs(it).length);
         if (fresh2.length) {
@@ -1001,7 +1050,7 @@ async function runPlan(direction = null, limit = PAGE_SIZE) {
       }
       if (app.itins.length) {
         showSearching(app.searchTime.kind === "letzte"
-          ? "Letzte Verbindung eingrenzen …" : "Umgebung laden …");
+          ? "Letzte Verbindung eingrenzen …" : "Umgebung laden …", 1, 3);
       }
       await loadContext();
     }
@@ -1326,7 +1375,7 @@ function renderLegend() {
          Scrollfeld meldet scrollLeft = 0, der Anker käme also von „ganz links“
          und die Ansicht spränge nach dem Nachladen auf die erste Spalte. */
       tl.keepAnchor = tlAnchor();
-      showSearching(`${CAT_LABEL[c]} nachladen …`);
+      showSearching(`${CAT_LABEL[c]} nachladen …`, 0, 2);
       try {
         await refillLoadedRange();
       } finally {

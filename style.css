@@ -666,13 +666,19 @@ body[data-view="results"][data-mode="graph"] #timeline {
    an einen fremden Dienst; eine ausgedachte Zahl wäre gelogen. Der TEXT nennt
    dafür den Schritt, der gerade läuft. */
 .searching { margin: 1.4rem 0; }
-.searchbar {
-  height: 4px; border-radius: 999px; overflow: hidden;
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-}
+/* Der Suchbalken ist in FELDER geteilt — eines je Schritt. Erledigte sind
+   gefüllt, im laufenden wandert ein Licht, kommende bleiben blass. Das ist die
+   ehrliche Auskunft: Wie lange ein Schritt dauert, hängt an einem fremden
+   Dienst und lässt sich nicht vorhersagen; WIE VIELE Schritte es sind, schon. */
+.searchbar { display: flex; gap: 3px; height: 5px; }
 .searchbar i {
-  display: block; height: 100%; width: 40%; border-radius: 999px;
-  background: var(--accent);
+  flex: 1; border-radius: 999px; overflow: hidden; position: relative;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.searchbar i.done { background: var(--accent); }
+.searchbar i.run::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 45%;
+  border-radius: 999px; background: var(--accent);
   animation: searchslide 1.15s ease-in-out infinite;
 }
 @keyframes searchslide {
@@ -680,9 +686,43 @@ body[data-view="results"][data-mode="graph"] #timeline {
   100% { transform: translateX(250%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .searchbar i { animation-duration: 2.4s; }
+  .searchbar i.run::after { animation-duration: 2.4s; }
 }
-.searching .status { text-align: center; margin-top: .6rem; }
+.searching .status { text-align: center; margin-top: .7rem; }
+
+/* Die Suchanzeige nimmt in der Grafikansicht GENAU den Platz der Grafik ein.
+   Vorher klappte sie auf ihre Inhaltshöhe zusammen, die Legende sprang nach
+   oben und beim Fertigwerden wieder zurück. Jetzt bewegt sich nichts: gleiches
+   Feld, Inhalt darin mittig. */
+body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
+  flex: 1 1 auto; min-height: 0; margin: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  overflow: hidden;
+}
+.searchbox { width: 100%; max-width: 22rem; margin: 0 auto; }
+/* Aufklapper mit den Antwortzeiten. Bei einer zügigen Suche schaut da niemand
+   hinein; wartet man länger, will man wissen, ob überhaupt etwas passiert. */
+.searchlog { margin-top: .9rem; font-size: .78rem; }
+.searchlog summary {
+  cursor: pointer; color: var(--muted); text-align: center;
+  list-style: none; padding: .25rem 0;
+}
+.searchlog summary::-webkit-details-marker { display: none; }
+.searchlog summary::after { content: " ▾"; }
+.searchlog[open] summary::after { content: " ▴"; }
+.searchlog > div {
+  margin-top: .4rem; padding: .5rem .6rem;
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
+  max-height: 12rem; overflow-y: auto; overscroll-behavior: contain;
+}
+.logline {
+  display: flex; justify-content: space-between; gap: .8rem;
+  padding: .12rem 0; line-height: 1.45;
+}
+.logline.sum { border-top: 1px solid var(--border); margin-top: .3rem; padding-top: .3rem; font-weight: 700; }
+.logline.muted { color: var(--muted); display: block; }
+.logval { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.logval.slow { color: var(--warn); font-weight: 700; }
 
 /* Nachlade-Spinner am Rand (nur noch Fallback bei sehr schnellem Wischen) */
 .tl-edgeload {

@@ -192,6 +192,21 @@ Was ansteht, steht in `TODO.md`.
   sah man kurz die Verbindungen der anderen Ansicht. Lieber einen Moment nichts als
   etwas Falsches. `renderResults` blendet die Anzeige wieder aus, der Fehlerzweig
   ebenfalls (sonst läuft der Balken unter der Fehlermeldung weiter).
+- **Die Suchanzeige nimmt in der Grafikansicht GENAU den Platz der Grafik ein**
+  (`#searching` bekommt dieselbe Flex-Zuteilung wie `#timeline-wrap`). Vorher klappte
+  sie auf ihre Inhaltshöhe zusammen — die Legende sprang beim Laden nach oben und beim
+  Fertigwerden zurück. Gemessen beginnt die Legende jetzt in beiden Zuständen bei
+  derselben Höhe (791 px bei 393×852). Wer eine weitere Zeile in die Suchanzeige legt,
+  muss das erhalten.
+- **Der Suchbalken zeigt SCHRITTE, keine Prozente** — ein Feld je Schritt, erledigte
+  gefüllt, im laufenden wandert ein Licht. Wie LANGE ein Schritt dauert, hängt an einem
+  fremden Dienst und lässt sich nicht vorhersagen; WIE VIELE es sind, dagegen schon.
+  Frische Suche 3 Felder, Nachladen über die Legende 2.
+- **`Was gerade passiert` (`renderPlanLog`) nennt Antwortzeiten je Anfrage.** Bei einer
+  zügigen Suche schaut da niemand hinein, bei einer langen will man wissen, ob überhaupt
+  etwas passiert. Ab zwei Antworten über 1,5 s steht dort ausdrücklich, dass der
+  Fahrplandienst drosselt — genau das gemessene Verhalten (ab etwa der zwölften Anfrage
+  in kurzer Folge konstant ~3 s). Sonst sähe es aus, als hinge die App.
 - Der Suchbalken läuft **ohne Prozentangabe** — die Dauer hängt an bis zu drei Anfragen
   an einen fremden Dienst, eine ausgedachte Zahl wäre gelogen. Stattdessen nennt der
   Text den laufenden Schritt.
