@@ -1058,6 +1058,12 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 /* Feste Legende mit drei Zuständen:
    on = farbiger Punkt · off = hohler Punkt (Daten da, ausgeblendet) ·
    nodata = alles ausgegraut + durchgestrichen (keine solchen Verbindungen) */
+/* Überblenden beim Ein-/Ausblenden der langsameren Verbindungen. Nur Deckkraft,
+   keine Geometrie — die Grafik wird ohnehin neu gebaut, und alles Weitere würde
+   der Verfahrbewegung in die Quere kommen. */
+.timeline-wrap { transition: opacity .16s ease; }
+.timeline-wrap.swap { opacity: 0; transition: none; }
+@media (prefers-reduced-motion: reduce) { .timeline-wrap { transition: none; } }
 .tl-legend { display: flex; gap: .35rem .95rem; flex-wrap: wrap; margin-top: .6rem; }
 .tl-key {
   display: inline-flex; align-items: center; gap: .4rem;

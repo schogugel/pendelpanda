@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.49.0";
+const APP_VERSION = "1.49.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -2433,7 +2433,12 @@ byId("btn-full").addEventListener("click", () => loadAllCategories());
 byId("btn-fast").addEventListener("click", () => {
   app.hideDominated = !app.hideDominated;
   tl.forceAutoZoom = true;
+  /* Kurzes Überblenden statt hartem Umschalten. Bewusst NUR die Deckkraft des
+     Rahmens — an Bewegung, Zoom und Einrasten wird dafür nichts angefasst. */
+  const wrap = byId("timeline-wrap");
+  wrap.classList.add("swap");
   renderResults();
+  requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.remove("swap")));
 });
 
 byId("set-fitbottom").addEventListener("change", (e) => {

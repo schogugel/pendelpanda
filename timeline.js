@@ -58,11 +58,36 @@ function tlAnchor() {
   const sc = byId("timeline");
   if (!sc || !tl.ppm || !tl.itins.length) return null;
   const idx = Math.max(0, colIndexFor(sc.scrollLeft));
+  const it = tl.itins[idx];
   return {
     time: tl.t0 + (sc.scrollTop / tl.ppm) * 60000,
-    key: tl.itins[idx] ? itKey(tl.itins[idx]) : null,
+    key: it ? itKey(it) : null,
+    dep: it ? depOfIt(it) : null,
     offset: sc.scrollLeft - colScrollLeft(idx),
   };
+}
+
+// Abfahrt einer Verbindung in ms — für den Zeit-Rückfall des Ankers
+function depOfIt(it) {
+  const legs = transitLegs(it);
+  return legs.length ? +new Date(legs[0].from.departure) : null;
+}
+
+/* Wohin, wenn die verankerte Spalte nicht mehr da ist? Zur NÄCHSTEN Spalte,
+   die zeitlich folgt — nicht auf die alte Pixelposition.
+
+   Das war der Sprung beim Ausblenden der dominierten Verbindungen: Fällt die
+   linke Spalte weg, fand `findIndex` sie nicht mehr, und die Ansicht behielt
+   stur ihren Scrollwert. Mit weniger Spalten zeigt derselbe Pixelwert aber auf
+   eine ganz andere Verbindung — gemessen sprang es dabei über mehrere
+   verbliebene Verbindungen hinweg. */
+function tlNearestIdx(dep) {
+  if (!Number.isFinite(dep)) return -1;
+  for (let i = 0; i < tl.itins.length; i++) {
+    const d = depOfIt(tl.itins[i]);
+    if (Number.isFinite(d) && d >= dep) return i;
+  }
+  return tl.itins.length - 1;   // alles davor → ans Ende
 }
 
 function tlY(ms) { return (ms - tl.t0) / 60000 * tl.ppm; }
@@ -380,6 +405,7 @@ function renderTimeline(itins, focus = "start") {
     anchor = {
       time: tl.t0 + (prev.top / tl.ppm) * 60000,
       key: tl.itins[idx] ? itKey(tl.itins[idx]) : null,
+      dep: tl.itins[idx] ? depOfIt(tl.itins[idx]) : null,
       offset: prev.left - colScrollLeft(idx),
     };
   }
@@ -518,8 +544,13 @@ function renderTimeline(itins, focus = "start") {
 
   if (anchor) {
     // Ankerspalte an derselben Bildschirmposition halten; Zeit-Anker für oben
-    const newIdx = anchor.key ? tl.itins.findIndex(it => itKey(it) === anchor.key) : -1;
-    scroller.scrollLeft = newIdx >= 0 ? Math.max(0, colScrollLeft(newIdx) + anchor.offset) : prev.left;
+    let newIdx = anchor.key ? tl.itins.findIndex(it => itKey(it) === anchor.key) : -1;
+    // Ist sie weg (ausgeblendet, weggefiltert), zur nächsten zeitlich folgenden
+    const ersatz = newIdx < 0 ? tlNearestIdx(anchor.dep) : -1;
+    if (newIdx < 0 && ersatz >= 0) newIdx = ersatz;
+    scroller.scrollLeft = newIdx >= 0
+      ? Math.max(0, colScrollLeft(newIdx) + (ersatz >= 0 ? 0 : anchor.offset))
+      : prev.left;
     /* Senkrecht: normalerweise die gemerkte Zeit halten (beim Blättern darf sich
        nichts bewegen). Hat sich die Frage geändert und der Zoom damit auch, wird
        stattdessen wieder automatisch ausgerichtet — bezogen auf die Spalte, die

@@ -40,7 +40,7 @@ const crossFile = [
   "attachStopAlerts", "stopAlerts", "dbLink", "saveSettings", "saveSlots",
   // timeline.js
   "TL", "tl", "tlY", "renderTimeline", "tlAutoZoom", "tlAlignTopFor", "tlEdgeCheck",
-  "tlSetZoom", "tlHeadClear", "tlStop", "tlGlideTo", "tlAnchor", "tlAnchorMs", "classFromRouteType", "dominatedFlags", "productClass", "legCancelled", "cancelledTransitLegs",
+  "tlSetZoom", "tlHeadClear", "tlStop", "tlGlideTo", "tlAnchor", "tlAnchorMs", "classFromRouteType", "dominatedFlags", "depOfIt", "tlNearestIdx", "productClass", "legCancelled", "cancelledTransitLegs",
   "transferIssues", "legIssues", "itinIssues", "riskMark", "walkLegsBetween",
   "lineParts", "isReplacementService", "mapsPin", "trackChip", "modeIcon", "svgIcon",
   "letterBadge", "ICON", "RISK_ICON", "toMin", "worst",
