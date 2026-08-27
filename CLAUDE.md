@@ -726,6 +726,26 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - **Zeiten im DB-Link immer in Europe/Berlin** (`localMinuteIso`), NIE in der Zeitzone
   des Geräts. Wer aus einer anderen Zeitzone plant, bekäme sonst die falsche Minute —
   die Suche landet daneben, der Worker findet die Verbindung überhaupt nicht.
+- **Der `soid` im Suchlink ist eine HAFAS-Kennung — nur ein Name reicht NICHT.**
+  Vorher stand dort `O=<Name>`, und Transitous nennt Nahverkehrshalte oft nackt
+  („Klinikum“, „Rathaus“, „Marienplatz“). Ein Wort, das es deutschlandweit hundertfach
+  gibt, findet die DB nicht: gemessen NULL Verbindungen. `dbPlaceId()` baut deshalb
+  `A=1@O=<Name>@X=<lon×1e6>@Y=<lat×1e6>@U=80@` — die Koordinaten stecken in jeder Kachel,
+  kosten keine Anfrage, und die DB nimmt eine selbst gebaute Kennung an. Die interne ID
+  der DB ist im Browser nicht zu holen (CORS: die Ortssuche schickt kein
+  `Access-Control-Allow-Origin`, nachgemessen).
+  Zwei Namensregeln in `dbPlaceName()`, beide gemessen:
+  1. **Ort anhängen, wenn er fehlt** („Klinikum“ → „Klinikum, Regensburg“) — geprüft wird
+     auch das ERSTE Wort des Ortes, sonst wird aus „Frankfurt Hbf“ ein „Frankfurt Hbf,
+     Frankfurt am Main“, das die DB nicht kennt.
+  2. **„<Stadt> Hauptbahnhof“ → „<Stadt> Hbf“.** Transitous schreibt aus (9 von 12
+     geprüften Großstädten), die DB kürzt ab; über die Kennung findet sie die lange Form
+     nicht. Nur die Form OHNE Komma wird gekürzt — „Hauptbahnhof, Regensburg“ ist ein
+     Bushalt und heißt bei der DB auch so.
+  **`A=2` statt `A=1` wäre falsch**, obwohl es 8/8 findet: Mit `A=2` gilt der Punkt als
+  ADRESSE, die DB sucht sich selbst einen Halt dazu und startet dann woanders — gemessen
+  „Graß“ statt „Klinikum“ und „Mögeldorf“ statt „Erlenstegen“. Bei `A=1` entscheidet der
+  Name, die Koordinaten grenzen nur ein. Nachgemessen an 12 Strecken: vorher 3, jetzt 11.
 - Fallback-Link: `bahn.de/buchung/fahrplan/suche#sts=true&so/zo/soid/zoid&hd=<exakte Sollabfahrt>`.
 - Exakter Verbindungs-Link (öffnet DB Navigator mit „Zu meinen Reisen“): Worker deployen,
   URL in `DB_LINK_PROXY` (app.js) eintragen. Ablauf: bahn.de `fahrplan` (ctxRecon) →

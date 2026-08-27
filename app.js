@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.34.0";
+const APP_VERSION = "1.35.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -431,6 +431,7 @@ function commitEdit() {
   slots[i] = {
     name: station.name, id: station.id,
     ...(Number.isFinite(station.lat) ? { lat: station.lat, lon: station.lon } : {}),
+    ...(station.city ? { city: station.city } : {}),
     ...(v && v !== station.name ? { label: v } : {}),
   };
   app.pendingStation = null;
@@ -481,7 +482,12 @@ function renderSuggestions(stops) {
     b.addEventListener("click", () => {
       // Auswahl gemerkt — gespeichert wird erst mit „Speichern“
       // (lat/lon für die Umkreis-Suche bei Ersatzverkehr, s. planAround)
-      app.pendingStation = { name: s.name, id: s.id, lat: s.lat, lon: s.lon };
+      /* Den Ort mitnehmen: Transitous nennt Nahverkehrshalte oft nur beim
+         nackten Namen („Klinikum“). Für den DB-Link braucht es die Schreibweise
+         der DB („Klinikum, Regensburg“) — sonst steht im Suchfeld drüben ein
+         Wort, das es hundertfach gibt. Siehe dbPlaceId(). */
+      app.pendingStation = { name: s.name, id: s.id, lat: s.lat, lon: s.lon,
+                             city: area ? area.name : null };
       stationInput.hidden = true;
       suggestionsEl.innerHTML = "";
       byId("edit-current").hidden = false;
@@ -509,6 +515,11 @@ const resultsList = byId("results-list");
 
 function startSearch(from, to) {
   app.search = { from, to };
+  /* Kacheln aus der Zeit vor den Koordinaten einmalig nachrüsten — der DB-Link
+     braucht sie, sonst steht dort nur ein Name (siehe dbPlaceId). `coordsOf`
+     kehrt sofort zurück, wenn die Kachel sie schon hat, kostet also im
+     Normalfall nichts. Bewusst nebenher: Die Suche darf nicht darauf warten. */
+  coordsOf(from); coordsOf(to);
   app.itins = [];
   app.autoLoads = 0;
   app.emptyReason = null;
@@ -1593,7 +1604,7 @@ function fillDetails(container, it) {
   a.target = "_blank";
   a.rel = "noopener";
   a.href = dbLink(
-    app.search.from.name, app.search.to.name,
+    app.search.from, app.search.to,
     T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival
   );
   a.textContent = "Bei der DB öffnen";
@@ -1784,14 +1795,66 @@ function localMinuteIso(iso) {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
-function dbLink(fromName, toName, depIso, arrIso) {
+/* Wie die Station im DB-Link heißen soll. Transitous nennt Nahverkehrshalte oft
+   nur beim nackten Namen — „Klinikum“, „Rathaus“, „Bismarckplatz“ —, die DB
+   dagegen „Klinikum, Regensburg“. Steht der Ort schon im Namen (Bahnhöfe:
+   „Regensburg Hbf“), wird nichts angehängt. */
+function dbPlaceName(stop) {
+  /* „<Stadt> Hauptbahnhof“ → „<Stadt> Hbf“. Transitous schreibt Hauptbahnhöfe
+     aus (9 von 12 geprüften Großstädten), die DB kürzt ab — und über die
+     Kennung findet sie die lange Form NICHT: „Hamburg Hauptbahnhof“ lieferte
+     null Verbindungen, „Hamburg Hbf“ fünf. Nur die Form OHNE Komma wird
+     gekürzt: „Hauptbahnhof, Regensburg“ ist ein Bushalt und heißt bei der DB
+     auch so. */
+  let n = String(stop?.name || "").replace(/^([^,]+)\s+Hauptbahnhof$/i, "$1 Hbf");
+  /* Ort nur anhängen, wenn er nicht schon drinsteht — geprüft wird auch sein
+     ERSTES Wort: „Frankfurt Hbf“ trägt die Stadt bereits, der Ort heißt aber
+     amtlich „Frankfurt am Main“. Angehängt kam „Frankfurt Hbf, Frankfurt am
+     Main“ heraus, und das findet die DB nicht (sie schreibt „Frankfurt(Main)Hbf“). */
+  const ort = stop?.city;
+  if (!ort) return n;
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const kopf = ort.split(/\s+/)[0];
+  if (new RegExp(`\\b${esc(ort)}\\b`, "i").test(n)) return n;
+  if (kopf.length > 3 && new RegExp(`\\b${esc(kopf)}\\b`, "i").test(n)) return n;
+  return `${n}, ${ort}`;
+}
+
+/* Der Ortsteil eines DB-Links ist eine HAFAS-Kennung. Bisher stand darin nur der
+   Name (`O=Klinikum`) — und ein Wort, das es deutschlandweit hundertfach gibt,
+   findet die DB-Suche nicht: Nachgemessen liefert genau das NULL Verbindungen,
+   während dieselbe Anfrage mit Koordinaten fünf liefert. Genau der gemeldete
+   Fehler.
+
+   Die Koordinaten haben wir längst (sie stecken in jeder Kachel), und die DB
+   nimmt eine selbst gebaute Kennung an: `A=1@O=<Name>@X=<lon×1e6>@Y=<lat×1e6>@U=80@`
+   funktioniert gegen den echten Endpunkt genauso gut wie die interne Kennung der
+   DB — auch mit dem nackten Namen, weil die Koordinaten den Halt festlegen. Die
+   ID der DB selbst ist im Browser nicht zu holen (CORS, gemessen: die
+   Ortssuche schickt kein Access-Control-Allow-Origin), Koordinaten brauchen
+   dagegen keine Anfrage.
+
+   Ohne Koordinaten bleibt es beim Namen — dann wenigstens mit Ort dahinter. */
+function dbPlaceId(stop) {
+  const name = dbPlaceName(stop);
+  if (Number.isFinite(stop?.lat) && Number.isFinite(stop?.lon)) {
+    const x = Math.round(stop.lon * 1e6), y = Math.round(stop.lat * 1e6);
+    return `A=1@O=${name}@X=${x}@Y=${y}@U=80@`;
+  }
+  return `A=1@O=${name}@`;
+}
+
+function dbLink(from, to, depIso, arrIso) {
   const enc = encodeURIComponent;
   const dep = localMinuteIso(depIso);
   /* Vorbefüllte Suche mit exakter Soll-Abfahrtszeit — die gewünschte Verbindung
      steht damit ganz oben in der Trefferliste. Das ist das Beste, was ohne
      Server geht, und bleibt auch im nativen Build der Rückfall, wenn die vbid
      nicht zustande kommt (siehe dblink.js). */
-  return `https://www.bahn.de/buchung/fahrplan/suche#sts=true&so=${enc(fromName)}&zo=${enc(toName)}&soid=${enc("O=" + fromName)}&zoid=${enc("O=" + toName)}&hd=${enc(dep + ":00")}`;
+  return `https://www.bahn.de/buchung/fahrplan/suche#sts=true`
+    + `&so=${enc(dbPlaceName(from))}&zo=${enc(dbPlaceName(to))}`
+    + `&soid=${enc(dbPlaceId(from))}&zoid=${enc(dbPlaceId(to))}`
+    + `&hd=${enc(dep + ":00")}`;
 }
 
 /* ---------------- Konfiguration übertragen ---------------- */
