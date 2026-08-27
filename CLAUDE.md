@@ -618,6 +618,17 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   Vorher gab es gar keine Grenze, und der Text bestimmt die Höhe der Kopfkarte. 28 lässt
   jeden echten Bahnhofsnamen zu — gemessen an 75 Namen: Median 14, 90 % unter 19,
   längster gefundener 23 („Bochum Ruhr-Universität“).
+- **Dialog-Knöpfe SCHWEBEN unten** (`.dlgfoot`, `position: sticky; bottom: 0`), ohne
+  Balken dahinter: Eine deckende Leiste verdeckt dauerhaft ein Stück Inhalt; ohne sie
+  scrollt der Text sichtbar zwischen und hinter den Knöpfen durch. Die Knöpfe selbst
+  sind deckend und werfen einen Schatten, sonst wären sie über Text nicht lesbar.
+  **`pointer-events` an der Leiste AUS und an den Knöpfen wieder AN** — sonst fängt der
+  durchsichtige Streifen zwischen ihnen jede Wischgeste ab, und der Dialog ließe sich am
+  unteren Rand nicht mehr scrollen.
+  **Gleiche Höhe braucht eine durchgehende Kette aus Prozenthöhen** (Rasterzelle → form →
+  Knopf). `align-self: stretch` am `<form>` genügte NICHT: gemessen blieb es bei 44 px,
+  während die Zeile 60 hoch war, und der Knopf darin konnte mit `height: 100%` folglich
+  auch nur 44 werden. Erst `height: 100%` am form löst die Kette auf.
 - **Dialog-Knöpfe kleben unten** (`.dlgfoot`, `position: sticky; bottom: 0`). Auf einem
   Telefon liegt die Daumenzone unten, und in einem langen Dialog (Einstellungen,
   Halteliste, Datenschutz) müsste man sonst erst ans Ende scrollen, nur um zu schließen.

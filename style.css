@@ -458,44 +458,54 @@ body[data-view="results"][data-mode="graph"] #timeline {
   border-radius: 12px; border: 1.5px solid var(--border); background: var(--card); color: var(--accent); cursor: pointer;
 }
 
-/* Klebende Fußleiste in Dialogen: Auf einem Telefon liegt die Daumenzone unten,
-   und in einem langen Dialog (Einstellungen, Halteliste, Datenschutz) muss man
-   sonst erst ans Ende scrollen, nur um zu schließen.
+/* Schwebende Knöpfe am unteren Rand von Dialogen. Auf einem Telefon liegt die
+   Daumenzone unten, und in einem langen Dialog (Einstellungen, Halteliste,
+   Datenschutz) müsste man sonst erst ans Ende scrollen, nur um zu schließen.
 
-   Die negativen Ränder ziehen die Leiste in das `padding` des Dialogs hinein —
-   ohne sie bliebe unten ein Streifen frei, durch den der Inhalt sichtbar
-   durchscrollt. Der deckende Grund ist Pflicht, sonst liest sich der Text
-   darunter durch die Leiste hindurch.
+   BEWUSST ohne Balken dahinter: Eine deckende Leiste verdeckt ein Stück Inhalt
+   dauerhaft. Ohne sie scrollt der Text sichtbar zwischen und hinter den Knöpfen
+   durch, und man sieht mehr von der Seite. Die Knöpfe selbst sind deckend und
+   werfen einen Schatten — sonst wären sie über Text nicht mehr zu lesen.
+
+   `pointer-events` an der Leiste AUS und an den Knöpfen wieder AN: Sonst fängt
+   der durchsichtige Streifen zwischen ihnen jede Wischgeste ab, und der Dialog
+   ließe sich am unteren Rand nicht mehr scrollen.
 
    Zusätzlicher Fußraum ist NICHT nötig: Die Leiste steht im Fluss ganz am Ende.
-   Ganz nach unten gescrollt sitzt sie an ihrer natürlichen Stelle, und alles
-   darüber ist zu sehen — verdeckt wird nur unterwegs, und dorthin scrollt man
-   ohnehin weiter. Der obere Rand hält den letzten Inhalt trotzdem auf Abstand. */
-/* Der untere Innenabstand des Dialogs gehört zur SCROLLFLÄCHE. Blieb er stehen,
-   klebte die Leiste 1,2 rem über dem Rand und der Inhalt scrollte sichtbar
-   darunter durch. Also übernimmt die Leiste diesen Abstand selbst. */
+   Ganz nach unten gescrollt sitzt sie an ihrer natürlichen Stelle und verdeckt
+   nichts — verdeckt wird nur unterwegs, und dorthin scrollt man ohnehin weiter. */
 dialog:has(.dlgfoot) { padding-bottom: 0; }
 .dlgfoot {
   position: sticky; bottom: 0; z-index: 3;
-  margin: 1rem -1.2rem 0; padding: .7rem 1.2rem 1.2rem;
-  background: var(--card);
-  border-top: 1.5px solid var(--border);
-  display: flex; gap: .55rem; align-items: stretch;
+  margin: 1rem 0 0; padding: .35rem 0 1.1rem;
+  pointer-events: none;
+  display: grid; grid-template-columns: 1fr 3fr; gap: .55rem;
+  align-items: stretch;
 }
-.dlgfoot form { flex: none; display: flex; }
-.dlgfoot .widebtn { margin-top: 0; }
-.dlgfoot form:only-child { flex: 1; }
-/* Der Zurück-Knopf trägt dieselbe Form wie „Bei der DB öffnen“, nur ruhiger:
-   Er führt zurück, der andere führt weiter. */
+.dlgfoot > * { pointer-events: auto; }
+/* Die Streckung muss DURCHGEREICHT werden. `align-self: stretch` am <form>
+   genügte nicht — gemessen blieb es bei 44 px, während die Zeile 60 hoch war,
+   und der Knopf darin konnte mit `height: 100%` folglich auch nur 44 werden.
+   Erst eine durchgehende Kette aus Prozenthöhen (Rasterzelle → form → Knopf)
+   macht beide gleich hoch. */
+.dlgfoot form { display: flex; height: 100%; }
+/* Einzelner Knopf (Einstellungen, Hilfe, Rechtliches) nimmt die ganze Breite */
+.dlgfoot form:only-child { grid-column: 1 / -1; }
+.dlgfoot .widebtn { margin-top: 0; width: 100%; height: 100%; box-shadow: var(--shadow); }
+/* Beide Knöpfe füllen die Zeilenhöhe — vorher war der Zurück-Knopf niedriger als
+   der DB-Knopf, weil jeder seine eigene Polsterung mitbrachte. */
 .footbtn {
-  padding: .6rem 1rem; font: inherit; font-weight: 600; cursor: pointer;
-  border-radius: 10px; border: 1.5px solid var(--border);
-  background: var(--card); color: var(--text); white-space: nowrap;
+  flex: 1; height: 100%; display: grid; place-items: center;
+  padding: .6rem .5rem; font: inherit; font-size: 1.05rem; font-weight: 700;
+  cursor: pointer; border-radius: 10px; border: 1.5px solid var(--border);
+  background: var(--card); color: var(--text);
+  box-shadow: var(--shadow);
 }
 .footbtn:active { opacity: .6; }
-/* Im Dialog füllt der DB-Knopf den Rest der Zeile und verliert seinen
-   Außenabstand — in der Listenansicht bleibt er unverändert. */
-.dlgfoot .dblink { flex: 1; margin-top: 0; align-content: center; }
+.dlgfoot .dblink {
+  display: grid; place-items: center;
+  margin: 0; box-shadow: var(--shadow);
+}
 
 /* ---------- Grid-Werkzeuge / Bearbeiten-Modus ---------- */
 .gridtools { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
