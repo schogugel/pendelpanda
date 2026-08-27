@@ -39,8 +39,12 @@
   <div id="suggestions" class="suggestions" role="listbox"></div>
   <p class="edit-station" id="edit-current" hidden></p>
   <label class="labelrow" id="label-row" hidden>Eigene Beschriftung (optional)
+    <!-- Begrenzt, weil dieser Text im Ergebnis-Kopf steht und dort die Höhe
+         bestimmt. 28 Zeichen lassen jeden echten Bahnhofsnamen zu (gemessen:
+         Median 14, 90 % unter 19, längster gefundener 23 = „Bochum
+         Ruhr-Universität“) und passen in zwei Zeilen der Kopfkarte. -->
     <input type="text" id="labelinput" autocomplete="off" enterkeyhint="done"
-           placeholder="z. B. Zuhause, Arbeit …">
+           maxlength="28" placeholder="z. B. Zuhause, Arbeit …">
   </label>
   <button id="btn-save-slot" class="widebtn" hidden>Speichern</button>
   <button id="btn-clear-slot" class="dangerbtn" hidden>Diesen Button löschen</button>
@@ -48,16 +52,33 @@
 
 <!-- ANSICHT: ERGEBNISSE -->
 <main id="view-results" class="view" hidden>
-  <div class="viewhead">
-    <h2 class="viewhead-title"><button type="button" id="results-title" class="results-title"
-      title="Zurück zur Abfahrtstafel"></button></h2>
-    <button id="btn-swap" class="iconbtn" title="Richtung tauschen">⇄</button>
+  <!-- Zwei getrennte Knöpfe statt eines langen Titels: Beide führen zurück zur
+       Abfahrtstafel, dazwischen sitzt der Tauschknopf. Verschachtelte Knöpfe
+       gäbe es sonst — ein <button> im <button> ist ungültig. -->
+  <div class="rhead">
+    <button type="button" id="results-title" class="rhead-side"
+            title="Zurück zur Abfahrtstafel">
+      <small>Start</small><strong id="rhead-from"></strong>
+    </button>
+    <button id="btn-swap" class="rhead-swap" title="Richtung tauschen" aria-label="Richtung tauschen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13m0 0-3.2-3.2M17 8l-3.2 3.2M20 16H7m0 0 3.2-3.2M7 16l3.2 3.2"/></svg>
+    </button>
+    <button type="button" id="results-title-to" class="rhead-side rhead-to"
+            title="Zurück zur Abfahrtstafel">
+      <small>Ziel</small><strong id="rhead-to"></strong>
+    </button>
   </div>
   <div class="timechips" id="timechips">
-    <button id="chip-now" class="chip active">Jetzt</button>
-    <button id="chip-last" class="chip" title="Letzte Verbindungen der Nacht">Letzte</button>
-    <button id="chip-time" class="chip" title="Datum &amp; Uhrzeit wählen">📅</button>
-    <button id="btn-viewmode" class="chip chip-right" title="Listen-/Grafikansicht">☰</button>
+    <div class="timeseg">
+      <button id="chip-now" class="chip active">Jetzt</button>
+      <button id="chip-last" class="chip" title="Letzte Verbindungen der Nacht">Letzte</button>
+      <button id="chip-time" class="chip chip-icon" title="Datum &amp; Uhrzeit wählen" aria-label="Datum &amp; Uhrzeit wählen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5V6M16 3.5V6"/><circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none"/></svg>
+      </button>
+    </div>
+    <button id="btn-viewmode" class="chip chip-right" title="Listen-/Grafikansicht" aria-label="Listen-/Grafikansicht">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
   </div>
   <p id="around-note" class="around-note" hidden>ℹ️ Am Halt selbst fährt derzeit nichts – angezeigt werden Verbindungen über <strong>Halte in der Nähe</strong> (z.&nbsp;B. Schienenersatzverkehr). Fußwege sind in den Details enthalten.</p>
   <p id="last-note" class="around-note" hidden></p>

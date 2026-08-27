@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.33.0";
+const APP_VERSION = "1.34.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -527,7 +527,8 @@ function startSearch(from, to) {
   app.searchTag = (app.searchTag || 0) + 1;
   app.focusKey = null;       // die gesuchte Verbindung wird je Suche EINMAL bestimmt
   app.emptyCats = new Set(); // je Suche neu belegen: was nachweislich nicht fährt
-  byId("results-title").textContent = `${from.label || from.name} → ${to.label || to.name}`;
+  byId("rhead-from").textContent = from.label || from.name;
+  byId("rhead-to").textContent = to.label || to.name;
   updateChips();
   navigate("results");
   /* Bewusst KEINE größere Erstanfrage bei „Letzte“: nachgemessen bringt sie
@@ -590,7 +591,10 @@ byId("list-later").addEventListener("click", () => loadMore("later"));
 /* Zurück zur Abfahrtstafel über den Streckennamen. Bewusst über `navigate`
    und nicht direkt: Damit läuft es über denselben Weg wie die Zurück-Geste
    des Systems, und der Anker in der Adresse bleibt in Ordnung. */
-byId("results-title").addEventListener("click", () => navigate("grid"));
+// Beide Stationsnamen führen zurück — links wie rechts, je nachdem, wo man tippt
+for (const id of ["results-title", "results-title-to"]) {
+  byId(id).addEventListener("click", () => navigate("grid"));
+}
 
 byId("btn-swap").addEventListener("click", () => {
   if (app.search) startSearch(app.search.to, app.search.from);

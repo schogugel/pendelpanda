@@ -541,6 +541,26 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   „Schreib mir“ und „Impressum“ unter **Kontakt & Rechtliches**; darüber steht
   **Übertragen & Hilfe**. Vorher hing der Datenschutz im Hilfe-Abschnitt und zwang dessen
   Überschrift zu „Übertragen, Hilfe & Rechtliches“.
+- **Kopf der Ergebnisansicht (`.rhead`): eine Karte, drei Felder** — Start · Tauschen ·
+  Ziel, darüber eine Akzentkante. Die Höhe folgt dem HÖHEREN der beiden Namen: kurze
+  bleiben einzeilig (flache Karte), lange brechen auf zwei Zeilen und dann nicht weiter
+  (`-webkit-line-clamp: 2`). Sie darf nicht beliebig wachsen — darunter liegt die
+  Grafik, die per Flex nur bekommt, was übrig bleibt.
+  **`flex: none` ist an `.rhead` und `.timechips` Pflicht:** In der Flex-Spalte der
+  Ergebnisansicht werden sie sonst zusammengedrückt, und die zweite Namenszeile wird
+  mittendrin abgeschnitten. Sah im Screenshot aus wie ein zu kleiner Zeilenumbruch.
+- **Zwei Zurück-Knöpfe statt eines Titels.** Beide Stationsnamen führen zur
+  Abfahrtstafel; dazwischen sitzt der Tauschknopf. Ein `<button>` IM `<button>` wäre
+  ungültiges HTML, deshalb drei Geschwister im Grid statt einer Verschachtelung.
+  Das `‹` steht am Label „START“, nicht am Namen — beim Abschneiden langer Namen ginge
+  es sonst mit, und ohne dieses Zeichen findet niemand den Weg zurück.
+- **`.timeseg .chip.active` muss NACH `.timeseg .chip` stehen.** Gleiche Spezifität, also
+  gewinnt die spätere Regel: Stand die Aktiv-Regel davor, wurde der ausgewählte Knopf
+  durchsichtig — weiße Schrift auf weißem Grund, „Jetzt“ war schlicht unsichtbar.
+- **Eigene Beschriftungen sind auf 28 Zeichen begrenzt** (`maxlength` an `#labelinput`).
+  Vorher gab es gar keine Grenze, und der Text bestimmt die Höhe der Kopfkarte. 28 lässt
+  jeden echten Bahnhofsnamen zu — gemessen an 75 Namen: Median 14, 90 % unter 19,
+  längster gefundener 23 („Bochum Ruhr-Universität“).
 - **Dialoge sind Fenster, keine Vollbildseiten**: `max-height` mit `2 * max(inset-top,
   inset-bottom)` Abzug, innen `overflow-y: auto`. Sie liegen in der obersten Ebene und
   erben das `padding` des `body` NICHT; beim mittigen Zentrieren verteilt sich der freie
