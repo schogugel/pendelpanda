@@ -114,6 +114,24 @@ Capacitor-Projekts, kein Fehler in diesem Repo.
 
 ## Was NICHT in die APK wandert
 
+## Icons
+
+Erzeugt werden sie aus **einer** Quelle (`icons/icon_pendelpanda_dark.png`):
+
+    node tools/make-icons.mjs        # Web-Icons + native/assets/icon.png
+    cd native
+    npx @capacitor/assets generate --android \
+      --iconBackgroundColor '#000000' --iconBackgroundColorDark '#000000' \
+      --splashBackgroundColor '#0a0e18' --splashBackgroundColorDark '#0a0e18'
+
+Der zweite Schritt füllt die vielen Dichten in `android/app/src/main/res/`. Das ist
+ein ERZEUGTER Ordner — dort von Hand zu ändern hält nur bis zum nächsten Lauf.
+`@capacitor/assets` steht bewusst nicht in den Abhängigkeiten: Es läuft ein-, zweimal
+im Jahr, `npx` genügt.
+
+Ohne die Farbflaggen setzt das Werkzeug einen weißen Icon-Hintergrund — bei einem
+Icon, das selbst schwarz ist, sieht man den Unterschied erst auf dem Startbildschirm.
+
 Die Allowlist steht in `sync.mjs`. Draußen bleiben bewusst: `sw.js` (nativ
 sinnlos), `manifest.webmanifest` (die APK *ist* die Installation), `HILFE.md`
 und `CLAUDE.md` (gehören zur Website bzw. zum Repo) sowie die Referenzbilder

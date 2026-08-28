@@ -1099,9 +1099,30 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   sonst verschwindet die Abfahrtszeit unter der Kopf-Kachel.
 - Fahrdauern: <60 min „42 min“, sonst „1:40 h“ (`fmtDur`). Ist-Zeiten farbcodiert,
   Soll durchgestrichen gestapelt darüber (Spaltenbreite konstant halten!).
-- Icons: aus `icons/icon_pendelpanda.png` generieren (magick). **Bei Icon-Wechsel
-  Dateinamen ändern** (Launcher/Manifest-Caches); PWA friert Icon/theme_color bei
-  Installation ein → Neuinstallation nötig. theme_color/background_color = bg-Farbe.
+- **Icons erzeugt `node tools/make-icons.mjs`** aus EINER Quelle
+  (`icons/icon_pendelpanda_dark.png`, weiß auf Schwarz, 1254²). Vorher lag dieser Weg
+  nur im Gedächtnis: Die Zwischenstufen liegen in `native/assets/`, und das ist
+  gitignored — aus dem Repo allein war nicht herzuleiten, wie aus dem Quellbild ein
+  Icon wird.
+  **Bei Icon-Wechsel Dateinamen ändern** (Launcher- und Manifest-Caches halten Icons
+  hartnäckig fest; gleicher Name mit neuem Inhalt kommt beim Nutzer oft nicht an).
+  Deshalb heißen sie jetzt `app-192-dark.png` usw. mit `?v=3`.
+  **Die Namen stehen an VIER Stellen** — `manifest.webmanifest`, `index.html`, `sw.js`
+  (SHELL) und `native/sync.mjs` (Allowlist). Wer eine vergisst, ändert das Icon nur halb.
+  **Die alten weißen Dateien bleiben liegen**, obwohl nichts mehr auf sie zeigt: Eine
+  installierte PWA friert ihr Manifest ein und fragt weiter die alten Namen an — gelöscht
+  gäbe das ein kaputtes Icon statt eines veralteten.
+  **Das maskierbare Icon wird auf 72 % verkleinert.** Android schneidet daraus Kreis,
+  Quadrat oder Squircle; außerhalb der „safe zone“ (80 % Durchmesser) darf nichts
+  Wichtiges liegen. Nachgestellt (Leinwand 108dp, Inhalt mit 16,7 % eingerückt, danach
+  Kreismaske): Ohren und Gleisende liegen innerhalb, nichts wird beschnitten.
+  Für die APK danach `npx @capacitor/assets generate --android` mit
+  `--iconBackgroundColor '#000000'` — der Befehl steht im Skript und in native/README.md.
+  `values/ic_launcher_background.xml` (#FFFFFF) und `drawable/ic_launcher_background.xml`
+  (türkises Raster) sind Reste der Android-Vorlage und werden NICHT benutzt: Das adaptive
+  Icon verweist auf `@mipmap/ic_launcher_background`, also auf die PNG.
+  PWA friert Icon/theme_color bei Installation ein → Neuinstallation nötig.
+  theme_color/background_color = bg-Farbe.
 
 ## DB-Integration
 

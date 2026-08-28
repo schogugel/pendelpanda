@@ -37,9 +37,9 @@ const FILES = [
   "dblink.js",
   "app.js",
   "timeline.js",
-  "icons/app-192.png",
-  "icons/app-512.png",
-  "icons/app-maskable.png",
+  "icons/app-192-dark.png",
+  "icons/app-512-dark.png",
+  "icons/app-maskable-dark.png",
 ];
 
 for (const f of FILES) {
