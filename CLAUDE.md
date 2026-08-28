@@ -237,6 +237,30 @@ Was ansteht, steht in `TODO.md`.
   gefüllt, im laufenden wandert ein Licht. Wie LANGE ein Schritt dauert, hängt an einem
   fremden Dienst und lässt sich nicht vorhersagen; WIE VIELE es sind, dagegen schon.
   Frische Suche 3 Felder, Nachladen über die Legende 2.
+- **Träge Antworten zeigt ein kleines Warndreieck** (`apiLag`, `updateLagHint`) — in
+  der Suchanzeige mit einer Zeile Text, am Rand-Lader der Grafik als Abzeichen am
+  Ladekreis. Vorher stand die Auskunft nur im Aufklapper, und dort schaut beim Warten
+  niemand hin; genau dann will man aber wissen, ob es an der App liegt.
+  **Es unterscheidet Drosselung von schwachem Netz**, und das ist keine Spitzfindigkeit,
+  sondern der Unterschied zwischen „gleich wieder gut“ und „hier hilft nur besseres
+  Netz“: Die Drosselung setzt NACH etwa zwölf zügigen Anfragen ein und ist danach
+  gleichmäßig (gemessen 2,1–3,1 s), ein schwaches Mobilnetz ist von der ersten Anfrage
+  an langsam. Gab es kurz zuvor schnelle Antworten (≤ 800 ms), war es die Drosselung.
+  Dafür gibt es `app.apiTimes` als zweites, kurzes Gedächtnis — es überlebt die Suche,
+  weil `planLog` je Suche geleert wird, die Drosselung aber über mehrere Suchen hinweg
+  entsteht. Vergessen nach 2 Minuten.
+  **Erst ZWEI träge Antworten hintereinander lösen aus.** Ein Zeichen, das bei jedem
+  Ausreißer aufblinkt, lernt man in einer Woche zu übersehen. Neun Fälle durchgeprüft,
+  inklusive Grenzwerte und Erholung.
+  **Balken und Kreisel werden NICHT eingefärbt** — beide tragen schon die Akzentfarbe,
+  und die ist in dieser App orange (hell #b97800 gegen `--warn` #b26a00, dunkel #f0a63a
+  gegen #ffb74d). Im Testbild waren „ruhig“ und „träge“ dadurch nicht zu unterscheiden;
+  der Versuch ist wieder heraus. Das Dreieck trägt die Aussage allein.
+  Das Zeichen ist EIN Pfad mit `evenodd` — Balken und Punkt stanzen sich aus dem
+  Dreieck aus. Als getrennte Elemente hätten sie dieselbe Füllfarbe und wären unsichtbar.
+  **Die Zeile in der Suchanzeige verschiebt die Legende NICHT** (gemessen: Oberkante 791,
+  Höhe 54 in allen drei Zuständen) — sie sitzt in der mittig zentrierten `.searchbox`,
+  deren Hülle ohnehin die volle Grafikhöhe bekommt.
 - **`Was gerade passiert` (`renderPlanLog`) nennt Antwortzeiten je Anfrage.** Bei einer
   zügigen Suche schaut da niemand hinein, bei einer langen will man wissen, ob überhaupt
   etwas passiert. Ab zwei Antworten über 1,5 s steht dort ausdrücklich, dass der

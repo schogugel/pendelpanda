@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.54.0";
+const APP_VERSION = "1.54.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -626,6 +626,7 @@ async function loadMoreRaw(direction) {
       ? sc.scrollLeft < step * 0.5
       : (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) < step * 0.5;
   if (atEdge) edge.hidden = false;
+  updateLagHint();   // Abzeichen zusammen mit dem Ladekreis
   btn.disabled = true;
   try { await runPlan(direction); }
   finally {
@@ -1272,6 +1273,10 @@ function findFocusItin(visible) {
    es sind, dagegen schon, und das ist die ehrliche Auskunft. */
 function showSearching(text, step = 0, total = 1) {
   tlStop();   // nichts aus der vorherigen Suche darf weiterzeichnen
+  /* Der Zustand des Dienstes überlebt die Suche — `apiTimes` wird bewusst nicht
+     mit geleert. Wer gerade in die Drosselung gelaufen ist, soll das schon beim
+     Start der nächsten Suche sehen und nicht erst nach der ersten Antwort. */
+  updateLagHint();
   byId("searching-text").textContent = text;
   const bar = byId("searchbar");
   if (bar.children.length !== total) {
@@ -1318,9 +1323,69 @@ function sameStopWarning() {
    wissen, ob überhaupt etwas passiert. Gemessen drosselt Transitous ab etwa der
    zwölften Anfrage in kurzer Folge auf konstante ~3 s, und genau das steht dann
    hier schwarz auf weiß, statt dass die App bloß hängt. */
+/* Ab hier gilt eine Antwort als träge. Gemessen liegt der Unterschied weit
+   auseinander: normal 99–343 ms, gedrosselt 2087–3110 ms. 1500 ms trifft
+   niemanden versehentlich. */
+const LAG_MS = 1500;
+/* … und so schnell muss eine Antwort gewesen sein, damit „vorher ging es ja“
+   als Beleg zählt. */
+const LAG_FAST_MS = 800;
+const LAG_KEEP = 20;        // so viele Antwortzeiten bleiben in Erinnerung
+const LAG_MEMORY = 120000;  // … und so lange (2 min)
+
 function logPlan(label, ms, added) {
   (app.planLog ||= []).push({ label, ms: Math.round(ms), added });
+  /* Zweite, KÜRZERE Erinnerung, die eine neue Suche überlebt: `planLog` wird je
+     Suche geleert, die Drosselung greift aber erst nach etwa zwölf Anfragen und
+     damit über mehrere Suchen hinweg. Ohne dieses Gedächtnis wüsste die App nach
+     jedem Neustart wieder nichts. */
+  (app.apiTimes ||= []).push({ at: Date.now(), ms });
+  if (app.apiTimes.length > LAG_KEEP) app.apiTimes.splice(0, app.apiTimes.length - LAG_KEEP);
   renderPlanLog();
+  updateLagHint();
+}
+
+/* Antwortet der Dienst gerade langsam — und WORAN liegt es?
+
+   Die Unterscheidung ist keine Spitzfindigkeit, sondern der Unterschied
+   zwischen „gleich wieder gut“ und „hier hilft nur besseres Netz“:
+   Die Drosselung setzt NACH etwa zwölf zügigen Anfragen ein und ist danach
+   gleichmäßig (gemessen 2,1 bis 3,1 s). Ein schwaches Mobilnetz ist dagegen von
+   der ersten Anfrage an langsam. Also: Gab es kurz zuvor schnelle Antworten,
+   war es die Drosselung; gab es nie welche, ist es die Leitung.
+
+   Gewertet wird erst bei ZWEI trägen Antworten hintereinander. Eine einzelne
+   kann jeder haben, und ein Warnzeichen, das bei jedem Ausreißer aufblinkt,
+   lernt man in einer Woche zu übersehen. */
+function apiLag() {
+  const t = (app.apiTimes || []).filter(x => Date.now() - x.at < LAG_MEMORY);
+  if (t.length < 2) return null;
+  const letzte = t.slice(-2);
+  if (!letzte.every(x => x.ms >= LAG_MS)) return null;
+  return t.some(x => x.ms <= LAG_FAST_MS) ? "throttle" : "slow";
+}
+
+const LAG_TEXT = {
+  throttle: "Der Fahrplandienst bremst gerade – kurz warten hilft",
+  slow: "Die Verbindung ist gerade langsam",
+};
+
+/* Das kleine Dreieck. Es sitzt an JEDER Stelle, an der gerade geladen wird:
+   in der Suchanzeige und an den beiden Rand-Ladern der Grafik. Bisher stand die
+   Auskunft nur im Aufklapper „Was gerade passiert“ — und dort schaut beim
+   Warten niemand hin, genau dann will man aber wissen, ob es an der App liegt. */
+function updateLagHint() {
+  const art = apiLag();
+  const note = byId("lagnote");
+  if (note) {
+    note.hidden = !art;
+    if (art) note.lastElementChild.textContent = LAG_TEXT[art];
+  }
+  for (const el of document.querySelectorAll(".lagtri")) {
+    el.hidden = !art;
+    if (art) el.setAttribute("aria-label", LAG_TEXT[art]);
+    if (art) el.setAttribute("title", LAG_TEXT[art]);
+  }
 }
 
 function renderPlanLog() {
@@ -1329,16 +1394,22 @@ function renderPlanLog() {
   const log = app.planLog || [];
   if (!log.length) { el.innerHTML = `<p class="logline muted">Noch keine Antwort.</p>`; return; }
   const gesamt = log.reduce((s, x) => s + x.ms, 0);
-  const traege = log.filter(x => x.ms >= 1500).length;
+  /* Der Aufklapper nennt denselben Befund wie das Dreieck daneben, nur
+     ausführlich — er darf ihm nicht widersprechen, also dieselbe Quelle. */
+  const art = apiLag();
+  const erklaerung = {
+    throttle: `Mehrere Antworten über 1,5 s, davor schnelle – der Fahrplandienst
+      drosselt gerade. Er tut das nach etwa zwölf Anfragen in kurzer Folge;
+      nach ein paar Sekunden Pause ist er wieder schnell.`,
+    slow: `Mehrere Antworten über 1,5 s, und auch davor keine schnelle – das
+      sieht nach der Netzverbindung aus, nicht nach dem Fahrplandienst.`,
+  };
   el.innerHTML = log.map(x =>
     `<p class="logline"><span>${escapeHtml(x.label)}</span>` +
-    `<span class="logval${x.ms >= 1500 ? " slow" : ""}">${x.ms} ms` +
+    `<span class="logval${x.ms >= LAG_MS ? " slow" : ""}">${x.ms} ms` +
     `${x.added === null ? "" : ` · ${x.added} neu`}</span></p>`).join("")
     + `<p class="logline sum"><span>${log.length} Anfragen</span><span class="logval">${gesamt} ms</span></p>`
-    + (traege >= 2
-        ? `<p class="logline muted">Mehrere Antworten über 1,5 s – der Fahrplandienst drosselt
-           gerade. Nach ein paar Sekunden Pause ist er wieder schnell.</p>`
-        : "");
+    + (art ? `<p class="logline muted">${erklaerung[art]}</p>` : "");
 }
 
 async function runPlan(direction = null, limit = PAGE_MAX) {

@@ -99,6 +99,7 @@
     <div class="searchbox">
       <div class="searchbar" id="searchbar"></div>
       <p class="status" id="searching-text">Verbindungen suchen …</p>
+      <p class="lagnote" id="lagnote" hidden><svg class="lagtri-i" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.2 23 21H1zM11 9h2v6h-2zM13.2 18a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 1 1 2.4 0z"/></svg><span></span></p>
       <details class="searchlog">
         <summary>Was gerade passiert</summary>
         <div id="searching-log"></div>
@@ -110,8 +111,8 @@
   <button id="list-later" class="loadbtn" hidden>Spätere anzeigen ▸</button>
   <div id="timeline-wrap" class="timeline-wrap" hidden>
     <div id="timeline" class="timeline" aria-label="Grafischer Fahrplan"></div>
-    <div id="tl-load-left" class="tl-edgeload" hidden><span class="spinner"></span></div>
-    <div id="tl-load-right" class="tl-edgeload tl-edgeload-r" hidden><span class="spinner"></span></div>
+    <div id="tl-load-left" class="tl-edgeload" hidden><span class="spinner"></span><span class="lagtri" hidden><svg class="lagtri-i" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.2 23 21H1zM11 9h2v6h-2zM13.2 18a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 1 1 2.4 0z"/></svg></span></div>
+    <div id="tl-load-right" class="tl-edgeload tl-edgeload-r" hidden><span class="spinner"></span><span class="lagtri" hidden><svg class="lagtri-i" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 3.2 23 21H1zM11 9h2v6h-2zM13.2 18a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 1 1 2.4 0z"/></svg></span></div>
   </div>
   <p class="tl-legend" id="tl-legend" title="Antippen blendet Verbindungen mit diesem Verkehrsmittel aus oder ein"></p>
 </main>

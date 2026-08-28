@@ -843,6 +843,28 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
 }
 .searching .status { text-align: center; margin-top: .7rem; }
 
+/* Träge API: kleines Warndreieck statt versteckter Zeile im Aufklapper.
+
+   Es ist bewusst KEINE Fehlermeldung — es wird ja geladen, es dauert nur. Also
+   die Warnfarbe und ein Dreieck, aber keine rote Farbe, kein Kasten, kein
+   Platzverbrauch, wenn alles gut läuft.
+
+   Den Fortschrittsbalken und den Ladekreisel dabei EINZUFÄRBEN wäre wirkungslos
+   — beide tragen bereits die Akzentfarbe, und die ist in dieser App orange:
+   hell #b97800 gegen --warn #b26a00, dunkel #f0a63a gegen #ffb74d. Im
+   Testbild waren „ruhig“ und „träge“ nicht zu unterscheiden. Das Dreieck trägt
+   die Aussage allein, und es ist das einzige farbige Element in einem Feld aus
+   grauem Text.
+
+   Das Zeichen ist EIN Pfad mit `evenodd` — Balken und Punkt stanzen sich aus dem
+   Dreieck aus. Als getrennte Elemente hätten sie dieselbe Füllfarbe wie das
+   Dreieck und wären schlicht unsichtbar. */
+.lagtri-i { width: 1em; height: 1em; flex: none; fill: var(--warn); display: block; }
+.lagnote {
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  margin: .55rem 0 0; font-size: .8rem; color: var(--warn);
+}
+
 /* Die Suchanzeige nimmt in der Grafikansicht GENAU den Platz der Grafik ein.
    Vorher klappte sie auf ihre Inhaltshöhe zusammen, die Legende sprang nach
    oben und beim Fertigwerden wieder zurück. Jetzt bewegt sich nichts: gleiches
@@ -886,6 +908,15 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
   z-index: 5; box-shadow: var(--shadow);
 }
 .tl-edgeload-r { left: auto; right: 10px; }
+/* Beim Blättern gibt es keinen Platz für einen Satz — hier trägt das Dreieck
+   die Auskunft allein, als kleines Abzeichen am Ladekreis. Der Kreisel bleibt
+   und dreht weiter: Es lädt ja, es dauert nur. */
+.tl-edgeload .lagtri {
+  position: absolute; right: -4px; bottom: -4px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--card); display: flex; align-items: center; justify-content: center;
+}
+.tl-edgeload .lagtri-i { width: 13px; height: 13px; }
 .spinner {
   width: 18px; height: 18px; border-radius: 50%;
   border: 2.5px solid var(--accent-soft); border-top-color: var(--accent);
