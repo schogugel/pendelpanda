@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.52.0";
+const APP_VERSION = "1.53.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -730,10 +730,23 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
    Stelle weiter, es entsteht keine Lücke. */
 const PAGE_WINDOW = 3 * 3600;   // Sekunden je Blätterschritt
 const PAGE_MAX = 60;            // Obergrenze je Anfrage
-/* Für Ankunftssuchen bleibt es bei der bisherigen Zahl: Dort ist sie die
-   MINDESTanzahl und bestimmt, wie viele frühere Alternativen mitkommen. 60
-   wären dieselbe Antwort, nur langsamer (gemessen 660 ms schon bei 20). */
-const ARRIVE_COUNT = 20;
+/* Für Ankunftssuchen bleibt es bei einer Trefferzahl: Dort ist sie die
+   MINDESTanzahl und bestimmt, wie viele frühere Alternativen mitkommen.
+
+   ZWÖLF, nicht zwanzig. Was die Zahl leisten muss, ist eng umrissen: Sie muss
+   die gesuchte letzte Verbindung enthalten und ein paar Spalten Kontext davor.
+   Der Router liefert bei einer Ankunftssuche die SPÄTESTEN zuerst — nachgemessen
+   an zehn Strecken ist die späteste Ankunft bei 6, 8, 10, 12 und 20 Treffern
+   dieselbe, und `findLastDecent` wählt die letzte oder vorletzte (Rang 0 oder 1
+   von hinten). Alles darüber ist Vorrat zum Zurückscrollen, und dafür gibt es
+   den Cursor.
+
+   Bezahlt wird die Zahl in Bytes, und zwar doppelt (ungefiltert + Entlastung):
+   Regensburg → Neustrelitz kostete eine Anfrage 486 KB bei 20 und 257 KB bei 12,
+   Regensburg → Nürnberg 158 gegen 96 KB. Auf einem Telefon im Mobilnetz ist das
+   der spürbarste Teil der Wartezeit. Zwölf lässt zehn Ränge Luft über den je
+   gemessenen Bedarf — Vorsicht mit Maß, nicht Knausern. */
+const ARRIVE_COUNT = 12;
 
 function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAGE_WINDOW } = {}) {
   const { from, to } = app.search;
@@ -1035,12 +1048,22 @@ async function loadAllCategories() {
    Nach hinten wird so weit geladen, dass die Zielverbindung in der ZWEITEN
    Spalte stehen kann und die eingestellte Spaltenzahl gefüllt ist — bei sieben
    Spalten braucht es eben sechs Verbindungen danach, nicht vier. */
+/* Wie viele Spalten sollen VOR der gesuchten Verbindung stehen? Eine reicht,
+   damit sie nicht am linken Rand klebt — geholt werden zwei, weil eine davon
+   ausgeblendet sein kann. */
+const CONTEXT_BEFORE = 2;
+
 async function loadContext() {
   if (!app.itins.length) return;
-  if (app.prevPageCursor) await fetchPage("earlier", 2); // zwei als Kontext davor
-  if (!hasFocus()) return;
 
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
+
+  /* „Jetzt“ hat keine gesuchte Verbindung, um die herum sich zählen ließe: Der
+     Pool beginnt bei JETZT, davor liegt nichts. Dort bleibt es beim Holen. */
+  if (!hasFocus()) {
+    if (app.prevPageCursor) await fetchPage("earlier", CONTEXT_BEFORE);
+    return;
+  }
 
   /* Den Fokus JETZT festlegen — VOR dem Nachladen. Sonst passiert genau das,
      was die Markierung immer wieder nach rechts rutschen ließ: Das Nachladen
@@ -1051,6 +1074,20 @@ async function loadContext() {
      und ist nur Kontext. Kostet keine zusätzliche Anfrage. */
   const key = searchFocusKey(visibleItins());
   if (key === "end") return;
+
+  /* Kontext DAVOR nur holen, wenn tatsächlich welcher fehlt — dieselbe Regel
+     wie für den Kontext dahinter, nur spiegelverkehrt. Bei einer Ankunftssuche
+     ist die gesuchte Verbindung die SPÄTESTE, alles andere liegt ohnehin davor:
+     Nachgemessen an acht Strecken standen bereits 19 bis 39 Verbindungen vor
+     ihr, während diese Runde zwei weitere holte, die niemand braucht. Das war
+     eine volle Umlaufzeit und ein bis zwei Anfragen für nichts — bei „Letzte“
+     jedes Mal. Bei einer Abfahrtssuche („ab 14:00“) beginnt der Pool dagegen
+     genau am gewählten Zeitpunkt, davor steht nichts, und die Runde läuft
+     weiterhin. Die Zählung entscheidet das von selbst, ohne Sonderfall. */
+  const vorher = visibleItins();
+  const fokus = vorher.find(it => itKey(it) === key);
+  const ahead = fokus ? vorher.filter(it => depOf(it) < depOf(fokus)).length : 0;
+  if (app.prevPageCursor && ahead < CONTEXT_BEFORE) await fetchPage("earlier", CONTEXT_BEFORE);
 
   /* Höchstens zwei Runden, und die zweite nur, wenn die erste nichts Sichtbares
      gebracht hat (etwa weil alles Nachgeladene ausgeblendet ist). Jede Runde

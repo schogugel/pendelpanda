@@ -275,8 +275,10 @@ Was ansteht, steht in `TODO.md`.
 - **Transitous drosselt, es lehnt nicht ab.** Gemessen: ab etwa der zwölften Anfrage in
   kurzer Folge antwortet es konstant nach ~3 s statt ~200 ms, ohne 429 und ohne
   Rate-Limit-Header; nach wenigen Sekunden Pause ist es wieder normal. Eine Suche kostet
-  4 Anfragen (Jetzt/Kalender) bzw. 6 („Letzte“) — die Drosselung greift also schon nach
-  rund drei zügigen Suchen.
+  seit v1.53.0 gemessen 2–4 Anfragen — die Drosselung greift also nach rund vier zügigen
+  Suchen. **Anfragen zu sparen ist deshalb kein Geiz, sondern der Hebel gegen die
+  Wartezeit**, die der Nutzer tatsächlich spürt: Unter Drosselung kostet jede einzelne
+  ~2,5 s statt ~200 ms.
 - **Eine neue Suche bricht die Anfragen der vorherigen ab** (`app.planAbort`). Das
   verhindert vor allem, dass die FOLGE-Runden einer überholten Suche überhaupt losgehen
   (Kontext davor/danach); die bereits gesendete erste Runde ist verloren. Zusätzlich
@@ -299,12 +301,20 @@ Was ansteht, steht in `TODO.md`.
   **Drei Stunden sind gemessen der Schnitt:** Pro Minute Abdeckung kostet das so viel wie
   vorher (dicht 1,65 gegen 1,66 KB/min), bei sechs Stunden stieg eine Anfrage auf der
   dichtesten Strecke aber auf 399 KB und 905 ms.
-- **ANKUNFTSSUCHEN behalten `numItineraries`** (`ARRIVE_COUNT = 20`). Dort meint das
+- **ANKUNFTSSUCHEN behalten `numItineraries`** (`ARRIVE_COUNT`). Dort meint das
   Fenster die ANKUNFTSzeit, und der Router liefert darin faktisch genau eine Verbindung:
   die späteste, die es noch schafft. Nachgemessen brachten 3, 6 und 12 Stunden Fenster
   jedes Mal einen Treffer — richtig, aber zu wenig, um die Spalten davor zu füllen.
   „Letzte“ fiel damit von 39 auf 1 Verbindung auf der ersten Seite. Mit
   `numItineraries` kommen die früheren Alternativen mit, und genau die braucht es.
+  **Die Zahl ist 12, nicht 20** (v1.53.0). Sie muss die gesuchte Verbindung enthalten
+  und etwas Kontext davor — mehr nicht. Der Router liefert bei einer Ankunftssuche die
+  SPÄTESTEN zuerst: Nachgemessen an zehn Strecken ist die späteste Ankunft bei 6, 8, 10,
+  12 und 20 Treffern dieselbe, und `findLastDecent` wählt die letzte oder vorletzte
+  (Rang 0 oder 1 von hinten, zehnmal von zehn). Bezahlt wird die Zahl in Bytes, und
+  zwar doppelt (ungefiltert + Entlastung): Regensburg → Neustrelitz kostete eine Anfrage
+  486 KB bei 20 gegen 257 KB bei 12. Zwölf lässt zehn Ränge Luft über den gemessenen
+  Bedarf; alles darüber ist Vorrat zum Zurückscrollen, und dafür gibt es den Cursor.
 - **Seitengröße `PAGE_SIZE = 20`, nicht 10.** Was eine Seite an ZEIT abdeckt, hängt
   völlig von der Strecke ab — gemessen 30 min zwischen München Hbf und Ost, aber 285 min
   zwischen Nürnberg und Bayreuth. Mit 10 sah man in der Stadt deutlich weniger als in der
@@ -628,6 +638,33 @@ Was ansteht, steht in `TODO.md`.
 - **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
   Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
   nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
+- **Kontext DAVOR wird nur geholt, wenn welcher fehlt** (`CONTEXT_BEFORE`, gezählt gegen
+  den Fokus) — dieselbe Regel wie für den Kontext dahinter, nur spiegelverkehrt. Bei
+  einer ANKUNFTSSUCHE ist die gesuchte Verbindung die späteste, alles andere liegt
+  ohnehin davor: Nachgemessen an acht Strecken standen bereits 19 bis 39 Verbindungen
+  vor ihr, während diese Runde stur zwei weitere holte. Das war eine volle Umlaufzeit
+  und ein bis zwei Anfragen für nichts, und zwar bei jedem „Letzte“.
+  Bei einer ABFAHRTSSUCHE („ab 14:00“) beginnt der Pool dagegen genau am gewählten
+  Zeitpunkt, davor steht nichts — dort läuft die Runde weiter. Die Zählung entscheidet
+  das von selbst, es braucht keinen Sonderfall je Modus.
+  **Der Fokus wird dafür VOR beiden Kontextrunden bestimmt**, nicht nur vor der
+  hinteren. Gegengeprüft an acht Strecken: Der Schlüssel ist mit und ohne die vordere
+  Runde identisch — er kann es auch gar nicht sein, weil frühere Verbindungen weder die
+  späteste (`findLastDecent`) noch die erste ab einem Zeitpunkt (`findFocusItin`)
+  verdrängen können.
+  Gemessen alt → neu, Fokus in allen zwölf Fällen unverändert: „Letzte“ München Hbf → Ost
+  4 → 2 Anfragen und 512 → 111 KB, Regensburg → Neustrelitz 4 → 3 und 1082 → 648 KB,
+  Kalender „an“ München 5 → 3 und 552 → 183 KB. „Jetzt“ und Kalender „ab“ bleiben
+  Byte für Byte unverändert — sie haben keinen Vorrat, der sich anrechnen ließe.
+  **Unter Drosselung zählt jede gesparte Anfrage doppelt** (~2,5 s statt ~200 ms):
+  München „Letzte“ fiel dort von 10,4 auf 4,5 Sekunden.
+- **Die verbleibende Serialität ist die Entlastungsanfrage** (`relievedModes`, Runde 2
+  von 3 bei „Letzte“). Sie ließe sich nicht vorziehen — sie braucht das frische Ergebnis,
+  um zu entscheiden — wohl aber NEBEN die Runde „Kontext dahinter“ legen: Deren Cursor
+  stammt aus Seite 0 und die Entlastung lässt Cursor unangetastet. Das ist bewusst NICHT
+  gebaut: `fetchPage` mischt in `app.itins` hinein, zwei gleichzeitige Läufe würden sich
+  gegenseitig überschreiben (`add.concat(app.itins)` gegen `app.itins.concat(add)`).
+  Wer das angeht, muss vorher Holen und Mischen trennen — Mischen bleibt seriell.
 - **Jede gewählte Uhrzeit hat EINE Verbindung als Antwort** — die wird angesteuert
   (zweite Spalte) und gestrichelt markiert. Welche das ist, hängt an der Richtung:
   `arrivalDeadline()` bei „an“ (späteste, die es noch schafft — „Letzte“ ist derselbe
