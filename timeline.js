@@ -785,8 +785,15 @@ function tlEdgeCheck(sc) {
     const movedLeft = sc.scrollLeft < last - 1;
     const colsRight = (sc.scrollWidth - sc.clientWidth - sc.scrollLeft) / step;
     const colsLeft = sc.scrollLeft / step;
-    if (movedRight && colsRight < 1) loadMore("later");
-    else if (movedLeft && colsLeft < 1) loadMore("earlier");
+    /* Eine ganze Bildschirmbreite Vorlauf, nicht eine Spalte. Mit einer Spalte
+       stand der Nutzer beim Auslösen praktisch schon an der Wand: Die Anfrage
+       lief erst los, während er sie bereits berührte, und die Wischbewegung
+       lief sichtbar tot. Eine Bildschirmbreite gibt der Anfrage die Zeit, die
+       sie braucht, und kostet nichts — geladen wird ohnehin dasselbe, nur
+       früher. */
+    const vorlauf = Math.max(1, Math.min(7, settings.cols || 3));
+    if (movedRight && colsRight < vorlauf) loadMore("later");
+    else if (movedLeft && colsLeft < vorlauf) loadMore("earlier");
   }
   if (sc.scrollWidth <= sc.clientWidth + 4) return;
   const atLeft = sc.scrollLeft <= 2;

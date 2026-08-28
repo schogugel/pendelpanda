@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.53.0";
+const APP_VERSION = "1.54.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -23,7 +23,19 @@ const app = {
   editMode: false,       // „✎ Bearbeiten“ aktiv
   search: null,          // {from, to}
   itins: [],             // geladene Verbindungen (inkl. „Später“-Seiten)
-  nextPageCursor: null,
+  /* Geblättert wird über den ABGEDECKTEN ZEITRAUM, nicht über Cursor — siehe
+     fetchPage. `spanFrom`/`spanTo` sind die Ränder dessen, was lückenlos
+     geladen ist; `winLater`/`winEarlier` das jeweils nächste Zeitfenster. */
+  /* Alle vier werden je Suche in `startFreshSearch` belegt. Hier bewusst KEIN
+     Verweis auf die Fenster-Konstanten: Dieses Objekt wird beim Laden der Datei
+     ausgewertet, die Konstanten stehen weiter unten — ein `const` vor seiner
+     Deklaration zu benutzen bricht die ganze Datei ab (siehe CLAUDE.md). */
+  spanFrom: null,
+  spanTo: null,
+  winLater: null,
+  winEarlier: null,
+  endLater: false,
+  endEarlier: false,
   viewMode: localStorage.getItem("pp.view") || "graph", // "graph" | "list"
   /* Ob langsamere Verbindungen ausgeblendet sind, wird GERÄTEWEIT gemerkt —
      wie die Listen-/Grafikansicht, nicht wie eine Einstellung.
@@ -38,7 +50,6 @@ const app = {
   hideDominated: localStorage.getItem("pp.fastonly") !== "0",
   // Zeitnavigation: kind = now | custom | letzte
   searchTime: { kind: "now", time: null, arriveBy: false },
-  prevPageCursor: null,
   planAbort: null,        // bricht die Anfragen einer überholten Suche ab
   hiddenCats: new Set(),  // aktuell über die Legende ausgeblendete Kategorien
   emptyCats: new Set(),   // Kategorien, für die eine eigene Anfrage nichts brachte
@@ -556,6 +567,9 @@ function startSearch(from, to) {
   app.planLog = [];          // Antwortzeiten der laufenden Suche (Aufklapper)
   app.leerFrueher = 0;       // wie oft eine Blätterseite gar nichts brachte
   app.leerSpaeter = 0;
+  app.spanFrom = app.spanTo = null;   // abgedeckter Zeitraum, je Suche neu
+  app.winLater = app.winEarlier = PAGE_WIN_MIN;
+  app.endEarlier = app.endLater = false;
   byId("rhead-from").textContent = from.label || from.name;
   byId("rhead-to").textContent = to.label || to.name;
   updateChips();
@@ -598,8 +612,8 @@ byId("chip-last").addEventListener("click", () => restartWith("letzte"));
    eine Dubletten-Quelle. Ein Batch = genau eine API-Anfrage. */
 async function loadMoreRaw(direction) {
   if (app.paging || !app.search) return;
-  const cursor = direction === "earlier" ? app.prevPageCursor : app.nextPageCursor;
-  if (!cursor) return;
+  if (direction === "earlier" ? app.endEarlier : app.endLater) return;
+  if (app.spanFrom == null || app.spanTo == null) return;
   app.paging = true;
   const edge = byId(direction === "earlier" ? "tl-load-left" : "tl-load-right");
   const btn = byId(direction === "earlier" ? "list-earlier" : "list-later");
@@ -728,8 +742,50 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
    das Fenster doch wieder aus. `maxItineraries` ist nur ein Sicherheitsnetz für
    sehr dichte Takte; wird dabei abgeschnitten, macht der Cursor an derselben
    Stelle weiter, es entsteht keine Lücke. */
-const PAGE_WINDOW = 3 * 3600;   // Sekunden je Blätterschritt
+/* Fenster der ERSTEN Anfrage. Sechs Stunden, nicht drei: Auf dünnen Strecken
+   war der Einstieg zu mager — Hamburg → Berlin begann mit vier Verbindungen,
+   Regensburg → Nürnberg mit sieben. Gemessen bringen sechs Stunden dort 7 bzw.
+   15 Verbindungen für 29 bzw. 126 KB. In der Stadt ändert sich dadurch fast
+   nichts, weil dort der Deckel `PAGE_MAX` bindet und nicht die Zeit (München
+   Hbf → Ost: 56 Treffer bei drei Stunden, Deckel bei 60). */
+const PAGE_WINDOW = 6 * 3600;
 const PAGE_MAX = 60;            // Obergrenze je Anfrage
+
+/* Geblättert wird über ein ZEITFENSTER, dessen Breite sich der Strecke anpasst.
+
+   Warum nicht über den Cursor: `searchWindow` wird IGNORIERT, sobald ein
+   `pageCursor` mitgeht — der Cursor trägt das Fenster der Ursprungsanfrage in
+   sich. Nachgemessen liefert eine Cursor-Seite deshalb immer dieselbe magere
+   Ausbeute, egal was man als Fenster mitschickt: Hamburg → Berlin viermal
+   hintereinander genau ZWEI neue Verbindungen. Bei drei sichtbaren Spalten ist
+   das ein Wischer, dann steht man wieder an der Wand.
+
+   Der Ausweg ist eine frische Anfrage mit eigenem Zeitpunkt statt des Cursors.
+   Gegengeprüft an sechs Strecken über je vier Schritte: Es fehlte KEINE einzige
+   Verbindung, die der Cursor gefunden hätte, und die Ausbeute stieg von 2 auf
+   13–15 (Hamburg), 3 auf 12–24 (Regensburg → Nürnberg), 4 auf 12–21 (Ulm).
+
+   Dass das bezahlbar ist, hängt an einer Messung: **Die Drosselung zählt
+   ANFRAGEN, nicht Bytes.** 16 Anfragen mit Drei-Stunden-Fenster (1125 KB)
+   wurden ab der zwölften langsam, 16 mit Zwölf-Stunden-Fenster (2869 KB) ab der
+   dreizehnten. Zweieinhalbmal so viele Daten, dieselbe Grenze. Eine Anfrage ist
+   das knappe Gut, ein Kilobyte kostet praktisch nichts — also wenige große
+   Anfragen statt vieler kleiner. */
+const PAGE_TARGET = 20;          // angepeilte Verbindungen je Blätterschritt
+const PAGE_WIN_MIN = 3 * 3600;
+const PAGE_WIN_MAX = 12 * 3600;
+
+/* Wie breit wird das nächste Fenster in dieser Richtung? Aus der DICHTE der
+   letzten Antwort, damit sich die App der Strecke anpasst statt eine Zahl zu
+   raten: München bleibt bei drei Stunden (dort ist der Deckel das Problem,
+   nicht die Zeit), Hamburg → Berlin geht auf zwölf.
+   Eine leere Antwort ergibt das größte Fenster — genau richtig, denn dahinter
+   liegt eine Betriebspause, die man überspringen will. */
+function nextWindow(fenster, treffer) {
+  const proStunde = Math.max(treffer, 0.5) / (fenster / 3600);
+  return Math.round(Math.min(PAGE_WIN_MAX,
+    Math.max(PAGE_WIN_MIN, (PAGE_TARGET / proStunde) * 3600)));
+}
 /* Für Ankunftssuchen bleibt es bei einer Trefferzahl: Dort ist sie die
    MINDESTanzahl und bestimmt, wie viele frühere Alternativen mitkommen.
 
@@ -774,7 +830,18 @@ function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAG
        Stunden Fenster jedes Mal genau einen Treffer — richtig, aber zu wenig,
        um die Spalten davor zu füllen. Mit `numItineraries` kommen die früheren
        Alternativen mit, und genau die braucht „Letzte“ als Umfeld. */
-    ...(arriveBy
+    /* Maßgeblich ist, ob DIESE Anfrage eine Ankunftssuche ist — nicht, ob die
+       Suche einmal als solche begonnen hat. Ein ausdrücklicher Zeitpunkt macht
+       sie zur Abfahrtssuche (siehe `arriveBy` unten), und dann MUSS auch das
+       Zeitfenster gelten.
+
+       Ohne das `&& !time` nahm bei „Letzte“ jede Blätteranfrage weiter den
+       Ankunftszweig: kein `searchWindow`, dafür `numItineraries: 12` — und der
+       Router dehnte sein Fenster wieder selbst aus. Ein einziger Schritt sprang
+       damit zwölf Stunden weit und ließ gemessen 392 Minuten Loch mitten im
+       geladenen Bereich. Das ist derselbe Fehler, den v1.52.0 beseitigt hat,
+       nur an der Stelle, die damals nicht mit umgestellt wurde. */
+    ...(arriveBy && !time
       ? { numItineraries: String(Math.min(limit, ARRIVE_COUNT)) }
       : { numItineraries: "1", searchWindow: String(window), maxItineraries: String(limit) }),
     language: "de",
@@ -812,11 +879,20 @@ function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAG
 async function fetchPage(direction, limit = PAGE_MAX) {
   const myTag = app.searchTag;
   const signal = app.planAbort?.signal;
-  const params = planParams({
-    limit,
-    cursor: direction === "later" ? app.nextPageCursor
-      : direction === "earlier" ? app.prevPageCursor : null,
-  });
+  const frisch = direction !== "later" && direction !== "earlier";
+
+  /* Blättern heißt: das nächste ZEITFENSTER hinter bzw. vor dem bereits
+     abgedeckten Bereich holen. Ein ausdrücklicher Zeitpunkt schaltet dabei
+     `arriveBy` ab (siehe planParams) — und das ist richtig so: Die Frage
+     „was fährt ab hier?“ ist beim Blättern auch dann die richtige, wenn die
+     Suche selbst eine Ankunftssuche war. */
+  const fenster = frisch ? PAGE_WINDOW
+    : direction === "later" ? (app.winLater || PAGE_WIN_MIN)
+    : (app.winEarlier || PAGE_WIN_MIN);
+  const von = frisch ? null
+    : direction === "later" ? app.spanTo
+    : app.spanFrom - fenster * 1000;
+  const params = planParams({ limit, time: von, window: fenster });
 
   /* Zweite Anfrage: entweder für die Filterung des Nutzers oder zur Entlastung
      einer erdrückenden Kategorie (siehe relievedModes) — nie beides, es bleibt
@@ -825,7 +901,6 @@ async function fetchPage(direction, limit = PAGE_MAX) {
      berücksichtigt. Beim BLÄTTERN steht der Pool schon, die Entlastung kann
      also sofort parallel losgehen; nur die allererste Seite einer Suche kennt
      ihn noch nicht und holt sie in derselben Runde nach. */
-  const frisch = direction !== "later" && direction !== "earlier";
   const modes = (frisch ? null : relievedModes()) || enabledModes();
   const t0 = performance.now();
   const filtered = modes
@@ -855,31 +930,60 @@ async function fetchPage(direction, limit = PAGE_MAX) {
       : direction === "earlier" ? "Frühere Verbindungen"
       : modes ? "Fahrplan (ungefiltert + gefiltert)" : "Fahrplan",
       performance.now() - t0, add.length);
-    /* Der Fahrplanrechner gibt auch dann noch einen Cursor heraus, wenn hinter
-       ihm nichts mehr kommt (gemessen an einer Suche vom Bahnhof zu sich selbst:
-       erste Seite 10 Verbindungen, danach dauerhaft 0 — Cursor jedes Mal
-       vorhanden). Die App fragte dann bei jeder Randberührung erneut, zeigte den
-       Ladekreis und bekam nichts. Kommt ZWEIMAL hintereinander keine einzige
-       Verbindung, wird der Cursor in dieser Richtung fallen gelassen: Damit
-       verschwindet auch der „Spätere anzeigen“-Knopf, und die Ansicht sagt
-       ehrlich, dass es hier zu Ende ist.
+    /* Kommt ZWEIMAL hintereinander keine einzige Verbindung, ist in dieser
+       Richtung Schluss: Der „Spätere anzeigen“-Knopf verschwindet, und die
+       Ansicht sagt ehrlich, dass es hier zu Ende ist. Ohne diese Bremse fragte
+       die App bei jeder Randberührung erneut, zeigte den Ladekreis und bekam
+       nichts.
 
-       Zweimal, nicht einmal: Eine einzelne leere Antwort kann eine echte Lücke
-       sein (Betriebspause nachts), hinter der es weitergeht. */
-    const leer = (data.itineraries || []).length === 0;
+       Zweimal, nicht einmal: Eine einzelne leere Antwort kann eine echte
+       Betriebspause sein, hinter der es weitergeht — und weil eine leere
+       Antwort das Fenster auf das Maximum aufzieht (`nextWindow`), deckt der
+       zweite Versuch bis zu zwölf Stunden ab. Länger als das fährt keine
+       Strecke nicht. */
+    const roh = (data.itineraries || []).filter(it => transitLegs(it).length);
+    const leer = roh.length === 0;
     const zaehler = direction === "earlier" ? "leerFrueher" : "leerSpaeter";
     app[zaehler] = leer ? (app[zaehler] || 0) + 1 : 0;
     const amEnde = leer && app[zaehler] >= 2;
+
+    /* Wie weit reicht das Geladene jetzt? Der Fensterrand gilt nur, wenn die
+       Antwort NICHT am Deckel hing — sonst hat der Rechner mittendrin
+       aufgehört, und als Grenze zählt die letzte gefundene Abfahrt. Ohne diese
+       Unterscheidung entstünde genau die Lücke, die v1.52.0 beseitigt hat. */
+    const deps = roh.map(depOf).filter(Number.isFinite);
+    const voll = roh.length >= limit && deps.length > 0;
+
     if (direction === "earlier") {
       app.itins = add.concat(app.itins);
-      app.prevPageCursor = amEnde ? null : (data.previousPageCursor || null);
+      app.endEarlier = amEnde;
+      /* Bei vollem Deckel bleibt die Grenze stehen: Abgedeckt ist dann nur der
+         VORDERE Teil des Fensters, der Rest dahinter wäre ein Loch. Das
+         schmalere Fenster aus `nextWindow` holt ihn beim nächsten Schritt. */
+      if (!voll) app.spanFrom = von;
+      app.winEarlier = nextWindow(fenster, roh.length);
     } else if (direction === "later") {
       app.itins = app.itins.concat(add);
-      app.nextPageCursor = amEnde ? null : (data.nextPageCursor || null);
+      app.endLater = amEnde;
+      app.spanTo = voll ? Math.max(...deps) + 60000 : von + fenster * 1000;
+      app.winLater = nextWindow(fenster, roh.length);
     } else {
       app.itins = add;
-      app.prevPageCursor = data.previousPageCursor || null;
-      app.nextPageCursor = data.nextPageCursor || null;
+      app.endEarlier = app.endLater = false;
+      /* Erste Seite. Bei einer ANKUNFTSSUCHE hat das Fenster eine andere
+         Bedeutung (es begrenzt die Ankunft), deshalb zählt dort der tatsächlich
+         gelieferte Bereich; bei einer Abfahrtssuche der angefragte. */
+      const start = +new Date(params.get("time"));
+      const ankunft = params.get("arriveBy") === "true";
+      app.spanFrom = deps.length && (ankunft || voll) ? Math.min(...deps) : start;
+      app.spanTo = ankunft ? (deps.length ? Math.max(...deps) + 60000 : start)
+        : voll ? Math.max(...deps) + 60000 : start + fenster * 1000;
+      /* Die Dichte am TATSÄCHLICH abgedeckten Zeitraum messen, nicht am
+         angefragten Fenster: Bei einer Ankunftssuche sagt das Fenster nichts
+         über die Zeitspanne der Antwort — gemessen deckten zwölf Treffer dort
+         sechs Stunden ab, ein andermal zwanzig. */
+      const abgedeckt = Math.max(1, (app.spanTo - app.spanFrom) / 3600000);
+      app.winLater = app.winEarlier = nextWindow(abgedeckt * 3600, roh.length);
     }
     // Spalten immer chronologisch nach Abfahrt (API-Reihenfolge ist teils
     // ein Qualitäts-Ranking und würde die Kaskade der Grafik brechen)
@@ -1061,7 +1165,7 @@ async function loadContext() {
   /* „Jetzt“ hat keine gesuchte Verbindung, um die herum sich zählen ließe: Der
      Pool beginnt bei JETZT, davor liegt nichts. Dort bleibt es beim Holen. */
   if (!hasFocus()) {
-    if (app.prevPageCursor) await fetchPage("earlier", CONTEXT_BEFORE);
+    if (!app.endEarlier) await fetchPage("earlier", CONTEXT_BEFORE);
     return;
   }
 
@@ -1087,7 +1191,7 @@ async function loadContext() {
   const vorher = visibleItins();
   const fokus = vorher.find(it => itKey(it) === key);
   const ahead = fokus ? vorher.filter(it => depOf(it) < depOf(fokus)).length : 0;
-  if (app.prevPageCursor && ahead < CONTEXT_BEFORE) await fetchPage("earlier", CONTEXT_BEFORE);
+  if (!app.endEarlier && ahead < CONTEXT_BEFORE) await fetchPage("earlier", CONTEXT_BEFORE);
 
   /* Höchstens zwei Runden, und die zweite nur, wenn die erste nichts Sichtbares
      gebracht hat (etwa weil alles Nachgeladene ausgeblendet ist). Jede Runde
@@ -1097,7 +1201,7 @@ async function loadContext() {
     const focus = visible.find(it => itKey(it) === key);
     if (!focus) return;
     const behind = visible.filter(it => depOf(it) > depOf(focus)).length;
-    if (behind >= need || !app.nextPageCursor) return;
+    if (behind >= need || app.endLater) return;
     const { added } = await fetchPage("later", need - behind + 2);
     if (!added) return;
   }
@@ -1254,8 +1358,12 @@ async function runPlan(direction = null, limit = PAGE_MAX) {
           app.itins = fresh2.filter(it => !seen.has(itKey(it)) && seen.add(itKey(it)))
             .sort((a, b) => depOf(a) - depOf(b));
           app.aroundUsed = true;
-          app.prevPageCursor = around.previousPageCursor || null;
-          app.nextPageCursor = around.nextPageCursor || null;
+          /* Der Umkreis-Treffer setzt den abgedeckten Zeitraum neu — er kommt
+             aus einer eigenen Anfrage mit eigenen Grenzen. */
+          const ad = app.itins.map(depOf).filter(Number.isFinite);
+          app.spanFrom = ad.length ? Math.min(...ad) : app.spanFrom;
+          app.spanTo = ad.length ? Math.max(...ad) + 60000 : app.spanTo;
+          app.endEarlier = app.endLater = false;
         }
       }
       if (app.itins.length) {
@@ -1546,7 +1654,7 @@ function relievedModes(pool) {
 async function ensureFilled() {
   if (app.paging) return;
   if (visibleItins().length >= neededVisible()) return;
-  if (app.nextPageCursor && app.autoLoads < 4) {
+  if (!app.endLater && app.autoLoads < 4) {
     app.autoLoads++;
     await loadMoreRaw("later"); // kettet sich über die Schleuse selbst weiter
   }
@@ -1647,8 +1755,8 @@ function renderResults() {
   const visible = visibleItins();
   // Warum ist nichts da? Einmal pro Suche klären (Guard gegen Re-Entry).
   if (!app.itins.length && app.search && !app.emptyReason && !app.diagnosing) diagnoseEmpty();
-  byId("list-earlier").hidden = graph || !visible.length || !app.prevPageCursor;
-  byId("list-later").hidden = graph || !visible.length || !app.nextPageCursor;
+  byId("list-earlier").hidden = graph || !visible.length || app.endEarlier;
+  byId("list-later").hidden = graph || !visible.length || app.endLater;
   if (!visible.length) {
     const msg = app.itins.length
       ? `<p class="status">Alle geladenen Verbindungen sind über die Legende ausgeblendet – unten wieder einblenden.</p>`

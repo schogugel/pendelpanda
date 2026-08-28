@@ -193,7 +193,8 @@ Was ansteht, steht in `TODO.md`.
   (gemessen 709 min bei 371 ms; mit 10 nur 156 min), also 1–3 Anfragen für den ganzen
   Bereich statt 5–8. **Die Cursor der laufenden Suche bleiben dabei unangetastet** —
   das Nachfüllen ist ein Seitenweg, kein Blättern.
-- **Bringt eine Blätterseite ZWEIMAL hintereinander gar nichts, fällt der Cursor.**
+- **Bringt eine Blätterseite ZWEIMAL hintereinander gar nichts, ist die Richtung zu
+  Ende** (`app.endLater` / `app.endEarlier`).
   Der Fahrplanrechner gibt auch dann noch einen Cursor heraus, wenn dahinter nichts mehr
   kommt — gemessen an einer Suche von einem Bahnhof zu sich selbst: erste Seite 11
   Verbindungen, danach dauerhaft 0, Cursor jedes Mal vorhanden. Ohne diese Bremse fragte
@@ -255,8 +256,11 @@ Was ansteht, steht in `TODO.md`.
   gegen Pool UND innerhalb des Batches. Pool immer chronologisch sortieren.
 - Cursor (`EARLIER|ts` / `LATER|ts`) sind Zeitstempel und filter-agnostisch.
 - `ensureFilled`: bis `neededVisible()` (= Spalten+2, Liste 6) sichtbar, max. 4 Seiten.
-- Prefetch in `tlEdgeCheck` bei <1 Restfenster — aber nur in die Richtung, in die
-  tatsächlich gescrollt wird, und erst nach echter Nutzer-Geste (`tl.userMoved`).
+- Prefetch in `tlEdgeCheck` bei weniger als EINER BILDSCHIRMBREITE Rest
+  (`settings.cols` Spalten) — aber nur in die Richtung, in die tatsächlich gescrollt
+  wird, und erst nach echter Nutzer-Geste (`tl.userMoved`). Mit nur einer Spalte
+  Vorlauf löste die Anfrage erst aus, während der Nutzer die Wand schon berührte: Die
+  Wischbewegung lief sichtbar tot. Geladen wird ohnehin dasselbe, nur früher.
   Sonst löst schon das Positionieren beim Öffnen ein Nachladen aus. Rand-Spinner nur,
   wenn wirklich am Rand.
 - **Umsteigezeit als STUFE** (`settings.xferLevel`, `XFER_LEVELS`), nicht als
@@ -280,8 +284,12 @@ Was ansteht, steht in `TODO.md`.
      Ähnlichem vorher bei Transitous nachfragen, sie bitten ausdrücklich darum.
 - **Transitous drosselt, es lehnt nicht ab.** Gemessen: ab etwa der zwölften Anfrage in
   kurzer Folge antwortet es konstant nach ~3 s statt ~200 ms, ohne 429 und ohne
-  Rate-Limit-Header; nach wenigen Sekunden Pause ist es wieder normal. Eine Suche kostet
-  seit v1.53.0 gemessen 2–4 Anfragen — die Drosselung greift also nach rund vier zügigen
+  Rate-Limit-Header; nach wenigen Sekunden Pause ist es wieder normal.
+  **Gezählt werden ANFRAGEN, nicht Bytes** — gemessen wurden 16 Anfragen mit
+  Drei-Stunden-Fenster (1125 KB) ab der zwölften langsam, 16 mit Zwölf-Stunden-Fenster
+  (2869 KB) ab der dreizehnten. Zweieinhalbmal so viele Daten, dieselbe Grenze. Daraus
+  folgt die Grundregel für alles Laden: **wenige große Anfragen statt vieler kleiner.**
+  Eine Suche kostet seit v1.53.0 gemessen 2–4 Anfragen — die Drosselung greift also nach rund vier zügigen
   Suchen. **Anfragen zu sparen ist deshalb kein Geiz, sondern der Hebel gegen die
   Wartezeit**, die der Nutzer tatsächlich spürt: Unter Drosselung kostet jede einzelne
   ~2,5 s statt ~200 ms.
@@ -292,7 +300,28 @@ Was ansteht, steht in `TODO.md`.
   Prüfung konnte eine langsame Antwort den Pool der neuen Suche ÜBERSCHREIBEN, man sah
   dann Verbindungen der vorher gewählten Strecke.
 - `AbortError` in `runPlan` still schlucken — ein Abbruch ist kein Fehler.
-- **Geblättert wird nach ZEITFENSTER, nicht nach Trefferzahl** (`PAGE_WINDOW = 3 h`,
+- **Geblättert wird über den ABGEDECKTEN ZEITRAUM, nicht über Cursor** (v1.54.0).
+  `app.spanFrom`/`app.spanTo` sind die Ränder des lückenlos Geladenen; jede
+  Blätteranfrage holt das nächste Fenster davor bzw. dahinter.
+  **Warum nicht mit Cursor:** `searchWindow` wird IGNORIERT, sobald ein `pageCursor`
+  mitgeht — der Cursor trägt das Fenster der Ursprungsanfrage in sich. Gemessen liefert
+  eine Cursor-Seite deshalb immer dieselbe magere Ausbeute, egal was man als Fenster
+  mitschickt: Hamburg → Berlin viermal hintereinander genau ZWEI neue Verbindungen. Bei
+  drei sichtbaren Spalten ist das ein Wischer, dann steht man wieder an der Wand.
+  Ein mitwachsendes Fenster auf Cursor-Basis ist damit wirkungslos — nachgemessen kamen
+  fest und adaptiv Byte für Byte dasselbe heraus. **Nicht nochmal versuchen.**
+  Mit frischer Zeit-Anfrage statt Cursor, gemessen an sechs Strecken über beide
+  Richtungen: sichtbare Verbindungen Hamburg „Jetzt“ 12 → 54, Ulm „Jetzt“ 21 → 66,
+  München „Letzte“ 52 → 188 — bei gleich vielen oder weniger Anfragen.
+  **Die Fensterbreite folgt der DICHTE der letzten Antwort** (`nextWindow`, Ziel
+  `PAGE_TARGET = 20`, Grenzen 3 h bis 12 h). Eine leere Antwort zieht auf das Maximum
+  auf — genau richtig, denn dahinter liegt eine Betriebspause, die man überspringen will.
+  **Voller Deckel heißt: Grenze = letzte gefundene Abfahrt**, nicht Fensterrand. Der
+  Rechner liefert bei `maxItineraries` nachweislich ein PRÄFIX (die frühesten Treffer,
+  an drei dichten Strecken bei 5, 20 und 60 geprüft) — deshalb ist das sicher. Nach
+  hinten bleibt bei vollem Deckel `spanFrom` sogar ganz stehen, sonst entstünde hinter
+  dem Gelieferten ein Loch.
+- **Die erste Anfrage hat ein festes Fenster** (`PAGE_WINDOW = 6 h`,
   `numItineraries: 1`, `maxItineraries` als Netz). Das ist die Ursache verschluckter
   Verbindungen, nicht eine Feinheit: Mit `numItineraries` dehnt der Router sein Fenster
   aus, bis er so viele Pareto-optimale Ergebnisse hat. Gemessen Regensburg → Nürnberg
@@ -307,7 +336,14 @@ Was ansteht, steht in `TODO.md`.
   **Drei Stunden sind gemessen der Schnitt:** Pro Minute Abdeckung kostet das so viel wie
   vorher (dicht 1,65 gegen 1,66 KB/min), bei sechs Stunden stieg eine Anfrage auf der
   dichtesten Strecke aber auf 399 KB und 905 ms.
-- **ANKUNFTSSUCHEN behalten `numItineraries`** (`ARRIVE_COUNT`). Dort meint das
+- **NUR DIE ERSTE ANFRAGE einer Ankunftssuche behält `numItineraries`**
+  (`ARRIVE_COUNT`) — die Bedingung dafür ist `arriveBy && !time`, nicht `arriveBy`.
+  Ein ausdrücklicher Zeitpunkt macht die Anfrage zur Abfahrtssuche, und dann MUSS das
+  Zeitfenster gelten. Ohne das `&& !time` nahm bei „Letzte“ jede Blätteranfrage weiter
+  den Ankunftszweig: kein `searchWindow`, dafür `numItineraries: 12` — der Router dehnte
+  sein Fenster wieder selbst aus, ein Schritt sprang zwölf Stunden weit und ließ gemessen
+  392 Minuten Loch MITTEN im geladenen Bereich. Das ist derselbe Fehler, den v1.52.0
+  beseitigt hat, nur an der Stelle, die damals nicht mit umgestellt wurde. Dort meint das
   Fenster die ANKUNFTSzeit, und der Router liefert darin faktisch genau eine Verbindung:
   die späteste, die es noch schafft. Nachgemessen brachten 3, 6 und 12 Stunden Fenster
   jedes Mal einen Treffer — richtig, aber zu wenig, um die Spalten davor zu füllen.
@@ -658,6 +694,16 @@ Was ansteht, steht in `TODO.md`.
   Runde identisch — er kann es auch gar nicht sein, weil frühere Verbindungen weder die
   späteste (`findLastDecent`) noch die erste ab einem Zeitpunkt (`findFocusItin`)
   verdrängen können.
+  **Grenze dieser Umstellung, gemessen und bewusst in Kauf genommen:** Die alte Fassung
+  stellte über denselben Zeitraum MEHR Anfragen und grub mit jeder Entlastungsanfrage
+  weitere verdeckte Verbindungen aus. Im gemeinsamen Zeitraum verglichen und auf das
+  reduziert, was der Nutzer bei voreingestelltem Filter tatsächlich SIEHT: dreimal exakt
+  gleich (54/54, 55/55, 57/57, in beide Richtungen null Unterschied), einmal besser
+  (66 → 70), einmal eine sichtbare Verbindung weniger (12 → 11, Hamburg → Berlin
+  „Jetzt“, reproduzierbar). Es liegt NICHT am Fenster — mit 6-h-Deckel statt 12 h
+  ändert sich daran nichts, und 4×3 h, 2×6 h und 1×12 h liefern auf dünnen Strecken
+  identische Mengen. Es liegt allein an der geringeren Zahl an Stichproben. Wer
+  Vollständigkeit braucht, hat dafür „Vollständig laden“.
   Gemessen alt → neu, Fokus in allen zwölf Fällen unverändert: „Letzte“ München Hbf → Ost
   4 → 2 Anfragen und 512 → 111 KB, Regensburg → Neustrelitz 4 → 3 und 1082 → 648 KB,
   Kalender „an“ München 5 → 3 und 552 → 183 KB. „Jetzt“ und Kalender „ab“ bleiben
