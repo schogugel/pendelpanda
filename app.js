@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.54.1";
+const APP_VERSION = "1.54.2";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -1365,8 +1365,20 @@ function apiLag() {
   return t.some(x => x.ms <= LAG_FAST_MS) ? "throttle" : "slow";
 }
 
+/* Die Zahlen sind gemessen, nicht geschätzt (v1.54.2, Ulm → Friedrichshafen):
+   Am Stück blieben 11 Anfragen bei ~80 ms, die zwölfte sprang auf 2325 ms.
+   Danach füllt sich das Guthaben wieder auf — nach dem Bremsen T Sekunden
+   gewartet und je drei Anfragen am Stück geschickt: bei 1 s keine schnell,
+   bei 2 s und 3 s eine, bei 5 s zwei. Das ist rund eine Anfrage je zwei
+   Sekunden; für das volle Dutzend also etwa zwanzig Sekunden.
+
+   „Ein paar Sekunden“ steht bewusst im kurzen Text und die genauen Zahlen erst
+   im Aufklapper: Wer beim Warten hinsieht, will wissen, ob es gleich weitergeht
+   — nicht, wie ein Token-Eimer funktioniert. Und eine grobe, richtige Angabe
+   ist besser als eine genaue, die schon bei der nächsten Änderung des Dienstes
+   nicht mehr stimmt. */
 const LAG_TEXT = {
-  throttle: "Der Fahrplandienst bremst gerade – kurz warten hilft",
+  throttle: "Zu viele Anfragen in kurzer Folge – ein paar Sekunden Pause genügen",
   slow: "Die Verbindung ist gerade langsam",
 };
 
@@ -1399,8 +1411,10 @@ function renderPlanLog() {
   const art = apiLag();
   const erklaerung = {
     throttle: `Mehrere Antworten über 1,5 s, davor schnelle – der Fahrplandienst
-      drosselt gerade. Er tut das nach etwa zwölf Anfragen in kurzer Folge;
-      nach ein paar Sekunden Pause ist er wieder schnell.`,
+      drosselt gerade. Gemessen sind rund ein Dutzend Anfragen am Stück frei;
+      danach kommt etwa alle zwei Sekunden eine neue dazu, nach ungefähr
+      zwanzig Sekunden Pause ist wieder alles frei. Eine Suche kostet 2 bis 4
+      Anfragen, ein Blätterschritt 1 bis 2.`,
     slow: `Mehrere Antworten über 1,5 s, und auch davor keine schnelle – das
       sieht nach der Netzverbindung aus, nicht nach dem Fahrplandienst.`,
   };

@@ -860,10 +860,15 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
    Dreieck aus. Als getrennte Elemente hätten sie dieselbe Füllfarbe wie das
    Dreieck und wären schlicht unsichtbar. */
 .lagtri-i { width: 1em; height: 1em; flex: none; fill: var(--warn); display: block; }
+/* `flex-start` statt `center`: Auf schmalen Geräten bricht der Satz auf zwei
+   Zeilen um, und ein mittig zwischen beiden schwebendes Zeichen sieht aus, als
+   gehöre es zu keiner. Es gehört an die erste Zeile. Der kleine Versatz hebt es
+   auf deren optische Mitte — die Glyphe ist quadratisch, die Zeile nicht. */
 .lagnote {
-  display: flex; align-items: center; justify-content: center; gap: .4rem;
-  margin: .55rem 0 0; font-size: .8rem; color: var(--warn);
+  display: flex; align-items: flex-start; justify-content: center; gap: .4rem;
+  margin: .55rem 0 0; font-size: .8rem; color: var(--warn); text-align: left;
 }
+.lagnote .lagtri-i { margin-top: .18em; }
 
 /* Die Suchanzeige nimmt in der Grafikansicht GENAU den Platz der Grafik ein.
    Vorher klappte sie auf ihre Inhaltshöhe zusammen, die Legende sprang nach

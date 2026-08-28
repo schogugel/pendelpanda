@@ -306,9 +306,13 @@ Was ansteht, steht in `TODO.md`.
      User-Agent nicht setzen, dort identifiziert der Origin die App.
   3. „Not intended for commercial or for-profit purposes“ — bei Spendenlink oder
      Ähnlichem vorher bei Transitous nachfragen, sie bitten ausdrücklich darum.
-- **Transitous drosselt, es lehnt nicht ab.** Gemessen: ab etwa der zwölften Anfrage in
-  kurzer Folge antwortet es konstant nach ~3 s statt ~200 ms, ohne 429 und ohne
-  Rate-Limit-Header; nach wenigen Sekunden Pause ist es wieder normal.
+- **Transitous drosselt, es lehnt nicht ab** — und zwar als GUTHABEN, das nachläuft.
+  Nachgemessen (v1.54.2, Ulm → Friedrichshafen, kleine Antworten): 11 Anfragen am Stück
+  blieben bei ~80 ms, die zwölfte sprang auf 2325 ms und alles danach auf ~3 s. Kein 429,
+  keine Rate-Limit-Header. Nach dem Bremsen T Sekunden gewartet und je drei Anfragen am
+  Stück geschickt: bei 1 s war keine schnell, bei 2 s und 3 s eine, bei 5 s zwei. Das ist
+  rund **eine Anfrage je zwei Sekunden**, für das volle Dutzend also etwa **zwanzig
+  Sekunden**. Einzelanfragen nach 5, 15, 30 und 45 s Pause kamen durchweg in 135–191 ms.
   **Gezählt werden ANFRAGEN, nicht Bytes** — gemessen wurden 16 Anfragen mit
   Drei-Stunden-Fenster (1125 KB) ab der zwölften langsam, 16 mit Zwölf-Stunden-Fenster
   (2869 KB) ab der dreizehnten. Zweieinhalbmal so viele Daten, dieselbe Grenze. Daraus
