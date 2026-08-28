@@ -130,6 +130,12 @@ Was ansteht, steht in `TODO.md`.
 - `platform.js` — Web/App-Erkennung (`PP`), externe Links, Zurück-Geste, Statusleiste
 - `dblink.js` — vbid-Kette für den exakten DB-Link (nur nativ aktiv)
 - `native/` — Capacitor-Hülle, Build-Skripte, `setup-toolchain.sh`, eigenes README.
+  **Der APK-Build braucht `export JAVA_HOME=~/Android/jdk-21`** (oder
+  `source native/setup-toolchain.sh`). Das Projekt hält dieses JDK bewusst neben dem
+  System-Java: Gradle 8.14 bricht auf JDK 25 mit „Unsupported class file major version
+  69“ ab, und Fedora liefert ohnehin nur die Laufzeit ohne `javac`. Ohne die Variable
+  sieht das nach einem kaputten System aus, obwohl alles Nötige längst da ist —
+  einmal passiert, deshalb steht es hier und nicht nur in `native/README.md`.
   **`sync.mjs` schreibt Version, Signatur-Einstellung und Dateinamen ins erzeugte
   Gradle-Projekt** — `android/` ist ein Erzeugnis, von Hand dort zu editieren ist
   zwecklos. Release-APK nur mit `native/keystore.properties`; ohne sie ist das
