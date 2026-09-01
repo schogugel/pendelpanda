@@ -41,6 +41,10 @@ const crossFile = [
   // timeline.js
   "TL", "tl", "tlY", "renderTimeline", "tlAutoZoom", "tlAlignTopFor", "tlEdgeCheck",
   "tlSetZoom", "tlHeadClear", "tlStop", "tlGlideTo", "tlAnchor", "tlAnchorMs", "classFromRouteType", "dominatedFlags", "depOfIt", "tlNearestIdx", "productClass", "legCancelled", "cancelledTransitLegs",
+  // `tlTagKey` bildet den Tagesschlüssel in Europe/Berlin. Seit v1.57.0 braucht
+  // ihn auch die Liste (Tagestrenner) — bewusst dieselbe Funktion, damit Grafik
+  // und Liste den Tag nie verschieden schneiden.
+  "tlTagKey",
   "transferIssues", "legIssues", "itinIssues", "riskMark", "walkLegsBetween",
   "lineParts", "isReplacementService", "mapsPin", "trackChip", "modeIcon", "svgIcon",
   "letterBadge", "ICON", "RISK_ICON", "toMin", "worst",

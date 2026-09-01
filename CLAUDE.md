@@ -84,6 +84,15 @@ Dateien in der Repo-Wurzel — **kein zweiter Zweig, keine Kopie.** `native/` en
 die Hülle; `native/sync.mjs` kopiert per **Allowlist** in `native/www/`, danach
 `cap sync`. `www/`, `android/`, `node_modules/` sind Erzeugnisse und gitignored.
 
+**Wie die APK zu den Leuten kommt:** GitHub-Release-Anhang, verlinkt aus ⚙ → „App
+installieren“ (`#install-dialog`) auf `…/releases/latest` — die SEITE, nicht eine feste
+Datei: Ein Direktlink bricht still, sobald eine Fassung anders heißt, und die Seite nennt
+die Versionsnummer. Der Dialog erklärt beide Wege (APK vs. „Zum Startbildschirm“) und
+sagt, was der Browser-Weg NICHT kann: den exakten DB-Verbindungslink. In der APK trägt
+dieselbe Zeile einen anderen Untertitel — dort ist sie kein Installationsweg mehr,
+sondern der einzige Update-Weg (`PP.native`-Zweig, `install-sub`). Ablauf und
+Rechtsfrage: `native/README.md`, „Auf GitHub veröffentlichen“.
+
 **Warum die APK existiert:** Der exakte DB-Verbindungslink braucht eine `vbid`, deren
 Endpunkt keine CORS-Header schickt — keine Webseite darf ihn aufrufen, egal wo sie
 liegt. Nativ gilt CORS nicht, also holt das Gerät die vbid selbst. Kein Proxy, kein
@@ -317,8 +326,9 @@ Was ansteht, steht in `TODO.md`.
   Drei-Stunden-Fenster (1125 KB) ab der zwölften langsam, 16 mit Zwölf-Stunden-Fenster
   (2869 KB) ab der dreizehnten. Zweieinhalbmal so viele Daten, dieselbe Grenze. Daraus
   folgt die Grundregel für alles Laden: **wenige große Anfragen statt vieler kleiner.**
-  Eine Suche kostet seit v1.53.0 gemessen 2–4 Anfragen — die Drosselung greift also nach rund vier zügigen
-  Suchen. **Anfragen zu sparen ist deshalb kein Geiz, sondern der Hebel gegen die
+  Eine Suche kostet gemessen 2–4 Anfragen, „Jetzt“ seit v1.56.0 eine weniger (der
+  Kontext rückwärts fällt dort ganz weg) — die Drosselung greift also nach rund vier
+  zügigen Suchen. **Anfragen zu sparen ist deshalb kein Geiz, sondern der Hebel gegen die
   Wartezeit**, die der Nutzer tatsächlich spürt: Unter Drosselung kostet jede einzelne
   ~2,5 s statt ~200 ms.
 - **Eine neue Suche bricht die Anfragen der vorherigen ab** (`app.planAbort`). Das
@@ -349,7 +359,7 @@ Was ansteht, steht in `TODO.md`.
   an drei dichten Strecken bei 5, 20 und 60 geprüft) — deshalb ist das sicher. Nach
   hinten bleibt bei vollem Deckel `spanFrom` sogar ganz stehen, sonst entstünde hinter
   dem Gelieferten ein Loch.
-- **Die erste Anfrage hat ein festes Fenster** (`PAGE_WINDOW = 6 h`,
+- **Die erste Anfrage hat ein festes Fenster** (`PAGE_WINDOW = 9 h`,
   `numItineraries: 1`, `maxItineraries` als Netz). Das ist die Ursache verschluckter
   Verbindungen, nicht eine Feinheit: Mit `numItineraries` dehnt der Router sein Fenster
   aus, bis er so viele Pareto-optimale Ergebnisse hat. Gemessen Regensburg → Nürnberg
@@ -361,9 +371,24 @@ Was ansteht, steht in `TODO.md`.
   18:45–19:48, 20:45–21:49, 22:45–00:24.
   **`numItineraries` MUSS dabei 1 sein** — jede höhere Zahl ist eine Mindestanzahl und
   dehnt das Fenster wieder aus.
-  **Drei Stunden sind gemessen der Schnitt:** Pro Minute Abdeckung kostet das so viel wie
-  vorher (dicht 1,65 gegen 1,66 KB/min), bei sechs Stunden stieg eine Anfrage auf der
-  dichtesten Strecke aber auf 399 KB und 905 ms.
+  **NEUN Stunden sind gemessen der Schnitt** (v1.56.0; davor 3, dann 6). Die Zahl hängt
+  am Deckel `PAGE_MAX`: Wo er bindet, ändert ein breiteres Fenster GAR NICHTS am
+  Ergebnis, es kostet nur Rechenzeit. Fünf Strecken, je 6/9/12 h, nachts und im
+  Berufsverkehr — Treffer der ersten Anfrage:
+
+  | Strecke | 6 h | 9 h | 12 h |
+  |---|---|---|---|
+  | München Hbf → Ost | 60 | 60 | 60 |
+  | Nürnberg → Fürth | 53 | 60 | 60 |
+  | Regensburg → Nürnberg | 13 | 19 | 24 |
+  | Hamburg → Berlin | 7 | 10 | 15 |
+  | Nürnberg → Bayreuth | 16 | 23 | 33 |
+
+  München liefert bei 6, 9 und 12 Stunden dieselben 60 Treffer und dieselben 392 KB —
+  nur die Antwortzeit steigt (908 → 1028 → 1393 ms). Zwölf Stunden bezahlen dort also
+  +36 % Wartezeit für null zusätzliche Verbindungen. Auf den dünnen Strecken bringen sie
+  etwas, kosten aber überproportional (Bayreuth 154 → 222 KB, 334 → 472 ms).
+  Neun nimmt fast den ganzen Nutzen zu einem Drittel der Kosten.
 - **NUR DIE ERSTE ANFRAGE einer Ankunftssuche behält `numItineraries`**
   (`ARRIVE_COUNT`) — die Bedingung dafür ist `arriveBy && !time`, nicht `arriveBy`.
   Ein ausdrücklicher Zeitpunkt macht die Anfrage zur Abfahrtssuche, und dann MUSS das
@@ -484,7 +509,7 @@ Was ansteht, steht in `TODO.md`.
   anders aus — statt vier kleiner Balken eine große Verbindung, weil `fill` endlich
   wirkt. Wer die alte Übersicht will, stellt `fill` niedriger (bei 11-Minuten-Fahrten
   entspricht 40 % ungefähr dem früheren Bild).
-- Y-Zoom: Zielspalten-Verbindung belegt **`settings.fill` %** der Fläche (Standard 70,
+- Y-Zoom: Zielspalten-Verbindung belegt **`settings.fill` %** der Fläche (Standard 50,
   einstellbar 40–90). Im **„Jetzt“-Modus wird von JETZT bis zur Ankunft gemessen**, nicht
   nur die Fahrtdauer — die Ansicht dockt dort an der Jetzt-Linie an, und bei langer
   Wartezeit schob die reine Fahrtdauer die Verbindung aus dem Bild (man sah nur den roten
@@ -655,9 +680,20 @@ Was ansteht, steht in `TODO.md`.
   Gesucht ist Vollständigkeit IM Fenster, nicht ein größeres Fenster. Mit Beschneidung
   35 → 78. Für den Abbruch zählt die UNBESCHNITTENE Antwort, sonst bricht es ab, sobald
   der Rechner einmal über das Fenster hinausläuft.
-  Standard ist aus (Knopf); `settings.fullSearch` macht es zur Regel.
-- **TESTFUNKTION `settings.fitBottom`** („Freie Fläche unten nutzen“, ⚙ → Ansicht,
-  standardmäßig AUS). Nachbearbeitung von `tlAutoZoom` (`tlFitBottom`): Enden ALLE
+  **Die Regel-Variante hängt an der KACHEL, nicht an den Einstellungen** (`slot.full`,
+  ⚙ nur beim Bearbeiten einer Kachel): Ob sich Linien verdrängen, entscheidet der
+  Bahnhof — an der Stammstrecke fehlt ohne die Zusatzanfragen die halbe S-Bahn, am
+  Landhalt sind sie reine Wartezeit. Ein globaler Schalter musste deshalb immer für
+  die falsche Hälfte der Strecken falsch stehen. Gesetzt bei EINER der beiden Kacheln
+  reicht (`wantsFullSearch`) — die dichte Seite verursacht die Lücke, egal ob sie
+  Start oder Ziel ist. Ohne Häkchen bleibt der Knopf ⤓ der Weg auf Zuruf.
+- **`settings.fitBottom`** („Freifläche unten nutzen“, ⚙ → Balkenansicht, seit v1.59.0
+  standardmäßig AN; davor Testfunktion und AUS).
+  **`loadSettings` las den Wert nie zurück** (nur `saveSettings` schrieb ihn) — solange
+  der Standard AUS war, fiel das nicht auf, weil man den Schalter nur zum Ausprobieren
+  anfasste. Mit Standard AN wäre das Abschalten nach jedem Neustart weg gewesen. Merke:
+  Ein neuer Schlüssel in `def` braucht IMMER seine Zeile im `try`-Block darunter — der
+  Block ist eine Allowlist, kein Merge. Nachbearbeitung von `tlAutoZoom` (`tlFitBottom`): Enden ALLE
   sichtbaren Verbindungen über 90 % der Höhe, wird der Maßstab so weit aufgezogen, dass
   die tiefste Ankunft bei 85 % liegt. Die bestehende Zoom-Routine bleibt unangetastet —
   es wird nur ihr Rückgabewert nachbehandelt, und zwar nur nach oben.
@@ -708,6 +744,20 @@ Was ansteht, steht in `TODO.md`.
 - **Eine größere Erstanfrage hilft bei „Letzte“ NICHT** (nachgemessen): Eine
   Ankunftssuche liefert bei höherem `numItineraries` weitere FRÜHERE Verbindungen,
   nicht spätere. Der Kontext dahinter muss so oder so nachgeladen werden.
+- **„JETZT“ HOLT KEINEN KONTEXT RÜCKWÄRTS** (v1.56.0). Die Frage lautet „wann komme ich
+  weg“ — eine abgefahrene Verbindung beantwortet sie nicht, und in der Liste stand sie
+  ausgerechnet OBEN. Der Weg nach hinten bleibt vollständig: nach links wischen bzw.
+  „Frühere anzeigen“, dann als normaler Blätterschritt mit passendem Fenster.
+  **Das war zugleich ein Fehler, kein bloßer Geschmack:** Bis v1.53.0 lief diese Runde
+  über `app.prevPageCursor` und lieferte die zwei Verbindungen unmittelbar davor. Mit dem
+  Wegfall der Cursor in v1.54.0 lief dieselbe Zeile unbemerkt auf die Zeitfenster-Logik
+  über — `[spanFrom − winEarlier, spanFrom]` mit `maxItineraries: 2`, und der Router
+  liefert im Fenster ein PRÄFIX. Zurück kamen also die zwei FRÜHESTEN. Gemessen
+  Regensburg → Nürnberg um 03:23: Fenster 10 h, geholt wurden 17:48 und 18:45 — neun
+  Stunden alt, und genau die standen dann als erste Spalte in der Grafik. Wie stark es
+  auffiel, hing an der Dichte: in der Stadt Untergrenze 3 h und kaum sichtbar, auf dünnen
+  Strecken zehn bis zwölf Stunden. Die gesparte Anfrage steckt jetzt im größeren
+  `PAGE_WINDOW` — Zukunft statt Vergangenheit, bei gleicher Anfragezahl.
 - **Kontext DAVOR wird nur geholt, wenn welcher fehlt** (`CONTEXT_BEFORE`, gezählt gegen
   den Fokus) — dieselbe Regel wie für den Kontext dahinter, nur spiegelverkehrt. Bei
   einer ANKUNFTSSUCHE ist die gesuchte Verbindung die späteste, alles andere liegt
@@ -717,6 +767,16 @@ Was ansteht, steht in `TODO.md`.
   Bei einer ABFAHRTSSUCHE („ab 14:00“) beginnt der Pool dagegen genau am gewählten
   Zeitpunkt, davor steht nichts — dort läuft die Runde weiter. Die Zählung entscheidet
   das von selbst, es braucht keinen Sonderfall je Modus.
+  **Diese Runde bekommt ein FESTES Fenster von einer Stunde und den vollen Deckel**
+  (`CONTEXT_WINDOW`, `fetchPage(…, PAGE_MAX, CONTEXT_WINDOW)`) — nicht das geerbte
+  Blätterfenster mit `maxItineraries: 2`. Sonst trifft sie derselbe Präfix-Fehler wie
+  oben, nur an der Stelle, die „Jetzt“ jetzt gar nicht mehr hat. Gemessen für „ab 14:00“,
+  späteste Verbindung VOR dem Zeitpunkt: Regensburg → Nürnberg alt 05:33 (507 min
+  daneben) gegen neu 13:58 (2 min), München Hbf → Ost alt 11:07 (173 min) gegen neu
+  13:59 (1 min). Kosten: dieselbe eine Anfrage, auf der dichten Strecke 122 statt 15 KB.
+  **Das feste Fenster darf `winEarlier` NICHT verstellen** — eine einzelne Stunde sagt
+  nichts über die Dichte der Strecke. Seitenweg, kein Blättern, wie beim Nachfüllen
+  über die Legende.
   **Der Fokus wird dafür VOR beiden Kontextrunden bestimmt**, nicht nur vor der
   hinteren. Gegengeprüft an acht Strecken: Der Schlüssel ist mit und ohne die vordere
   Runde identisch — er kann es auch gar nicht sein, weil frühere Verbindungen weder die
@@ -827,6 +887,23 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - **Das Gleis-Chip nur MIT Gleisangabe.** Ohne Gleis liefert `trackChip` bloß den
   Karten-Pin, und der steht in der Übersichtszeile als einzelnes Zeichen ohne Bezug da.
   In der aufgeklappten Detailansicht bleibt er an jedem Halt.
+- **Tagestrenner beim Wechsel** (`.daysep`, `dayDivider`, v1.57.0): Zwischen der letzten
+  Verbindung eines Tages und der ersten des nächsten steht eine Zeile mit Wochentag und
+  Datum („Sonntag, 30. August“). In der Grafik leistet das der Mitternachtsstrich neben
+  der Kopf-Kachel; in der Liste gab es nichts — man scrollte über Mitternacht hinweg und
+  las 00:14, als wäre es heute.
+  **Beide Regeln der Grafik gelten unverändert weiter, und beide sind dort teuer
+  gelernt:** Verglichen wird die **SOLL-Abfahrt** (mit der Ist-Zeit zählte eine für 23:59
+  geplante, über Mitternacht verspätete Verbindung als nächster Tag — der Trenner stünde
+  dann über 23:59, obwohl das noch heute ist), und der Tagesschlüssel kommt aus
+  **`tlTagKey`**, also in Europe/Berlin statt in der Zeitzone des Geräts.
+  **Bewusst dieselbe Funktion wie die Grafik**, nicht eine zweite Fassung: Sonst könnten
+  Liste und Grafik den Tag verschieden schneiden. Sie steht deshalb in der
+  `crossFile`-Liste von `tools/eslint.config.mjs`.
+  Geprüft an fünf Kanten (echter Wechsel, selber Tag, beide nach Mitternacht, verspätet
+  über Mitternacht, Zeitzonen-Fall 00:30 Berlin = 22:30 UTC) — alle fünf richtig.
+  Ein Kopf für den ERSTEN Tag der Liste fehlt bewusst: Der Trenner markiert den Wechsel,
+  wie der Mitternachtsstrich auch. Wer das Datum immer sehen will, hat dafür die Grafik.
 - **Die Grafikansicht bleibt davon unberührt** — das war ausdrücklich so gewollt.
 - `.loadbtn` („Frühere/Spätere anzeigen“) hatte gar kein CSS und war ein nackter
   Systemknopf mitten zwischen den Kacheln. Jetzt dieselbe Form wie die Dialog-Knöpfe,
@@ -890,17 +967,27 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 ## Grid & Kacheln
 
 - `slots` = geordnetes Array inkl. `null`-Lücken (Position = Index, Länge = Feldzahl);
-  Einträge `{name, id, label?}` — `name` ist der offizielle Bahnhofsname (Pflicht für
-  DB-Link/API), `label` reine Anzeige.
-- Spalten nebeneinander: **3–7** (`settings.cols`). Die colW-Untergrenze (34 px) ist
+  Einträge `{name, id, lat?, lon?, city?, label?, full?}` — `name` ist der offizielle
+  Bahnhofsname (Pflicht für DB-Link/API), `label` reine Anzeige, `full` = „immer
+  vollständig suchen“ (s. „Vollständig laden“).
+- Spalten nebeneinander: **3–7** (`settings.cols`, Standard 5). Die colW-Untergrenze (34 px) ist
   bewusst niedrig, damit 7 auf einem Telefon wirklich nebeneinander passen; darüber
   greifen zwei Enge-Stufen am Scroller (`.narrow` <62 px, `.tiny` <46 px), die nur die
   Schrift verkleinern und „2 Umst.“ zu „2×“ kürzen. Gemessen: 7 passen ab 393 px
   Bildschirmbreite, auf 360 px sind es real 6,7.
-- BASE 14 (7×2, scrollfrei), „Mehr als 14“: gerade bis 40 + `connectMode`
+- BASE 14 (7×2, scrollfrei), „Mehr als 14“: 15–40 + `connectMode`
   `hybrid` (Wischen verbindet; ab gewähltem Start scrollt Wischen frei) / `tap`.
+  **Gerade Zahlen werden NICHT mehr erzwungen** (bis v1.58.0 rundete `setSlotCount`
+  auf): Ab 480 px hat das Raster drei Spalten, dort war „gerade“ genauso oft krumm —
+  eine Zahl zu verweigern, damit die letzte Reihe voll ist, war der falsche Preis.
   Umsetzung: `.buttongrid.no-drag` + Guard in `attachStationPointer`. Verkleinern nie
   unter belegte Kacheln.
+- **Reihenfolge im ⚙-Dialog ist Absicht** (v1.59.0): *Verbindungssuche* (Verkehrsmittel
+  offen, „Umsteigen“ und „Letzte Verbindung“ als eingeklappte Unterpunkte `.setfold
+  .subfold` — sie ändern dieselbe Anfrage) → *Balkenansicht* → *Startseite* →
+  *App installieren* → *Übertragen & Hilfe* → *Kontakt & Rechtliches*. Erst WAS gesucht wird, dann WIE es
+  aussieht, dann Wartung. Der Unterschied Hybrid/Nur Tippen steht in einem `.miniexpl`
+  Aufklapper — vier Sätze unter einem Schalter liest niemand zweimal.
 - Edit-Flow: Bearbeiten = nur Label + Löschen (Stationswechsel = löschen+neu);
   Neuanlage zweiphasig (Suche → `pendingStation` → Label optional → Speichern).
 - Übertragungs-Link `#cfg=` = Base64-JSON `{v:2, slots, show, cols, fill, connect}`;

@@ -46,6 +46,19 @@
     <input type="text" id="labelinput" autocomplete="off" enterkeyhint="done"
            maxlength="28" placeholder="z. B. Zuhause, Arbeit …">
   </label>
+  <!-- Gehört an die KACHEL, nicht in die Einstellungen: Ob die Zusatzanfragen
+       nötig sind, entscheidet der Bahnhof (dichte Stammstrecke vs. Landhalt),
+       nicht das Gerät. -->
+  <div id="full-row" hidden>
+    <label class="countrow">Immer vollständig suchen
+      <input type="checkbox" id="edit-full">
+    </label>
+    <p class="finequote">Bei jeder Suche von oder zu dieser Kachel zusätzlich eine Anfrage
+      je Verkehrsmittel. Der Fahrplanrechner liefert sonst nur die jeweils besten
+      Verbindungen und lässt langsamere weg — auf dichten Strecken fehlt dadurch ein Teil
+      der S-Bahnen. Es dauert länger; ohne die Einstellung holt der Knopf ⤓ in der
+      Ergebnisansicht dasselbe auf Zuruf.</p>
+  </div>
   <button id="btn-save-slot" class="widebtn" hidden>Speichern</button>
   <button id="btn-clear-slot" class="dangerbtn" hidden>Diesen Button löschen</button>
 </main>
@@ -133,9 +146,12 @@
 <dialog id="settings-dialog">
   <h2>Einstellungen</h2>
 
+  <!-- Reihenfolge: erst WAS gesucht wird, dann WIE es aussieht, dann Wartung.
+       Umsteigen und „Letzte Verbindung“ sind Unterpunkte der Suche, nicht
+       eigene Abschnitte — sie ändern dieselbe Anfrage wie der Filter darüber. -->
   <section class="setgroup">
-    <h3>Verkehrsmittel</h3>
-    <p class="hint">Diese standardmäßig anzeigen:</p>
+    <h3>Verbindungssuche</h3>
+    <p class="hint">Diese Verkehrsmittel standardmäßig anzeigen:</p>
     <div class="checklist" id="settings-cats">
       <label><input type="checkbox" data-cat="fern"> <i class="catdot seg-fern"></i> Fernzug (ICE, IC, EC)</label>
       <label><input type="checkbox" data-cat="regio"> <i class="catdot seg-regio"></i> Regionalzüge (RE, RB)</label>
@@ -148,9 +164,46 @@
     </div>
     <p class="finequote">Ausgeblendete Verkehrsmittel lassen sich in der Ergebnisansicht
       jederzeit über die Legende wieder einblenden.</p>
+
+    <details class="setfold subfold">
+      <summary><h4>Umsteigen</h4></summary>
+      <div class="rangerow">
+        <label for="set-xfer">Zeit zum Umsteigen
+          <output id="set-xfer-val">Normal</output>
+        </label>
+        <input type="range" id="set-xfer" min="0" max="3" step="1">
+        <p class="finequote">Für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option
+          ist. Gerechnet wird <em>anteilig</em> zur Wegzeit im jeweiligen Bahnhof — an einem
+          großen Kopfbahnhof wirkt die Einstellung stärker als an einem Halt mit einem
+          Bahnsteig. Es fallen dabei keine Verbindungen weg: Der Fahrplanrechner sucht
+          andere, die dir Zeit lassen.</p>
+      </div>
+    </details>
+
+    <details class="setfold subfold">
+      <summary><h4>„Letzte Verbindung“</h4></summary>
+      <label class="countrow">Ankunft spätestens
+        <input type="time" id="set-lastarr" step="300">
+      </label>
+      <p class="finequote">Bis wann du ankommen willst. „Letzte“ sucht die späteste
+        Verbindung, die das noch schafft.</p>
+      <div class="countrow">Nachts von – bis
+        <span class="timepair">
+          <input type="time" id="set-nightfrom" step="900" aria-label="Nacht beginnt">
+          <input type="time" id="set-nightto" step="900" aria-label="Nacht endet">
+        </span>
+      </div>
+      <label class="countrow">Nachts höchstens warten
+        <input type="number" id="set-nightwait" min="5" max="240" step="5" inputmode="numeric">
+      </label>
+      <p class="finequote">Minuten am Stück an <em>einem</em> Halt, nicht über alle Umstiege
+        zusammengerechnet. Nur Wartezeiten im Nachtfenster zählen — eine Stunde Aufenthalt
+        am Nachmittag ist harmlos, um drei Uhr früh nicht.</p>
+    </details>
   </section>
+
   <section class="setgroup">
-    <h3>Ansicht</h3>
+    <h3>Balkenansicht</h3>
     <div class="countrow">Verbindungen nebeneinander
       <div class="seg3 seg5" id="set-cols" role="radiogroup" aria-label="Verbindungen nebeneinander">
         <button type="button" data-cols="3">3</button>
@@ -162,34 +215,31 @@
     </div>
     <div class="rangerow">
       <label for="set-fill">Höhe der vordersten Verbindung
-        <output id="set-fill-val">70&nbsp;%</output>
+        <output id="set-fill-val">50&nbsp;%</output>
       </label>
       <input type="range" id="set-fill" min="40" max="90" step="5">
       <p class="finequote">So viel der Bildhöhe nimmt die vorderste Verbindung ein. Der
         Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
         mehr Übersicht, größerer Wert heißt mehr Detail.</p>
     </div>
-    <label class="countrow">Immer vollständig suchen
-      <input type="checkbox" id="set-full">
-    </label>
-    <p class="finequote">Holt bei jeder Suche zusätzlich eine Anfrage je Verkehrsmittel.
-      Der Fahrplanrechner liefert sonst nur die jeweils besten Verbindungen und lässt
-      langsamere weg — auf dichten Strecken fehlt dadurch ein Teil der S-Bahnen. Vollständig
-      dauert länger; ohne die Einstellung holt der Knopf ⤓ oben dasselbe auf Zuruf.</p>
-    <label class="countrow">Freie Fläche unten nutzen
+    <label class="countrow">Freifläche unten nutzen
       <input type="checkbox" id="set-fitbottom">
     </label>
-    <p class="finequote"><strong>Test.</strong> Enden alle sichtbaren Verbindungen deutlich
-      über dem unteren Rand, wird stärker gezoomt, bis die unterste Ankunft bei 90 % der
-      Höhe liegt. Reicht auch nur eine tiefer oder aus dem Bild heraus, bleibt der
-      normale Zoom stehen.</p>
-    <h4>Kacheln auf der Startseite</h4>
+    <p class="finequote">Enden alle sichtbaren Verbindungen deutlich über dem unteren Rand,
+      wird stärker gezoomt, bis die unterste Ankunft bei 90 % der Höhe liegt. Reicht auch
+      nur eine tiefer oder aus dem Bild heraus, bleibt der normale Zoom stehen.</p>
+  </section>
+
+  <section class="setgroup">
+    <h3>Startseite</h3>
     <label class="countrow">Mehr als 14 Kacheln
       <input type="checkbox" id="set-more">
     </label>
+    <p class="finequote">14 Kacheln passen ohne Scrollen auf den Schirm. Mehr heißt:
+      Das Raster scrollt — und damit ändert sich, wie verbunden wird.</p>
     <div id="more-tiles-opts" hidden>
-      <label class="countrow">Anzahl Kacheln (gerade, max. 40)
-        <input type="number" id="set-count" min="16" max="40" step="2" inputmode="numeric">
+      <label class="countrow">Anzahl Kacheln (15–40)
+        <input type="number" id="set-count" min="15" max="40" step="1" inputmode="numeric">
       </label>
       <div class="countrow">Verbinden
         <div class="seg3 seg2" id="set-connect" role="radiogroup" aria-label="Verbinde-Modus">
@@ -197,43 +247,32 @@
           <button type="button" data-mode="tap">Nur Tippen</button>
         </div>
       </div>
-      <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt – sobald ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. <strong>Nur Tippen:</strong> Verbinden ausschließlich per Antippen, Wischen scrollt immer.</p>
+      <!-- Als Aufklapper: Der Unterschied braucht vier Sätze, und wer ihn einmal
+           verstanden hat, will sie nie wieder unter dem Schalter stehen haben. -->
+      <details class="miniexpl">
+        <summary>Hybrid oder Nur Tippen?</summary>
+        <p class="finequote">Wischen erreicht nur, was gerade auf dem Schirm ist — beides
+          ist ein Weg, trotzdem an die Kacheln weiter unten zu kommen.</p>
+        <p class="finequote"><strong>Hybrid:</strong> Wischen verbindet wie gewohnt; sobald
+          ein Start gewählt ist, scrollt Wischen frei und das Ziel wird angetippt. Ideal,
+          wenn die häufigen Halte oben liegen — die verbindest du weiter mit einer
+          Bewegung. Der Haken: Ist an einer Suche <em>keine</em> der oben sichtbaren
+          Kacheln beteiligt, musst du erst irgendeine antippen, um scrollen zu dürfen.</p>
+        <p class="finequote"><strong>Nur Tippen:</strong> Wischen scrollt immer, verbunden
+          wird ausschließlich durch Antippen. Zwei Tipper für jede Strecke — dafür ohne
+          Sonderfall.</p>
+      </details>
     </div>
   </section>
-  <details class="setgroup setfold">
-    <summary><h3>Umsteigen</h3></summary>
-    <div class="rangerow">
-      <label for="set-xfer">Zeit zum Umsteigen
-        <output id="set-xfer-val">Normal</output>
-      </label>
-      <input type="range" id="set-xfer" min="0" max="3" step="1">
-      <p class="finequote">Für schweres Gepäck, Kinderwagen oder wenn Hetzen keine Option
-        ist. Gerechnet wird <em>anteilig</em> zur Wegzeit im jeweiligen Bahnhof — an einem
-        großen Kopfbahnhof wirkt die Einstellung stärker als an einem Halt mit einem
-        Bahnsteig. Es fallen dabei keine Verbindungen weg: Der Fahrplanrechner sucht
-        andere, die dir Zeit lassen.</p>
-    </div>
-  </details>
-  <details class="setgroup setfold">
-    <summary><h3>„Letzte Verbindung“</h3></summary>
-    <label class="countrow">Ankunft spätestens
-      <input type="time" id="set-lastarr" step="300">
-    </label>
-    <p class="finequote">Bis wann du ankommen willst. „Letzte“ sucht die späteste
-      Verbindung, die das noch schafft.</p>
-    <div class="countrow">Nachts von – bis
-      <span class="timepair">
-        <input type="time" id="set-nightfrom" step="900" aria-label="Nacht beginnt">
-        <input type="time" id="set-nightto" step="900" aria-label="Nacht endet">
-      </span>
-    </div>
-    <label class="countrow">Nachts höchstens warten
-      <input type="number" id="set-nightwait" min="5" max="240" step="5" inputmode="numeric">
-    </label>
-    <p class="finequote">Minuten am Stück an <em>einem</em> Halt, nicht über alle Umstiege
-      zusammengerechnet. Nur Wartezeiten im Nachtfenster zählen — eine Stunde Aufenthalt
-      am Nachmittag ist harmlos, um drei Uhr früh nicht.</p>
-  </details>
+
+  <section class="setgroup">
+    <h3>App installieren</h3>
+    <button id="btn-install" class="menurow">
+      <span>PendelPanda aufs Gerät<small id="install-sub">Android-APK oder zum Startbildschirm hinzufügen</small></span>
+      <span class="menurow-arrow">›</span>
+    </button>
+  </section>
+
   <section class="setgroup">
     <h3>Übertragen &amp; Hilfe</h3>
     <button id="btn-share-config" class="menurow">
@@ -374,6 +413,51 @@
   </ul>
   <p class="finequote"><a href="HILFE.md" target="_blank" rel="noopener">Ausführliche Hilfe</a> · Fahrplandaten: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> ·
     <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Datenquellen</a></p>
+  <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>
+</dialog>
+
+<!-- APP INSTALLIEREN -->
+<dialog id="install-dialog">
+  <h2>App installieren</h2>
+  <p class="hint">PendelPanda ist eine Website — sie lässt sich aber wie eine App auf dem
+    Gerät ablegen. Zwei Wege, und sie können nicht dasselbe.</p>
+
+  <section class="setgroup">
+    <h3>Android: die APK</h3>
+    <!-- Bewusst auf die Release-SEITE, nicht auf eine feste Datei: Ein
+         Direktlink (…/releases/latest/download/name.apk) bricht still, sobald
+         eine Fassung mal anders heißt. Die Seite nennt außerdem die
+         Versionsnummer — man sieht vor dem Laden, ob es überhaupt etwas Neues
+         gibt. -->
+    <a class="menurow" href="https://github.com/schogugel/pendelpanda/releases/latest"
+       target="_blank" rel="noopener">
+      <span>Neueste Version laden<small>github.com/schogugel/pendelpanda · Releases</small></span>
+      <span class="menurow-arrow">›</span>
+    </a>
+    <p class="finequote"><strong>Nur so öffnen die DB-Knöpfe die genaue Verbindung</strong>
+      im DB Navigator. Im Browser bleibt es bei einer vorbefüllten Suche: Die Kennung der
+      einzelnen Verbindung vergibt ein Endpunkt der Bahn, den eine Webseite nicht aufrufen
+      darf (er schickt keine CORS-Header) — eine App schon.</p>
+    <p class="finequote">Beim Öffnen der Datei fragt Android nach der Erlaubnis, Apps aus
+      dieser Quelle zu installieren. Das ist normal; es kommt kein Store dazwischen und die
+      App verlangt keine Anmeldung. <strong>Sie aktualisiert sich auch nicht selbst</strong>
+      — neue Fassungen liegen auf derselben Seite und werden einfach drübergelegt.</p>
+  </section>
+
+  <section class="setgroup">
+    <h3>Alle Geräte: zum Startbildschirm</h3>
+    <p class="finequote">Im Browser-Menü <strong>„Zum Startbildschirm hinzufügen“</strong>
+      wählen (iPhone: Teilen-Symbol → „Zum Home-Bildschirm“). Danach liegt PendelPanda mit
+      eigenem Symbol auf dem Gerät, startet ohne Adresszeile und läuft auch ohne Netz —
+      gespeichert ist die Oberfläche, nur die Fahrplandaten brauchen Verbindung.</p>
+    <p class="finequote">Auf iPhone und am Rechner ist das der einzige Weg. Die DB-Knöpfe
+      führen dort zur vorbefüllten Suche statt zur genauen Verbindung; alles andere ist
+      identisch.</p>
+  </section>
+
+  <p class="finequote">Kacheln und Einstellungen wandern über
+    <strong>„Einstellungen übertragen“</strong> mit — zwischen Browser und App genauso wie
+    zwischen zwei Geräten.</p>
   <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>
 </dialog>
 

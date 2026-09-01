@@ -48,8 +48,9 @@ wählen → optional eine **eigene Beschriftung** vergeben („Zuhause“, „Ar
 
 ### Kacheln bearbeiten
 **✎ Bearbeiten** oben rechts:
-- Kachel antippen → Beschriftung ändern oder **„Diesen Button löschen“**.
-  Einen anderen Bahnhof legst du per Löschen + neu anlegen fest.
+- Kachel antippen → Beschriftung ändern, **„Immer vollständig suchen“** setzen oder
+  **„Diesen Button löschen“**. Einen anderen Bahnhof legst du per Löschen + neu
+  anlegen fest.
 - Kachel **ziehen** → tauscht die Position mit der Zielkachel (auch mit leeren
   Feldern; Lücken bleiben erhalten).
 - Abkürzung ohne Bearbeiten-Modus: Kachel **lange gedrückt halten**.
@@ -227,18 +228,39 @@ Gleisänderung ist rot hervorgehoben; der Pin führt bahnsteiggenau in Google Ma
 Ganz unten im Dialog steht die **Versionsnummer** – damit lässt sich prüfen, ob das
 Gerät den aktuellen Stand hat (nach einem Update ggf. zweimal neu laden).
 
-- **Verkehrsmittel:** was standardmäßig angezeigt wird (Fernzug, Regionalzug, S-Bahn,
-  U-Bahn/Tram, Bus, Sonstige = Fähre/Rufbus, Fernbus).
-- **Mehr als 14 Kacheln:** Standard sind 14 Kacheln, die ohne Scrollen auf den Schirm
-  passen. Wer mehr braucht, schaltet hier frei (gerade Anzahl bis 40) und wählt, wie
-  verbunden wird:
-  - **Hybrid** — Wischen verbindet wie gewohnt; sobald ein Start gewählt ist, scrollt
-    Wischen frei und das Ziel wird angetippt.
-  - **Nur Tippen** — Verbinden ausschließlich per Antippen, Wischen scrollt immer.
-- **Grafik: Verbindungen nebeneinander** — 3, 4 oder 5 Spalten.
+Vier Abschnitte, in dieser Reihenfolge: erst was gesucht wird, dann wie es aussieht,
+dann die Startseite, dann Wartung.
 
-**Umsteigen** und **„Letzte Verbindung“** sind eingeklappt — antippen öffnet sie. Das
-sind Sachen, die man einmal einstellt und danach lange nicht mehr anfasst.
+**Verbindungssuche**
+- **Verkehrsmittel:** was standardmäßig angezeigt wird (Fernzug, Regionalzug, S-Bahn,
+  U-Bahn, Tram, Bus, Sonstige = Fähre/Rufbus, Fernbus).
+- **Umsteigen** und **„Letzte Verbindung“** sind eingeklappt — antippen öffnet sie. Das
+  sind Sachen, die man einmal einstellt und danach lange nicht mehr anfasst.
+
+**Balkenansicht**
+- **Verbindungen nebeneinander** — 3 bis 7 Spalten (Standard 5).
+- **Höhe der vordersten Verbindung** — wie viel der Bildhöhe sie einnimmt (Standard
+  50 %). Kleiner heißt mehr Übersicht, größer heißt mehr Detail.
+- **Freifläche unten nutzen** (Standard an) — enden alle sichtbaren Verbindungen weit
+  über dem unteren Rand, wird stärker gezoomt, statt die Fläche leer zu lassen.
+
+**Startseite**
+- **Mehr als 14 Kacheln:** Standard sind 14 Kacheln, die ohne Scrollen auf den Schirm
+  passen. Wer mehr braucht, schaltet hier frei (15 bis 40) und wählt, wie verbunden
+  wird — denn Wischen erreicht nur, was gerade zu sehen ist:
+  - **Hybrid** — Wischen verbindet wie gewohnt; sobald ein Start gewählt ist, scrollt
+    Wischen frei und das Ziel wird angetippt. Gut, wenn die häufigen Halte oben liegen.
+    Der Haken: Ist an einer Suche keine der oben sichtbaren Kacheln beteiligt, musst du
+    erst irgendeine antippen, um scrollen zu dürfen.
+  - **Nur Tippen** — Wischen scrollt immer, verbunden wird nur durch Antippen. Zwei
+    Tipper für jede Strecke, dafür ohne Sonderfall.
+
+**App installieren**
+- **PendelPanda aufs Gerät** — erklärt die zwei Wege: die Android-APK (Link zu den
+  GitHub-Releases) und „Zum Startbildschirm hinzufügen“, das auf jedem Gerät geht.
+  Nur mit der APK öffnen die DB-Knöpfe die *genaue* Verbindung im DB Navigator; im
+  Browser bleibt es bei einer vorbefüllten Suche. In der App führt dieselbe Zeile zu
+  den Updates — sie holt sich neue Versionen nicht von selbst.
 
 Ganz unten: **Übertragen & Hilfe**, darunter **Kontakt & Rechtliches** (Schreib mir,
 Daten & Datenschutz, Impressum).
@@ -258,6 +280,13 @@ Minuten fährt.
 Seit Version 1.30.0 merkt PendelPanda, wenn ein Verkehrsmittel das Ergebnis so
 erdrückt, und fragt gezielt nach dem nach, was dahinter liegt. In dichten Städten
 verdoppelt das die Zahl der angezeigten Verbindungen.
+
+Der Knopf **⤓** über den Ergebnissen holt zusätzlich alles: eine eigene Anfrage je
+Verkehrsmittel. Wer das an einem bestimmten Bahnhof immer will, setzt bei dieser Kachel
+**„Immer vollständig suchen“** (✎ Bearbeiten → Kachel antippen). Die Einstellung hängt
+bewusst am Bahnhof und nicht am Gerät — an einer dichten Stammstrecke fehlt ohne sie die
+halbe S-Bahn, an einem Landhalt kostet sie nur Wartezeit. Ist sie bei Start **oder** Ziel
+gesetzt, wird vollständig gesucht.
 
 ---
 

@@ -99,6 +99,29 @@ Ohne `keystore.properties` läuft der Build zwar durch, die APK ist dann aber
 **unsigniert und nicht installierbar** — das ist der Normalzustand eines frischen
 Capacitor-Projekts, kein Fehler in diesem Repo.
 
+### 4. Auf GitHub veröffentlichen
+
+Die APK gehört als **Release-Anhang** ins Repo, nicht ins Repo selbst — Binärdateien
+im Verzeichnisbaum blähen jeden Klon auf, ein Release-Asset lädt nur, wer es will:
+
+    gh release create v<version> \
+      android/app/build/outputs/apk/release/pendelpanda-<version>-release.apk \
+      --title "PendelPanda <version>" --notes "Was neu ist …"
+
+Der ⚙-Dialog „App installieren“ zeigt auf
+`https://github.com/schogugel/pendelpanda/releases/latest` — die Seite, nicht eine
+feste Datei. Ein Direktlink (`…/releases/latest/download/name.apk`) wäre bequemer,
+bricht aber still, sobald eine Fassung mal anders heißt; die Seite nennt außerdem die
+Versionsnummer, sodass man vor dem Laden sieht, ob es etwas Neues gibt.
+
+**Darf man das?** Ja. Eigener Code, eigene Signatur, MIT-lizenzierte Abhängigkeiten
+(Capacitor); GitHub-Releases sind ausdrücklich für Binärdateien da (bis 2 GB je Datei).
+Play-Store-Richtlinien gelten hier nicht — es ist kein Store. Was bleibt, ist die
+Impressums-/Kontaktpflicht, die im ⚙-Dialog ohnehin schon erfüllt ist.
+
+**Jedes Release mit DEMSELBEN Schlüssel signieren.** Ein Wechsel zwingt alle Nutzer
+zum Deinstallieren; siehe Schritt 1.
+
 ### Was die Empfänger erleben werden
 
 - **„Unbekannte Apps installieren“** muss einmal für die App erlaubt werden, aus

@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.55.0";
+const APP_VERSION = "1.60.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -83,10 +83,9 @@ function loadSettings() {
     // D-Ticket-Sicht: Fernzug UND Fernbus standardmäßig aus
     show: { fern: false, regio: true, sbahn: true, ubahn: true, tram: true,
             bus: true, sonstige: true, fernbus: false },
-    cols: 3,      // Verbindungen nebeneinander in der Grafik (3–7)
-    fill: 70,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
-    fitBottom: false,  // TEST: freie Fläche unten durch stärkeren Zoom nutzen
-    fullSearch: false, // bei jeder Suche eine Anfrage je Verkehrsmittel
+    cols: 5,      // Verbindungen nebeneinander in der Grafik (3–7)
+    fill: 50,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
+    fitBottom: true,   // freie Fläche unten durch stärkeren Zoom nutzen
     /* „Letzte“: Bis wann will ich ankommen, und wie lange darf ich NACHTS an
        einem einzelnen Umstieg warten? Die Wartegrenze galt früher rund um die
        Uhr — eine Stunde Aufenthalt um 15 Uhr ist aber harmlos, um 3 Uhr nicht. */
@@ -120,6 +119,11 @@ function loadSettings() {
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(7, Math.max(3, Math.round(n)));
     if (Number.isFinite(s?.fill)) def.fill = Math.min(90, Math.max(40, Math.round(s.fill / 5) * 5));
+    /* `fitBottom` wurde von Anfang an geschrieben, aber nie zurückgelesen — der
+       Schalter sprang bei jedem Neustart auf den Standard zurück. Fiel nicht
+       auf, solange der Standard AUS war und man ihn nur zum Ausprobieren
+       anschaltete; seit er AN ist, ließe sich das Abschalten nicht merken. */
+    if (typeof s?.fitBottom === "boolean") def.fitBottom = s.fitBottom;
     for (const k of ["lastArrival", "nightFrom", "nightTo"]) {
       if (typeof s?.[k] === "string" && /^\d{2}:\d{2}$/.test(s[k])) def[k] = s[k];
     }
@@ -439,6 +443,8 @@ function openEdit(i) {
   if (slot) byId("edit-current").textContent = slot.name;
   byId("label-row").hidden = !slot;
   byId("labelinput").value = slot ? (slot.label || "") : "";
+  byId("full-row").hidden = !slot;
+  byId("edit-full").checked = !!(slot && slot.full);
   byId("btn-save-slot").hidden = !slot;
   clearSlotBtn.hidden = !slot;
   navigate("edit");
@@ -459,6 +465,7 @@ function commitEdit() {
     ...(Number.isFinite(station.lat) ? { lat: station.lat, lon: station.lon } : {}),
     ...(station.city ? { city: station.city } : {}),
     ...(v && v !== station.name ? { label: v } : {}),
+    ...(byId("edit-full").checked ? { full: true } : {}),
   };
   app.pendingStation = null;
   saveSlots();
@@ -520,6 +527,8 @@ function renderSuggestions(stops) {
       byId("edit-current").textContent = s.name;
       byId("label-row").hidden = false;
       byId("labelinput").value = "";
+      byId("full-row").hidden = false;
+      byId("edit-full").checked = false;
       byId("btn-save-slot").hidden = false;
       setTimeout(() => byId("labelinput").focus(), 50);
     });
@@ -743,13 +752,30 @@ const depOf = x => { const tls = transitLegs(x); return tls.length ? +new Date(t
    das Fenster doch wieder aus. `maxItineraries` ist nur ein Sicherheitsnetz für
    sehr dichte Takte; wird dabei abgeschnitten, macht der Cursor an derselben
    Stelle weiter, es entsteht keine Lücke. */
-/* Fenster der ERSTEN Anfrage. Sechs Stunden, nicht drei: Auf dünnen Strecken
-   war der Einstieg zu mager — Hamburg → Berlin begann mit vier Verbindungen,
-   Regensburg → Nürnberg mit sieben. Gemessen bringen sechs Stunden dort 7 bzw.
-   15 Verbindungen für 29 bzw. 126 KB. In der Stadt ändert sich dadurch fast
-   nichts, weil dort der Deckel `PAGE_MAX` bindet und nicht die Zeit (München
-   Hbf → Ost: 56 Treffer bei drei Stunden, Deckel bei 60). */
-const PAGE_WINDOW = 6 * 3600;
+/* Fenster der ERSTEN Anfrage. NEUN Stunden, nicht sechs — und der Grund dafür
+   ist, dass „Jetzt“ seit v1.56.0 keinen Kontext mehr rückwärts holt (siehe
+   `loadContext`). Die dort gesparte Anfrage geht in ZUKUNFT, und zwar ohne eine
+   weitere Anfrage: Ein breiteres Fenster ist derselbe Aufruf.
+
+   Neun ist gemessen die Kante, an der es kippt. An fünf Strecken, je 6/9/12 h,
+   nachts und im Berufsverkehr — Treffer der ersten Anfrage:
+
+     München Hbf → Ost      60 / 60 / 60     Deckel bindet ab 6 h
+     Nürnberg → Fürth       53 / 60 / 60     Deckel bindet ab 9 h
+     Regensburg → Nürnberg  13 / 19 / 24
+     Hamburg → Berlin        7 / 10 / 15
+     Nürnberg → Bayreuth    16 / 23 / 33
+
+   Wo der Deckel bindet, ist ab neun Stunden nichts mehr zu holen — dieselben
+   60 Treffer, dieselben 392 KB, nur längere Rechenzeit (München 908 → 1028 →
+   1393 ms). Zwölf Stunden bezahlen also auf den dichten Strecken +36 % Wartezeit
+   für exakt null zusätzliche Verbindungen. Auf den dünnen bringen sie etwas,
+   aber dort steigen auch Bytes und Zeit überproportional (Bayreuth 154 → 222 KB,
+   334 → 472 ms). Neun nimmt fast den ganzen Nutzen zu einem Drittel der Kosten.
+
+   In der Stadt ändert sich weiterhin fast nichts — dort bindet `PAGE_MAX` und
+   nicht die Zeit. */
+const PAGE_WINDOW = 9 * 3600;
 const PAGE_MAX = 60;            // Obergrenze je Anfrage
 
 /* Geblättert wird über ein ZEITFENSTER, dessen Breite sich der Strecke anpasst.
@@ -877,7 +903,7 @@ function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAG
   return params;
 }
 
-async function fetchPage(direction, limit = PAGE_MAX) {
+async function fetchPage(direction, limit = PAGE_MAX, fensterFest = null) {
   const myTag = app.searchTag;
   const signal = app.planAbort?.signal;
   const frisch = direction !== "later" && direction !== "earlier";
@@ -886,10 +912,16 @@ async function fetchPage(direction, limit = PAGE_MAX) {
      abgedeckten Bereich holen. Ein ausdrücklicher Zeitpunkt schaltet dabei
      `arriveBy` ab (siehe planParams) — und das ist richtig so: Die Frage
      „was fährt ab hier?“ ist beim Blättern auch dann die richtige, wenn die
-     Suche selbst eine Ankunftssuche war. */
-  const fenster = frisch ? PAGE_WINDOW
+     Suche selbst eine Ankunftssuche war.
+
+     `fensterFest` ist der Ausweg für Runden, die kein Blättern sind, sondern
+     ein enges Stück Kontext holen (siehe `loadContext`). Ohne das erbten sie
+     das dichteabhängige Blätterfenster von bis zu zwölf Stunden — und weil der
+     Router im Fenster ein PRÄFIX liefert, kamen die frühesten daraus zurück
+     statt der nächstgelegenen. */
+  const fenster = fensterFest || (frisch ? PAGE_WINDOW
     : direction === "later" ? (app.winLater || PAGE_WIN_MIN)
-    : (app.winEarlier || PAGE_WIN_MIN);
+    : (app.winEarlier || PAGE_WIN_MIN));
   const von = frisch ? null
     : direction === "later" ? app.spanTo
     : app.spanFrom - fenster * 1000;
@@ -962,7 +994,11 @@ async function fetchPage(direction, limit = PAGE_MAX) {
          VORDERE Teil des Fensters, der Rest dahinter wäre ein Loch. Das
          schmalere Fenster aus `nextWindow` holt ihn beim nächsten Schritt. */
       if (!voll) app.spanFrom = von;
-      app.winEarlier = nextWindow(fenster, roh.length);
+      /* Eine Kontextrunde mit festem Fenster darf die Blätterbreite NICHT
+         verstellen — sie sagt nichts über die Dichte der Strecke aus, sondern
+         nur über eine einzelne Stunde. Dieselbe Regel wie beim Nachfüllen über
+         die Legende: ein Seitenweg, kein Blättern. */
+      if (!fensterFest) app.winEarlier = nextWindow(fenster, roh.length);
     } else if (direction === "later") {
       app.itins = app.itins.concat(add);
       app.endLater = amEnde;
@@ -1095,6 +1131,15 @@ async function refillLoadedRange(modes = null, runden = 4, nurImFenster = false)
   return added;
 }
 
+/* Ob vollständig gesucht wird, hängt an den beiden beteiligten KACHELN, nicht
+   an einer globalen Einstellung: Nötig sind die Zusatzanfragen dort, wo sich
+   Linien gegenseitig verdrängen (Stammstrecke, Knotenbahnhof) — an einem
+   Landhalt sind sie reine Wartezeit. Eine der beiden Kacheln genügt, denn die
+   dichte Seite verursacht die Lücke, egal ob sie Start oder Ziel ist. */
+function wantsFullSearch() {
+  return !!(app.search?.from?.full || app.search?.to?.full);
+}
+
 /* Vollständig suchen: EINE Anfrage je sichtbarer Kategorie statt einer
    ungefilterten.
 
@@ -1155,20 +1200,42 @@ async function loadAllCategories() {
    Spalten braucht es eben sechs Verbindungen danach, nicht vier. */
 /* Wie viele Spalten sollen VOR der gesuchten Verbindung stehen? Eine reicht,
    damit sie nicht am linken Rand klebt — geholt werden zwei, weil eine davon
-   ausgeblendet sein kann. */
+   ausgeblendet sein kann. Die Zahl zählt nur noch, OB die Runde nötig ist;
+   wie viel sie holt, bestimmt `CONTEXT_WINDOW`. */
 const CONTEXT_BEFORE = 2;
+/* Wie weit reicht diese Runde zurück? Eine Stunde. Sie soll die Spalte direkt
+   vor der gesuchten Verbindung beschaffen, nicht rückwärts blättern — dafür
+   gibt es die Geste nach links. Gilt nur für die Zeitwahl; „Jetzt“ holt hier
+   gar nichts mehr. */
+const CONTEXT_WINDOW = 3600;
 
 async function loadContext() {
   if (!app.itins.length) return;
 
   const need = Math.max(2, Math.min(7, settings.cols || 3) - 1);
 
-  /* „Jetzt“ hat keine gesuchte Verbindung, um die herum sich zählen ließe: Der
-     Pool beginnt bei JETZT, davor liegt nichts. Dort bleibt es beim Holen. */
-  if (!hasFocus()) {
-    if (!app.endEarlier) await fetchPage("earlier", CONTEXT_BEFORE);
-    return;
-  }
+  /* „JETZT“ HOLT KEINEN KONTEXT RÜCKWÄRTS. Die Frage lautet „wann komme ich
+     weg“ — eine Verbindung, die schon abgefahren ist, beantwortet sie nicht.
+     In der Liste stand sie sogar OBEN, also dort, wo man zuerst hinsieht.
+
+     Bis v1.53.0 lief diese Runde über `app.prevPageCursor` und lieferte damit
+     tatsächlich die zwei Verbindungen unmittelbar davor. Mit dem Wegfall der
+     Cursor in v1.54.0 lief dieselbe Zeile unbemerkt auf die Zeitfenster-Logik
+     über — und die fragt `[spanFrom − winEarlier, spanFrom]` mit
+     `maxItineraries: 2` ab. Der Router liefert dabei ein PRÄFIX, also die zwei
+     FRÜHESTEN im Fenster. Gemessen Regensburg → Nürnberg um 03:23: Fenster
+     10 h, geholt wurden 17:48 und 18:45 — Verbindungen von vor neun Stunden,
+     und die standen dann als erste Spalte in der Grafik. Wie stark es auffiel,
+     hing an `winEarlier` und damit an der Dichte der Strecke: In der Stadt
+     steht das Fenster auf der Untergrenze und die Verschiebung blieb klein,
+     auf dünnen Strecken zog es auf zehn bis zwölf Stunden auf.
+
+     Der Weg nach hinten bleibt vollständig erhalten — er wird nur nicht mehr
+     von selbst gegangen: nach links wischen in der Grafik, „Frühere anzeigen“
+     in der Liste. Beides läuft dann als normaler Blätterschritt mit passendem
+     Fenster. Gespart wird eine von 2–4 Anfragen je Suche; sie steckt jetzt im
+     größeren `PAGE_WINDOW`, also in Zukunft statt in Vergangenheit. */
+  if (!hasFocus()) return;
 
   /* Den Fokus JETZT festlegen — VOR dem Nachladen. Sonst passiert genau das,
      was die Markierung immer wieder nach rechts rutschen ließ: Das Nachladen
@@ -1192,7 +1259,16 @@ async function loadContext() {
   const vorher = visibleItins();
   const fokus = vorher.find(it => itKey(it) === key);
   const ahead = fokus ? vorher.filter(it => depOf(it) < depOf(fokus)).length : 0;
-  if (!app.endEarlier && ahead < CONTEXT_BEFORE) await fetchPage("earlier", CONTEXT_BEFORE);
+  /* EINE Stunde, und mit vollem Deckel statt `CONTEXT_BEFORE` als Limit.
+     Beides gehört zusammen und behebt hier denselben Fehler, den „Jetzt“ oben
+     ganz losgeworden ist: Mit dem geerbten Blätterfenster (3–12 h) und einem
+     Limit von 2 lieferte der Router die zwei FRÜHESTEN aus dem Fenster — bei
+     „ab 14:00“ also Verbindungen vom Vormittag statt der Spalte direkt davor.
+     Eine Stunde mit offenem Deckel liefert stattdessen genau das Stück vor dem
+     gewählten Zeitpunkt, lückenlos, und kostet dieselbe eine Anfrage. */
+  if (!app.endEarlier && ahead < CONTEXT_BEFORE) {
+    await fetchPage("earlier", PAGE_MAX, CONTEXT_WINDOW);
+  }
 
   /* Höchstens zwei Runden, und die zweite nur, wenn die erste nichts Sichtbares
      gebracht hat (etwa weil alles Nachgeladene ausgeblendet ist). Jede Runde
@@ -1458,7 +1534,7 @@ async function runPlan(direction = null, limit = PAGE_MAX) {
       await loadContext();
       /* Vollständig suchen: NACH dem Kontext, sonst würde die Fokusspalte auf
          einem unvollständigen Pool bestimmt und wanderte danach. */
-      if (settings.fullSearch) { await loadAllCategories(); return; }
+      if (wantsFullSearch()) { await loadAllCategories(); return; }
     }
     renderResults();
     if (!direction) maybeAutoFill();
@@ -1973,12 +2049,49 @@ function tripStripe(it) {
     .map(t => `<i class="${t.cls}" style="flex:${Math.max(1, t.ms)}"></i>`).join("") + `</span>`;
 }
 
+/* Beschriftung des Tagestrenners: „Samstag, 30. August“. Ausgeschrieben, weil
+   die Liste die volle Breite hat — die Grafik muss sich mit „SA / 30.8.“ auf
+   44 px begnügen. Der Formatierer steht AUSSERHALB der Funktion: Er wird je
+   Aufbau mehrfach gebraucht, und `Intl.DateTimeFormat` neu zu bauen ist teuer. */
+const LIST_DAY = new Intl.DateTimeFormat("de-DE", {
+  weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin",
+});
+
+function dayDivider(ms) {
+  const el = document.createElement("div");
+  el.className = "daysep";
+  el.setAttribute("role", "separator");
+  el.innerHTML = `<span class="daysep-tag">${escapeHtml(LIST_DAY.format(new Date(ms)))}</span>`;
+  return el;
+}
+
 function renderItineraries(itineraries) {
+  /* Tageswechsel in der Liste: Zwischen der letzten Verbindung eines Tages und
+     der ersten des nächsten steht eine Kachel mit Wochentag und Datum. In der
+     Grafik leistet das der Mitternachtsstrich neben der Kopf-Kachel; in der
+     Liste gab es dafür bisher nichts — man scrollte über Mitternacht hinweg,
+     ohne es zu bemerken, und las 00:14 als wäre es heute.
+
+     Zwei Regeln übernimmt der Trenner unverändert von der Grafik, beide teuer
+     gelernt (siehe `tlBuild`):
+     · **Verglichen wird die SOLL-Abfahrt**, dieselbe Zahl, die in der Zeile
+       steht. Mit der Ist-Zeit zählte eine für 23:59 geplante, über Mitternacht
+       verspätete Verbindung als nächster Tag — der Trenner stünde dann ÜBER
+       23:59, obwohl das noch heute ist.
+     · **Der Tagesschlüssel kommt aus `tlTagKey`**, also in Europe/Berlin.
+       `toDateString()` nähme die Zeitzone des Geräts, und für jemanden im
+       Ausland kippte das Datum woanders. */
+  let letzterTag = null;
   for (const it of itineraries) {
     const legs = transitLegs(it);
     if (!legs.length) continue; // reine Fußwege ausblenden
     const first = legs[0], last = legs[legs.length - 1];
     const dep = first.from, arr = last.to;
+
+    const sollAb = +new Date(dep.scheduledDeparture || dep.departure);
+    const tag = tlTagKey(sollAb);
+    if (letzterTag !== null && tag !== letzterTag) resultsList.appendChild(dayDivider(sollAb));
+    letzterTag = tag;
     const flagged = cancelledTransitLegs(it);
     const cancelled = flagged.size > 0;
     const delayMin = diffMin(dep.scheduledDeparture, dep.departure);
@@ -2632,6 +2745,11 @@ function escapeHtml(s) {
 /* ---------------- Start ---------------- */
 
 // Hilfe liegt in den Einstellungen; der Dialog legt sich über den offenen ⚙-Dialog
+byId("btn-install").addEventListener("click", () => byId("install-dialog").showModal());
+/* In der APK ist die Zeile kein Installationsweg mehr, sondern der EINZIGE
+   Update-Weg: Eine sideloadete App bekommt von niemandem gesagt, dass es etwas
+   Neues gibt. Deshalb sagt der Untertitel dort etwas anderes. */
+if (PP.native) byId("install-sub").textContent = "Neue Version prüfen – die App aktualisiert sich nicht selbst";
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
 byId("btn-legal").addEventListener("click", () => byId("legal-dialog").showModal());
 
@@ -2664,7 +2782,6 @@ byId("btn-settings").addEventListener("click", () => {
   });
   refreshTileOpts();
   renderColsControl();
-  byId("set-full").checked = !!settings.fullSearch;
   byId("set-fitbottom").checked = !!settings.fitBottom;
   byId("set-fill").value = settings.fill;
   byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
@@ -2719,13 +2836,6 @@ byId("set-xfer").addEventListener("input", (e) => {
   byId("set-xfer-val").textContent = XFER_LEVELS[settings.xferLevel].label;
 });
 byId("set-xfer").addEventListener("change", applySearchSetting);
-
-/* Testschalter: derselbe Weg wie beim Höhen-Regler — die Einstellung steuert
-   genau den Automatismus, den `forceAutoZoom` zurückholt. */
-byId("set-full").addEventListener("change", (e) => {
-  settings.fullSearch = e.target.checked;
-  saveSettings();
-});
 
 byId("btn-full").addEventListener("click", () => loadAllCategories());
 
@@ -2783,8 +2893,12 @@ byId("settings-dialog").addEventListener("close", () => {
 });
 
 /* Kachel-Anzahl: Standard sind 14 (7×2, passt ohne Scrollen). „Mehr als 14“
-   schaltet frei — dann gerade Anzahl bis 40 plus Wahl des Verbinde-Modus.
-   Verkleinern kann nie belegte Kacheln löschen. */
+   schaltet frei — dann 15 bis 40 plus Wahl des Verbinde-Modus.
+   Verkleinern kann nie belegte Kacheln löschen.
+   Früher wurde auf gerade Zahlen aufgerundet, damit die letzte Reihe im
+   zweispaltigen Raster voll ist. Das ist kein Grund, eine Zahl zu verweigern:
+   Ab 480 px sind es ohnehin drei Spalten, dort war „gerade“ genauso oft
+   krumm — und eine halb leere letzte Reihe stört niemanden. */
 function lastUsedIndex() {
   let last = -1;
   slots.forEach((s, i) => { if (s) last = i; });
@@ -2794,7 +2908,6 @@ function lastUsedIndex() {
 function setSlotCount(n) {
   n = Math.max(BASE_SLOTS, Math.min(MAX_SLOTS, Math.round(n)));
   n = Math.max(n, lastUsedIndex() + 1);
-  if (n > BASE_SLOTS && n % 2) n += 1; // gerade halten
   while (slots.length < n) slots.push(null);
   slots.length = n;
   saveSlots();
@@ -2805,7 +2918,7 @@ function refreshTileOpts() {
   const more = slots.length > BASE_SLOTS;
   byId("set-more").checked = more;
   byId("more-tiles-opts").hidden = !more;
-  byId("set-count").value = Math.max(16, slots.length);
+  byId("set-count").value = Math.max(BASE_SLOTS + 1, slots.length);
   const mode = settings.connectMode === "tap" ? "tap" : "hybrid";
   byId("set-connect").dataset.idx = mode === "tap" ? 1 : 0;
   byId("set-connect").querySelectorAll("button").forEach(b =>
@@ -2814,7 +2927,7 @@ function refreshTileOpts() {
 
 byId("set-more").addEventListener("change", () => {
   if (byId("set-more").checked) {
-    setSlotCount(16);
+    setSlotCount(BASE_SLOTS + 2); // eine volle Reihe mehr als der Standard
   } else {
     if (lastUsedIndex() >= BASE_SLOTS) {
       alert("Es sind Kacheln jenseits von Nr. 14 belegt – bitte erst leeren oder verschieben.");
@@ -2827,7 +2940,7 @@ byId("set-more").addEventListener("change", () => {
 });
 
 byId("set-count").addEventListener("change", () => {
-  setSlotCount(Number(byId("set-count").value) || 16);
+  setSlotCount(Number(byId("set-count").value) || BASE_SLOTS + 1);
   refreshTileOpts();
 });
 

@@ -43,6 +43,24 @@ Zu entscheiden ist nur, welche:
 
 Begründung ausführlich in `Notizen/haftung.md`.
 
+## Nachladen mitten in der Bewegung
+
+Gemeldet: Beim Zurückscrollen lädt es nach, und danach steht die Ansicht anders da
+als vorher. Der Anker selbst ist in Ordnung (Schlüssel + Zeit, wird bei jedem Aufbau
+gesetzt) — der Verdacht liegt auf dem Zusammentreffen: `renderTimeline` beginnt mit
+`tlStop()`, und das bricht eine laufende `tlGlideTo`-Bewegung mittendrin ab. Lief
+dabei eine Zoomänderung mit, bleibt der Maßstab auf dem interpolierten Zwischenwert
+stehen — `tl.lastZoomIdx` wird im Anker-Zweig auf die Ankerspalte nachgezogen, also
+sieht `tlAlign` danach keinen Grund mehr, den Zoom zu Ende zu führen.
+
+Dass das jetzt auffällt, passt zu v1.54.0: Der Vorlauf für das Vorausladen ging von
+einer Spalte auf eine ganze Bildschirmbreite, das Nachladen trifft die Ansicht also
+regelmäßig in Bewegung statt im Ruhezustand.
+
+Vorschlag: `tlGlideTo` sein Ziel (`ppm`, `topTime`) hinterlegen lassen und den Anker
+beim Nachladen daraus bilden, statt den Zwischenstand einzufrieren. Vorher auf einem
+Gerät nachstellen — bisher ist es Code-Analyse, keine Messung.
+
 ## Kleineres
 
 - **Exakten DB-Link auf einem echten Gerät prüfen.** Die vbid-Kette ist gegen
