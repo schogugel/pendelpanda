@@ -19,7 +19,14 @@
 <main id="view-grid" class="view">
   <div class="pagehead">
     <h2 class="pagetitle">Abfahrtstafel</h2>
-    <button id="btn-settings" class="iconbtn" aria-label="Einstellungen" title="Einstellungen">⚙</button>
+    <!-- Gezeichnetes Zahnrad statt des ⚙-Zeichens: Das Zeichen sieht je nach
+         Schriftart anders aus (auf manchen Androids ein dünner Ring) und lässt
+         sich nicht einfärben, ohne die Emoji-Darstellung zu erwischen. Die
+         Fläche folgt `currentColor` — deshalb genügt für den Update-Hinweis
+         eine Klasse am Knopf. -->
+    <button id="btn-settings" class="iconbtn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M9.92 3.66L10.15 0.95L13.85 0.95L14.08 3.66A8.6 8.6 0 0 1 16.43 4.63L18.5 2.88L21.12 5.5L19.37 7.57A8.6 8.6 0 0 1 20.34 9.92L23.05 10.15L23.05 13.85L20.34 14.08A8.6 8.6 0 0 1 19.37 16.43L21.12 18.5L18.5 21.12L16.43 19.37A8.6 8.6 0 0 1 14.08 20.34L13.85 23.05L10.15 23.05L9.92 20.34A8.6 8.6 0 0 1 7.57 19.37L5.5 21.12L2.88 18.5L4.63 16.43A8.6 8.6 0 0 1 3.66 14.08L0.95 13.85L0.95 10.15L3.66 9.92A8.6 8.6 0 0 1 4.63 7.57L2.88 5.5L5.5 2.88L7.57 4.63A8.6 8.6 0 0 1 9.92 3.66ZM15.5 12.0A3.5 3.5 0 1 0 8.5 12.0A3.5 3.5 0 1 0 15.5 12.0Z"/></svg>
+    </button>
   </div>
   <div class="gridtools">
     <p class="hint" id="grid-hint">Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.</p>
@@ -145,6 +152,14 @@
 <!-- EINSTELLUNGEN -->
 <dialog id="settings-dialog">
   <h2>Einstellungen</h2>
+  <!-- Nur in der APK und nur, wenn GitHub eine höhere Version meldet (app.js).
+       Die Web-App braucht das nicht: Sie lädt bei jedem Start neu. -->
+  <a id="update-note" class="updatenote" hidden
+     href="https://github.com/schogugel/pendelpanda/releases/latest"
+     target="_blank" rel="noopener">
+    <span>Neue Version verfügbar<small id="update-note-sub"></small></span>
+    <span class="menurow-arrow">›</span>
+  </a>
 
   <!-- Reihenfolge: erst WAS gesucht wird, dann WIE es aussieht, dann Wartung.
        Umsteigen und „Letzte Verbindung“ sind Unterpunkte der Suche, nicht
@@ -265,10 +280,12 @@
     </div>
   </section>
 
-  <section class="setgroup">
+  <!-- In der APK verborgen (app.js): Wer die App installiert hat, braucht keine
+       Anleitung zum Installieren. Sie steht deshalb nur im Web-Build. -->
+  <section class="setgroup" id="install-group">
     <h3>App installieren</h3>
     <button id="btn-install" class="menurow">
-      <span>PendelPanda aufs Gerät<small id="install-sub">Android-APK oder zum Startbildschirm hinzufügen</small></span>
+      <span>PendelPanda aufs Gerät<small>Android-APK oder zum Startbildschirm hinzufügen</small></span>
       <span class="menurow-arrow">›</span>
     </button>
   </section>

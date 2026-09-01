@@ -125,7 +125,13 @@ body[data-view="grid"].fitgrid .stationbtn {
 /* Zweier-Variante des Schiebeschalters */
 .seg3.seg2 { --n: 2; }
 .seg3.seg5 { --n: 5; width: 11.5rem; }
-#btn-settings { font-size: 1.3rem; }
+#btn-settings { display: grid; place-items: center; }
+#btn-settings svg { width: 22px; height: 22px; fill: currentColor; }
+/* Update verfügbar (nur APK): Das Zahnrad wechselt von der Textfarbe auf den
+   Akzent. Bewusst nur die Fläche, kein Punkt und kein zweiter Rahmen — die
+   Kopfzeile hat genau ein Symbol, ein Farbwechsel daran ist nicht zu übersehen
+   und kostet keinen Platz. */
+#btn-settings.hasupdate { color: var(--accent); }
 body[data-view="results"] #view-results { padding-top: .7rem; }
 
 /* Die Grafikansicht füllt den Bildschirm und scrollt NICHT — gescrollt wird
@@ -1288,6 +1294,18 @@ dialog form { margin-top: 1rem; }
      Zeile eine Unterstreichung quer durch beide Textzeilen. */
   text-decoration: none;
 }
+/* Update-Hinweis oben in den Einstellungen (nur APK). In Akzentfarbe und ganz
+   oben, weil er nach dem Ausblenden von „App installieren“ der einzige Weg ist,
+   von einer neuen Fassung zu erfahren. */
+.updatenote {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  margin: 0 0 1rem; padding: .7rem .8rem;
+  border: 1.5px solid var(--accent); border-radius: 8px;
+  background: var(--accent-soft); color: var(--text);
+  font: inherit; font-weight: 700; text-decoration: none;
+}
+.updatenote small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: .15rem; }
+.updatenote .menurow-arrow { color: var(--accent); }
 .menurow small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: .15rem; }
 .menurow-arrow { color: var(--muted); font-size: 1.3rem; line-height: 1; }
 /* Der Dialog war eine lange Liste ohne Gliederung — man musste jedes Mal

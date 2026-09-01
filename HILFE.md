@@ -255,6 +255,12 @@ dann die Startseite, dann Wartung.
   - **Nur Tippen** — Wischen scrollt immer, verbunden wird nur durch Antippen. Zwei
     Tipper für jede Strecke, dafür ohne Sonderfall.
 
+**Update-Hinweis (nur Android-App)**
+- Gibt es eine neuere APK, wird das **Zahnrad oben rechts orange** und in den
+  Einstellungen steht ganz oben ein Hinweis mit Link zur Download-Seite. Die
+  Web-Version braucht das nicht — sie lädt bei jedem Start die aktuelle Fassung,
+  auch wenn sie auf dem Startbildschirm liegt.
+
 **App installieren**
 - **PendelPanda aufs Gerät** — erklärt die zwei Wege: die Android-APK (Link zu den
   GitHub-Releases) und „Zum Startbildschirm hinzufügen“, das auf jedem Gerät geht.

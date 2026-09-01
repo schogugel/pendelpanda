@@ -1119,7 +1119,7 @@ function tlColumn(it, left, isDominated = false, tagWechsel = false) {
      hängen die Balkenlage (`top`), die Zeitachse (`geoCol.ms0`) und das
      Einrasten. Wer hier die Variable tauscht, verschiebt die halbe Grafik. */
   head.innerHTML =
-    `<span class="tl-hl"><strong>${fmtTime(dep.scheduledDeparture || dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}${riskMark(risk)}</span>` +
+    `<span class="tl-hl"><strong>${fmtTime(dep.scheduledDeparture || dep.departure)}</strong> ${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin, legs[0].realTime)}${riskMark(risk)}</span>` +
     `<small>${fmtDur(it.duration)}</small>` +
     `<small><span class="u-long">${it.transfers} Umst.</span>` +
     `<span class="u-short">${it.transfers}×</span></small>`;

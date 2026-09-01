@@ -22,5 +22,8 @@ native/.env
 # Signaturschlüssel gehören in ein Backup, nicht in ein öffentliches Repo.
 *.keystore
 *.jks
-native/android/keystore.properties
+# Ohne Pfadangabe, also auf JEDER Ebene: Die Datei liegt in native/, der frühere
+# Eintrag zeigte auf native/android/ — ein Verzeichnis, das ohnehin schon komplett
+# ignoriert ist. Die echte Datei mit den Passwörtern war damit NICHT geschützt.
+keystore.properties
 TODO.md

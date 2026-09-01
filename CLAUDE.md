@@ -22,6 +22,24 @@ Die App hat eine sichtbare Versionsnummer — Quelle der Wahrheit ist
 - **Am Ende jeder Antwort die neue Versionsnummer nennen** — der Nutzer prüft damit
   im ⚙-Dialog, ob sein Gerät den aktuellen Stand hat.
 
+## Release-Disziplin (verbindlich)
+
+**Standard ist die Debug-APK.** `npm run apk:debug`, angehängt an die Antwort — das ist
+der Normalfall jeder Änderung und braucht keine Rückfrage.
+
+**Eine Release-APK und ein GitHub-Release entstehen NUR auf ausdrückliche Ansage des
+Nutzers.** Nicht „weil die Version fertig aussieht“, nicht „weil es sich anbietet“,
+nicht als letzter Schritt eines größeren Umbaus. Kein `npm run apk`, kein
+`gh release create`, kein Hochladen einer APK ohne diesen Satz.
+
+Warum so streng: Ein Release ist der einzige Schritt hier, der nach draußen geht und
+sich nicht zurücknehmen lässt. Wer die APK einmal geladen hat, hat sie; eine
+zurückgezogene Fassung bleibt installiert. Und jede veröffentlichte Version legt die
+Signatur fest, mit der ALLE künftigen Fassungen signiert sein müssen.
+
+Commit und Push nach `main` sind davon unberührt — sie folgen dem Arbeitsritual unten
+und aktualisieren nur die Web-App.
+
 ## Arbeitsritual (bei jeder Änderung)
 
 1. Code ändern → **`node tools/check.mjs`** (Pflicht, nicht optional).
@@ -85,13 +103,35 @@ die Hülle; `native/sync.mjs` kopiert per **Allowlist** in `native/www/`, danach
 `cap sync`. `www/`, `android/`, `node_modules/` sind Erzeugnisse und gitignored.
 
 **Wie die APK zu den Leuten kommt:** GitHub-Release-Anhang, verlinkt aus ⚙ → „App
-installieren“ (`#install-dialog`) auf `…/releases/latest` — die SEITE, nicht eine feste
+installieren“ (`#install-group`, **im nativen Build ausgeblendet** — eine
+Installationsanleitung in der installierten App ist Unsinn; Preis: die APK hat damit
+keinen Update-Hinweis mehr) auf `…/releases/latest` — die SEITE, nicht eine feste
 Datei: Ein Direktlink bricht still, sobald eine Fassung anders heißt, und die Seite nennt
 die Versionsnummer. Der Dialog erklärt beide Wege (APK vs. „Zum Startbildschirm“) und
 sagt, was der Browser-Weg NICHT kann: den exakten DB-Verbindungslink. In der APK trägt
 dieselbe Zeile einen anderen Untertitel — dort ist sie kein Installationsweg mehr,
 sondern der einzige Update-Weg (`PP.native`-Zweig, `install-sub`). Ablauf und
 Rechtsfrage: `native/README.md`, „Auf GitHub veröffentlichen“.
+
+**Update-Hinweis, nur nativ** (`checkForUpdate`, v1.61.0): Die APK fragt beim Start die
+GitHub-Releases-API nach `tag_name`, höchstens alle sechs Stunden (Ergebnis in
+`pp.update`, unangemeldet erlaubt GitHub 60 Anfragen/Stunde/IP). Ist der Tag höher als
+`APP_VERSION`, wird das Zahnrad orange (`#btn-settings.hasupdate`) und oben in ⚙ steht
+`#update-note` mit Link auf die Releases-Seite.
+- **Normales `fetch`, KEIN CapacitorHttp** — die Releases-API schickt
+  `Access-Control-Allow-Origin: *`. Der native Stack bleibt auf `dblink.js` beschränkt,
+  sonst verhielten sich Web- und App-Build verschieden.
+- **`versionNewer` vergleicht Stelle für Stelle**, nie als Zeichenkette: „1.9.0“ ist als
+  Text größer als „1.60.1“, als Version aber kleiner. Was sich nicht in Zahlen zerlegen
+  lässt, gilt als NICHT neuer — ein falscher Hinweis ist schlimmer als keiner.
+- **Web-Build macht nichts davon** und braucht es auch nicht: Der Service Worker geht
+  netz-zuerst, auch die zum Startbildschirm gelegte Fassung lädt bei jedem Start neu.
+- Der Hinweis verschwindet von selbst — nach dem Update ist der gecachte Tag nicht mehr
+  höher als `APP_VERSION`.
+- **Das Zahnrad ist gezeichnet** (Pfad in `index.html`), nicht das ⚙-Zeichen: Das Zeichen
+  sieht je nach Schriftart anders aus und lässt sich nicht einfärben, ohne die
+  Emoji-Darstellung zu erwischen. Die Fläche folgt `currentColor`, deshalb genügt für
+  den Update-Zustand eine Klasse am Knopf.
 
 **Warum die APK existiert:** Der exakte DB-Verbindungslink braucht eine `vbid`, deren
 Endpunkt keine CORS-Header schickt — keine Webseite darf ihn aufrufen, egal wo sie
@@ -963,6 +1003,14 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 - Kategorie-Palette ist dataviz-validiert (CVD-Checks). Ausfall-Segmente: schwarz-rot
   schräg gestreift, Label weiß auf schwarzem Chip — **weiße Segment-Schrift ist dem
   Ausfall vorbehalten** (Ausnahmen: fernbus/sonstige-Chips, dominierte Labels).
+
+- **Ein Verspätungs-Abzeichen nur MIT Echtzeitdaten** (`delayBadge(min, realTime)`,
+  v1.61.1). „+0“ ohne Rückmeldung behauptet Pünktlichkeit, die niemand kennt — bei einer
+  Fahrt in drei Tagen liefert Transitous nachgemessen für jedes Leg `realTime: false`,
+  und trotzdem stand überall ein grünes „+0“. `timeWithDelay` unterschied das bei den
+  Uhrzeiten von Anfang an (grau = Plan, grün = bestätigt), das Abzeichen zog nicht mit.
+  **Wer eine neue Stelle mit Verspätung baut, reicht `realTime` des ersten Legs mit** —
+  ohne den Parameter erscheint gar nichts, das ist Absicht.
 
 ## Grid & Kacheln
 

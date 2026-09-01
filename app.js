@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.60.0";
+const APP_VERSION = "1.61.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -2131,7 +2131,7 @@ function renderItineraries(itineraries) {
           `${track ? ` <span class="trip-track">${track}</span>` : ""}</span>` +
       `</span>` +
       `<span class="trip-side">` +
-        `${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin)}` +
+        `${cancelled ? `<span class="cancelled-label">Fällt aus</span>` : delayBadge(delayMin, first.realTime)}` +
         `${risk ? riskMark(risk) : ""}` +
         `<span class="trip-more" aria-hidden="true">›</span>` +
       `</span>` +
@@ -2718,7 +2718,15 @@ function diffMin(scheduledIso, actualIso) {
   return Math.round((new Date(actualIso) - new Date(scheduledIso)) / 60000);
 }
 function delayText(min) { return (min >= 0 ? "+" : "") + min; }
-function delayBadge(min) {
+/* OHNE Echtzeitdaten kein Abzeichen. „+0“ hieße dort „bestätigt pünktlich“,
+   gemeint ist aber nur „nichts Gegenteiliges bekannt“ — bei einer Fahrt in drei
+   Tagen weiß niemand, ob sie pünktlich wird (nachgemessen: Transitous liefert
+   dafür durchweg `realTime: false`). `timeWithDelay` macht genau diesen
+   Unterschied bei den Uhrzeiten seit jeher; das Abzeichen zog nicht mit und
+   behauptete Pünktlichkeit für jede Verbindung ohne Rückmeldung.
+   Die Farbstufen bleiben, wie sie sind. */
+function delayBadge(min, realTime) {
+  if (!realTime) return "";
   const cls = min <= 0 ? "ok" : min < 6 ? "warn" : "bad";
   return `<span class="delay ${cls}">${delayText(min)}</span>`;
 }
@@ -2746,10 +2754,76 @@ function escapeHtml(s) {
 
 // Hilfe liegt in den Einstellungen; der Dialog legt sich über den offenen ⚙-Dialog
 byId("btn-install").addEventListener("click", () => byId("install-dialog").showModal());
-/* In der APK ist die Zeile kein Installationsweg mehr, sondern der EINZIGE
-   Update-Weg: Eine sideloadete App bekommt von niemandem gesagt, dass es etwas
-   Neues gibt. Deshalb sagt der Untertitel dort etwas anderes. */
-if (PP.native) byId("install-sub").textContent = "Neue Version prüfen – die App aktualisiert sich nicht selbst";
+
+/* ---------------- Update-Prüfung (nur APK) ----------------
+   Die Web-App braucht das nicht: Sie holt bei jedem Start neu, auch die zum
+   Startbildschirm gelegte Fassung — der Service Worker geht netz-zuerst. Eine
+   sideloadete APK dagegen erfährt von niemandem, dass es etwas Neues gibt: kein
+   Store, kein Updater, und seit v1.60.1 auch kein „App installieren“ mehr im
+   Menü. Deshalb fragt sie selbst bei GitHub nach.
+
+   Die Releases-API schickt `Access-Control-Allow-Origin: *`, ein normales
+   `fetch` genügt also — KEIN CapacitorHttp. Der native Stack bleibt bewusst auf
+   dblink.js beschränkt, sonst verhielten sich Web- und App-Build verschieden.
+
+   Höchstens alle sechs Stunden eine Anfrage: Unangemeldet erlaubt GitHub 60 je
+   Stunde und IP, und öfter als ein paar Mal am Tag erscheint ohnehin nichts. */
+const RELEASES_PAGE = "https://github.com/schogugel/pendelpanda/releases/latest";
+const RELEASES_API = "https://api.github.com/repos/schogugel/pendelpanda/releases/latest";
+const UPDATE_KEY = "pp.update";
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+
+/* Vergleich Stelle für Stelle, nicht als Zeichenkette: „1.9.0“ ist als Text
+   größer als „1.60.1“, als Version aber kleiner. Was sich nicht in Zahlen
+   zerlegen lässt, gilt als NICHT neuer — ein falscher Hinweis wäre schlimmer
+   als keiner. */
+function versionNewer(kandidat, basis) {
+  const teile = v => String(v).trim().replace(/^v/i, "").split(".").map(x => parseInt(x, 10));
+  const a = teile(kandidat), b = teile(basis);
+  if (a.some(Number.isNaN) || !a.length) return false;
+  for (let i = 0; i < 3; i++) {
+    const x = a[i] || 0, y = b[i] || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
+function showUpdate(tag) {
+  if (!versionNewer(tag, APP_VERSION)) return;
+  const nr = String(tag).trim().replace(/^v/i, "");
+  byId("btn-settings").classList.add("hasupdate");
+  byId("update-note-sub").textContent =
+    `Version ${nr} steht bereit – du hast ${APP_VERSION}. Antippen öffnet die Download-Seite.`;
+  byId("update-note").hidden = false;
+}
+
+async function checkForUpdate() {
+  if (!PP.native) return;
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem(UPDATE_KEY) || "null"); } catch { /* egal */ }
+  if (cache && cache.tag) showUpdate(cache.tag);          // sofort, ohne aufs Netz zu warten
+  if (cache && Date.now() - cache.at < UPDATE_EVERY) return;
+  try {
+    const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) return;
+    const tag = String((await res.json()).tag_name || "").trim();
+    if (!tag) return;
+    localStorage.setItem(UPDATE_KEY, JSON.stringify({ at: Date.now(), tag }));
+    showUpdate(tag);
+  } catch { /* offline oder GitHub streikt — dann eben kein Hinweis */ }
+}
+
+/* Nativ fängt platform.js Klicks auf http(s)-Links ab und schickt sie per Intent
+   nach draußen. Der Hinweis ist ein <a> und läuft damit ohne Zutun richtig; die
+   Adresse steht trotzdem hier, damit sie nur an EINER Stelle gepflegt wird. */
+byId("update-note").href = RELEASES_PAGE;
+/* In der APK ganz weg: Eine Anleitung zum Installieren zu zeigen, während man
+   in der installierten App sitzt, ist Unsinn. Preis dieser Entscheidung: Die
+   sideloadete App hat damit KEINEN Hinweis mehr auf neue Fassungen — sie
+   aktualisiert sich nicht selbst, und niemand sagt ihr Bescheid. Wenn das
+   wehtut, ist der Weg zurück eine eigene Zeile „Nach Updates suchen“, nicht
+   diese hier. */
+if (PP.native) byId("install-group").hidden = true;
 byId("btn-help").addEventListener("click", () => byId("help-dialog").showModal());
 byId("btn-legal").addEventListener("click", () => byId("legal-dialog").showModal());
 
@@ -2967,6 +3041,7 @@ maybeImportConfig();
 if (location.hash) history.replaceState(null, "", location.pathname + location.search);
 renderGrid();
 showView("grid");
+checkForUpdate();
 
 /* Selbstheilung gegen veraltete Stände: aktiv nach Updates suchen (beim Start
    und stündlich) und einmalig neu laden, sobald ein neuer Service Worker

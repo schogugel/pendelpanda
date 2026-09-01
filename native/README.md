@@ -99,6 +99,17 @@ Ohne `keystore.properties` läuft der Build zwar durch, die APK ist dann aber
 **unsigniert und nicht installierbar** — das ist der Normalzustand eines frischen
 Capacitor-Projekts, kein Fehler in diesem Repo.
 
+### 3b. Signatur gegenprüfen
+
+Eine falsch signierte APK merkt man sonst erst auf dem Telefon:
+
+    ~/Android/Sdk/build-tools/36.0.0/apksigner verify --print-certs \
+      android/app/build/outputs/apk/release/pendelpanda-<version>-release.apk
+
+Erwartet: „Verifies“ plus der SHA-256-Fingerabdruck deines Schlüssels. **Dieser
+Fingerabdruck muss bei jedem künftigen Release derselbe sein** — er ist die Identität
+der App gegenüber Android.
+
 ### 4. Auf GitHub veröffentlichen
 
 Die APK gehört als **Release-Anhang** ins Repo, nicht ins Repo selbst — Binärdateien
@@ -107,6 +118,10 @@ im Verzeichnisbaum blähen jeden Klon auf, ein Release-Asset lädt nur, wer es w
     gh release create v<version> \
       android/app/build/outputs/apk/release/pendelpanda-<version>-release.apk \
       --title "PendelPanda <version>" --notes "Was neu ist …"
+
+Ohne `gh` geht es genauso über die Weboberfläche: **Releases → Draft a new release**,
+Tag `v<version>` anlegen, Titel setzen, die APK ins Anhang-Feld ziehen, veröffentlichen.
+Für das erste Release der bequemere Weg — es ist nichts zu installieren.
 
 Der ⚙-Dialog „App installieren“ zeigt auf
 `https://github.com/schogugel/pendelpanda/releases/latest` — die Seite, nicht eine
