@@ -3,13 +3,13 @@
   "appName": "PendelPanda",
   "webDir": "www",
   "android": {
-    "backgroundColor": "#0a0e18",
+    "backgroundColor": "#0d0d0c",
     "allowMixedContent": false,
-    "appendUserAgent": "PendelPanda/1.61.1 (+https://schogugel.github.io/pendelpanda/)"
+    "appendUserAgent": "PendelPanda/1.71.0 (+https://schogugel.github.io/pendelpanda/)"
   },
   "plugins": {
     "StatusBar": {
-      "backgroundColor": "#0a0e18",
+      "backgroundColor": "#0d0d0c",
       "style": "DARK",
       "overlaysWebView": false
     }

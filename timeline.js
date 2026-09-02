@@ -45,8 +45,34 @@ const tl = {
   tickStepFest: null, // Linienraster während der Bewegung eingefroren
   manualZoom: false,  // hat der Nutzer selbst gezoomt? dann nicht überschreiben
   forceAutoZoom: false, // einmalig zurück auf automatisch (Legende, Einstellung)
+  forceRealign: false,  // einmalig komplett neu ausrichten statt die Position zu halten
+  alignKey: null,     // Verbindung, die bei der letzten AUTOMATISCHEN Ausrichtung links stand
   keepAnchor: null,   // vorab gesicherte Position, wenn die Grafik zwischendurch geleert wird
 };
+
+/* Steht die Ansicht noch da, wo die automatische Ausrichtung sie zuletzt
+   hingestellt hat?
+
+   Braucht es beim Einblenden eines Verkehrsmittels: Dabei kommen Verbindungen
+   dazu, die MITTEN oder VOR der aktuellen Spalte einsortiert werden — im
+   „Jetzt“-Modus womöglich eine, die jetzt die erste noch erreichbare ist. Die
+   Ansicht muss dann neu ausrichten, sonst versteckt sich genau diese Verbindung
+   links außerhalb des Bildes. Wer sich aber bewusst woanders hingescrollt hat
+   (morgen früh, eine Stunde später), darf NICHT weggerissen werden.
+
+   Gemessen wird über den SCHLÜSSEL der linkesten Spalte, nicht über Pixel: Beim
+   Nachladen verschieben sich alle Pixelwerte, die Verbindung bleibt dieselbe.
+   Ohne bekannte Ausrichtung (frische Suche) gilt „ja“ — dann gibt es nichts,
+   was der Nutzer selbst gewählt hätte. */
+function tlAtAlign() {
+  const sc = byId("timeline");
+  // In der Liste gibt es keine Spalten — dort hat niemand etwas verschoben,
+  // und beim Umschalten in die Grafik soll die Ausrichtung frisch greifen.
+  if (app.viewMode !== "graph") return true;
+  if (!sc || !tl.itins.length || !tl.alignKey) return true;
+  const it = tl.itins[Math.max(0, colIndexFor(sc.scrollLeft))];
+  return !!it && itKey(it) === tl.alignKey;
+}
 
 /* Wo steht die Ansicht GERADE? Muss abrufbar sein, BEVOR jemand die Grafik
    leert: Das Einblenden eines Verkehrsmittels lädt nach und zeigt dabei den
@@ -415,6 +441,17 @@ function renderTimeline(itins, focus = "start") {
      war, aber senkrecht greift wieder die automatische Ausrichtung.
      Muss VOR dem Zoom-Block gemerkt werden, der das Flag zurücksetzt. */
   const wantAutoY = tl.forceAutoZoom;
+  /* Neu ausrichten statt festhalten: Wurde ein Verkehrsmittel eingeblendet und
+     stand die Ansicht dabei noch an ihrer automatisch gesetzten Stelle, sollen
+     dieselben Routinen wie bei „Jetzt“/„Letzte“ noch einmal laufen — mit den
+     frisch geladenen Daten. Der Anker würde das verhindern: Er hält die alte
+     Spalte fest, und eine neu dazugekommene frühere Verbindung landet links
+     außerhalb des Bildes. Ob die Ansicht überhaupt noch dort steht, entscheidet
+     `tlAtAlign()` schon beim Auslösen — hier ist die Grafik womöglich längst
+     geleert. */
+  const wantRealign = tl.forceRealign;
+  tl.forceRealign = false;
+  if (wantRealign) anchor = null;
 
   tl.itins = itins.filter(it => transitLegs(it).length);
   if (!tl.itins.length) { scroller.innerHTML = `<p class="status">Keine Verbindungen.</p>`; return; }
@@ -593,6 +630,15 @@ function renderTimeline(itins, focus = "start") {
     // Verbindung; vertikal gilt dieselbe Docking-Regel wie beim Einrasten
     scroller.scrollLeft = colScrollLeft(startIdx);
     scroller.scrollTop = tlAlignTopFor(startIdx, scroller);
+  }
+  /* Merken, welche Verbindung die AUTOMATISCHE Ausrichtung nach links gestellt
+     hat — daran erkennt `tlAtAlign()` später, ob der Nutzer die Ansicht seither
+     selbst woanders hingeschoben hat. Der Anker-Zweig zählt bewusst NICHT dazu:
+     Er hält nur fest, was schon da stand, und würde die Erinnerung an die
+     Default-Position mit jedem Nachladen überschreiben. */
+  if (!anchor) {
+    const ai = Math.max(0, colIndexFor(scroller.scrollLeft));
+    tl.alignKey = tl.itins[ai] ? itKey(tl.itins[ai]) : null;
   }
   tl.lastAlignLeft = scroller.scrollLeft;
   // Nach dem Setzen der Scrollposition, sonst zeigte die Kachel den Tag der
@@ -858,13 +904,22 @@ function tlAutoZoom(sc, startIdx = 0) {
   const idx = Math.min(tl.itins.length - 1, Math.max(0, startIdx));
   const from = (tlIsNextReachable(idx) && Date.now() < dep) ? Date.now() : dep;
   const spanMin = Math.max(1, (arr - from) / 60000);
-  const fill = Math.min(90, Math.max(40, settings.fill || 70)) / 100;
-  const ppm = (usable * fill) / spanMin;
+  /* `fillMin` ist das ZIEL des normalen Zooms, `fillMax` die Decke, bis zu der
+     die Freiflächen-Nachbearbeitung aufziehen darf. Sind beide gleich, verhält
+     sich alles wie vor v1.68.0. Die Decke wird HIER berechnet und weitergegeben,
+     weil nur hier die Spanne der Fokusspalte (`spanMin`) bekannt ist —
+     `tlFitBottom` misst die tiefste Ankunft über alle sichtbaren Spalten und
+     wüsste gar nicht, wie hoch die vorderste dabei geworden ist. */
+  const klemm = v => Math.min(95, Math.max(20, v)) / 100;
+  const fillMin = klemm(settings.fillMin ?? 50);
+  const fillMax = Math.max(fillMin, klemm(settings.fillMax ?? 90));
+  const ppm = (usable * fillMin) / spanMin;
   const roh = Math.min(tl.maxPpm || TL.MAX_PPM, Math.max(tl.minPpm || TL.MIN_PPM, ppm));
-  return settings.fitBottom ? tlFitBottom(sc, startIdx, roh) : roh;
+  const decke = (usable * fillMax) / spanMin;
+  return settings.fitBottom ? tlFitBottom(sc, startIdx, roh, decke) : roh;
 }
 
-/* TESTFUNKTION (⚙ → „Freie Fläche unten nutzen“), standardmäßig aus.
+/* ⚙ → Balkenansicht → Zoom → „Freifläche unten nutzen“, standardmäßig AN.
 
    Der automatische Zoom bemisst sich an EINER Verbindung — der Fokusspalte.
    Sind die übrigen sichtbaren Spalten kürzer, endet der tiefste Balken weit
@@ -880,8 +935,13 @@ function tlAutoZoom(sc, startIdx = 0) {
 
    Der Maßstab kann dadurch nur GRÖSSER werden, nie kleiner: Fällt die
    Bedingung, wird gar nichts überschrieben, und der Automatik-Wert steht
-   unverändert. Verkleinern könnte diese Funktion also nie etwas. */
-function tlFitBottom(sc, startIdx, ppm) {
+   unverändert. Verkleinern könnte diese Funktion also nie etwas.
+
+   `decke` (seit v1.68.0) ist die Obergrenze aus `fillMax`: So weit darf die
+   vorderste Verbindung wachsen und keinen Schritt weiter. Vorher gab es diese
+   Grenze nicht — die Funktion zog bis an `maxPpm`, und die Fokusspalte konnte
+   dabei deutlich größer werden, als in den Einstellungen stand. */
+function tlFitBottom(sc, startIdx, ppm, decke = Infinity) {
   const viewH = sc?.clientHeight || 0;
   if (!viewH || !tl.itins.length) return ppm;
   const idx = Math.min(tl.itins.length - 1, Math.max(0, startIdx));
@@ -919,7 +979,12 @@ function tlFitBottom(sc, startIdx, ppm) {
      Ankunft gemessen bei 95 %, also genau in dem unteren Zehntel, das frei
      bleiben soll. */
   const neu = (viewH * 0.85 - clear) / weiteste;
-  return Math.min(tl.maxPpm || TL.MAX_PPM, Math.max(ppm, neu));
+  const gezoomt = Math.min(tl.maxPpm || TL.MAX_PPM, decke, Math.max(ppm, neu));
+  /* Die Decke darf den Automatik-Wert NICHT unterbieten: Liegt sie darunter
+     (weil `minPpm` den Grundzoom schon über sie hinausgehoben hat), bliebe sonst
+     ausgerechnet diese Funktion als einzige, die verkleinert. Sie verkleinert
+     nie — im Zweifel passiert nichts. */
+  return Math.max(ppm, gezoomt);
 }
 
 /* Waagerechte Zeitlinien als EINZELNE Elemente, jede exakt auf ihrer Uhrzeit.

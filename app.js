@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.61.1";
+const APP_VERSION = "1.71.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -77,6 +77,20 @@ const XFER_LEVELS = [
 const CAT_LABEL = { fern: "Fernzug", regio: "Regionalzug", sbahn: "S-Bahn", ubahn: "U-Bahn",
                     tram: "Tram", bus: "Bus", sonstige: "Sonstige", fernbus: "Fernbus" };
 
+/* Standardwerte für „Zoom der Balken“ an EINER Stelle. Der Zurücksetzen-Knopf im
+   Dialog stellt genau diese wieder her — stünden sie zweimal da, liefen sie mit
+   der ersten Änderung auseinander und der Knopf machte etwas anderes als „wie
+   ausgeliefert“. Muss VOR `loadSettings()` stehen, sonst wirft die Datei beim
+   Laden (siehe CLAUDE.md, `const` vor seiner Deklaration).
+
+   20 / 70 statt 50 / 90: Die Untergrenze ist das ZIEL des normalen Zooms, und
+   50 % war dafür zu satt — auf Stadtstrecken füllte die vorderste Verbindung
+   den halben Schirm, während von den folgenden kaum etwas übrig blieb. Mit 20
+   bleibt der Blick auf dem, was danach kommt, und „Freifläche unten nutzen“
+   holt bis 70 % heran, wo tatsächlich Platz frei ist. Die 90 % oben waren
+   nahezu bildfüllend und damit selten das, was jemand wollte. */
+const ZOOM_DEFAULTS = { fillMin: 20, fillMax: 70, fitBottom: true };
+
 function loadSettings() {
   // Default: Deutschlandticket-Sicht — Fernverkehr aus, Rest an
   const def = {
@@ -84,8 +98,18 @@ function loadSettings() {
     show: { fern: false, regio: true, sbahn: true, ubahn: true, tram: true,
             bus: true, sonstige: true, fernbus: false },
     cols: 5,      // Verbindungen nebeneinander in der Grafik (3–7)
-    fill: 50,     // % der Bildhöhe, die die vorderste Verbindung einnimmt
-    fitBottom: true,   // freie Fläche unten durch stärkeren Zoom nutzen
+    /* SPANNE statt fester Größe (v1.68.0). Ein fester Wert nagelt die vorderste
+       Verbindung auf genau diese Höhe — „Freifläche unten nutzen“ konnte danach
+       nur noch in dem schmalen Rest wirken, den die Auslösegrenze übrig ließ.
+       Mit einer Spanne ist `fillMin` das Ziel des normalen Zooms und `fillMax`
+       die Decke, bis zu der die Freiflächen-Nachbearbeitung aufziehen darf.
+       Beide gleich gesetzt ergibt exakt das alte Verhalten.
+       Grenzen bewusst weit (20–95): Die brauchbare Spanne wird erst am Gerät
+       ermittelt, danach werden sie enger gezogen. */
+    /* fillMin = % der Bildhöhe, die die vorderste Verbindung MINDESTENS einnimmt,
+       fillMax = … und HÖCHSTENS mit „Freifläche unten nutzen“, fitBottom = der
+       Schalter dazu. Werte in `ZOOM_DEFAULTS`, siehe oben. */
+    ...ZOOM_DEFAULTS,
     /* „Letzte“: Bis wann will ich ankommen, und wie lange darf ich NACHTS an
        einem einzelnen Umstieg warten? Die Wartegrenze galt früher rund um die
        Uhr — eine Stunde Aufenthalt um 15 Uhr ist aber harmlos, um 3 Uhr nicht. */
@@ -118,7 +142,13 @@ function loadSettings() {
     }
     const n = s && (Number.isFinite(s.cols) ? s.cols : s.rows); // rows = Altbestand
     if (Number.isFinite(n)) def.cols = Math.min(7, Math.max(3, Math.round(n)));
-    if (Number.isFinite(s?.fill)) def.fill = Math.min(90, Math.max(40, Math.round(s.fill / 5) * 5));
+    /* Altbestand: ein einzelner `fill`-Wert wird zur Untergrenze, die Obergrenze
+       bekommt den Standard. Wer die Spanne nicht will, zieht sie wieder zu. */
+    const klemmFill = v => Math.min(95, Math.max(20, Math.round(v / 5) * 5));
+    if (Number.isFinite(s?.fill)) { def.fillMin = klemmFill(s.fill); def.fillMax = Math.max(def.fillMin, 90); }
+    if (Number.isFinite(s?.fillMin)) def.fillMin = klemmFill(s.fillMin);
+    if (Number.isFinite(s?.fillMax)) def.fillMax = klemmFill(s.fillMax);
+    if (def.fillMax < def.fillMin) def.fillMax = def.fillMin;
     /* `fitBottom` wurde von Anfang an geschrieben, aber nie zurückgelesen — der
        Schalter sprang bei jedem Neustart auf den Standard zurück. Fiel nicht
        auf, solange der Standard AUS war und man ihn nur zum Ausprobieren
@@ -232,6 +262,105 @@ function renderGrid() {
     attachStationPointer(btn, i);
     gridEl.appendChild(btn);
   });
+  planeTileFont();
+}
+
+/* ---------------- Kachelbeschriftung: EINE Größe für alle ----------------
+
+   Eine feste Schriftgröße muss sich am längsten Namen orientieren und ist damit
+   für „Zuhause“ zu klein — oder sie passt für „Zuhause“ und schneidet „Bochum
+   Ruhr-Universität“ ab. Beides war schon da.
+
+   Deshalb wird gemessen: Für jeden Namen wird die größte Schrift gesucht, bei
+   der er in höchstens DREI Zeilen und in die Kachel passt; die kleinste dieser
+   Größen gilt dann für ALLE Kacheln. Unterschiedliche Größen nebeneinander
+   sähen aus wie ein Fehler — das Raster ist eine Tafel, keine Sammlung.
+
+   Gemessen wird an einem unsichtbaren Doppel, nicht an den echten Kacheln: Jede
+   Größenänderung an einer sichtbaren Kachel erzwingt einen Umbruch des ganzen
+   Rasters, und davon gäbe es hier Dutzende hintereinander.
+
+   Die Schleife läuft nur ABWÄRTS und über alle Namen zusammen — ist die Größe
+   für einen Namen einmal gefallen, startet der nächste dort. Kleiner passt
+   immer, wenn größer schon passte, also ist das Ergebnis dasselbe wie bei einer
+   Einzelsuche je Name, kostet aber einen Bruchteil. */
+const TILE_FONT = { max: 22, min: 12, step: 0.5, zeilen: 3 };
+let tileProbe = null, tileFitKey = null, tileFitPending = false;
+
+function tileFontProbe() {
+  if (tileProbe) return tileProbe;
+  tileProbe = document.createElement("div");
+  tileProbe.setAttribute("aria-hidden", "true");
+  tileProbe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;" +
+    "white-space:normal;overflow-wrap:anywhere;text-align:center;padding:0;margin:0;";
+  document.body.appendChild(tileProbe);
+  return tileProbe;
+}
+
+/* Einmal je Bild statt bei jedem `renderGrid` — das läuft auch beim bloßen
+   Markieren einer Startkachel, und daran ändert sich keine Schriftgröße. */
+function planeTileFont() {
+  if (tileFitPending) return;
+  tileFitPending = true;
+  requestAnimationFrame(() => { tileFitPending = false; fitTileFont(); });
+}
+
+function fitTileFont() {
+  const btn = gridEl.querySelector(".stationbtn");
+  const muster = gridEl.querySelector(".tile-name");
+  if (!btn || !muster) return;
+  const namen = slots.filter(Boolean).map(sl => sl.label || sl.name);
+  if (!namen.length) return;
+
+  const cs = getComputedStyle(btn);
+  const innenW = btn.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  /* Nur im scrollfreien Raster ist die Höhe fest. Bei mehr als 14 Kacheln
+     wächst die Zeile mit ihrem Inhalt — dort würde eine Höhenprüfung sich
+     selbst ins Ergebnis rechnen, also bindet dort allein die Zeilenzahl. */
+  const fest = document.body.classList.contains("fitgrid");
+  const innenH = fest ? btn.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) : Infinity;
+  if (!(innenW > 0)) return;
+
+  const key = `${Math.round(innenW)}|${Math.round(innenH)}|${namen.join("\u0001")}`;
+  if (key === tileFitKey) return;   // nichts hat sich geändert
+
+  const ns = getComputedStyle(muster);
+  const lh = parseFloat(ns.lineHeight) / parseFloat(ns.fontSize) || 1.1;
+  const p = tileFontProbe();
+  p.style.width = innenW + "px";
+  p.style.fontFamily = ns.fontFamily;
+  p.style.fontWeight = ns.fontWeight;
+  p.style.letterSpacing = ns.letterSpacing;
+  p.style.lineHeight = String(lh);
+
+  let size = TILE_FONT.max;
+  for (const n of namen) {
+    p.textContent = n;
+    while (size > TILE_FONT.min) {
+      p.style.fontSize = size + "px";
+      const h = p.scrollHeight;
+      const zeilen = Math.max(1, Math.round(h / (size * lh)));
+      if (zeilen <= TILE_FONT.zeilen && h <= innenH) break;
+      size -= TILE_FONT.step;
+    }
+    if (size <= TILE_FONT.min) break;   // tiefer geht es nicht, der Rest ändert nichts
+  }
+  tileFitKey = key;
+  gridEl.style.setProperty("--tile-font", size + "px");
+}
+
+/* Drehen und Fenstergrößen ändern die Kachelmaße — dann neu messen. Der
+   Schlüssel oben verhindert, dass dabei etwas passiert, wenn sich nichts
+   geändert hat. */
+let tileFitTimer = null;
+addEventListener("resize", () => {
+  clearTimeout(tileFitTimer);
+  tileFitTimer = setTimeout(() => { tileFitKey = null; fitTileFont(); }, 120);
+});
+/* Vor dem Laden der Schrift misst der Browser mit einer Ersatzschrift, und die
+   ist anders breit — ohne das stünde die Größe nach dem Schriftwechsel falsch. */
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => { tileFitKey = null; fitTileFont(); });
 }
 
 // Neue Suche vom Startscreen: immer „Jetzt“-Ansicht und Legenden-Filter
@@ -264,13 +393,24 @@ function setEditMode(on) {
   app.editMode = on;
   app.selectedStart = null;
   byId("btn-editmode").textContent = on ? "✓ Fertig" : "✎ Bearbeiten";
-  byId("grid-hint").innerHTML = on
-    ? "Antippen zum Ändern/Leeren – ziehen zum Verschieben."
-    : "Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.";
+  byId("grid-hint").innerHTML = on ? HINT_EDIT : HINT_GRID;
   gridEl.classList.toggle("editing", on);
   renderGrid();
 }
 byId("btn-editmode").addEventListener("click", () => setEditMode(!app.editMode));
+
+/* Die Bedienzeile über dem Grid. `HINT_GRID` steht WORTGLEICH auch in
+   index.html — dort für den ersten Aufbau, bevor JavaScript läuft, sonst
+   blitzt die Zeile leer auf. Wer den Text ändert, ändert ihn an beiden
+   Stellen; getrennt gepflegt liefen sie schon einmal auseinander.
+
+   „Lange drücken“ steht BEWUSST ohne <strong>: `.hint strong` setzt Versalien
+   mit Sperrung, und damit brauchte die Zeile auf 360 px eine dritte Zeile
+   (gemessen 51 statt 34 px). Die geht dem Raster verloren, und die letzte
+   Kachelreihe wird sichtbar gequetscht. So bleibt es bei zwei Zeilen — der
+   Hinweis kostet also gar nichts. */
+const HINT_GRID = "Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel. Lange drücken: ab eigenem Standort.";
+const HINT_EDIT = "Antippen zum Ändern/Leeren – ziehen zum Verschieben.";
 
 // Tap, Long-Press, Wisch-Verbindung (Linie zum Ziel) und – im Bearbeiten-Modus –
 // Verschieben der Kachel per Ziehen (Positionstausch)
@@ -285,7 +425,14 @@ function attachStationPointer(btn, i) {
     holdTimer = setTimeout(() => {
       held = true;
       if (navigator.vibrate) navigator.vibrate(60);
-      if (slots[i]) openEdit(i);
+      if (!slots[i]) return;
+      /* Im Bearbeiten-Modus bleibt der lange Druck beim Bearbeiten — dort ist
+         eine Suche das Letzte, was jemand will. Außerhalb heißt er seit
+         v1.64.0: von meinem Standort dorthin. Das Bearbeiten war hier eine
+         zweite Tür zu etwas, das der Knopf „✎ Bearbeiten“ schon anbietet;
+         diese Geste kann etwas leisten, das sonst gar nicht geht. */
+      if (app.editMode) openEdit(i);
+      else searchFromHere(i);
     }, LONGPRESS_MS);
   });
 
@@ -843,8 +990,8 @@ function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAG
     : t.kind === "letzte" ? nextServiceEnd()
     : new Date();
   const params = new URLSearchParams({
-    fromPlace: from.id,
-    toPlace: to.id,
+    fromPlace: placeParam(from),
+    toPlace: placeParam(to),
     time: baseTime.toISOString(),
     /* Bei einer ABFAHRTSSUCHE 1, nicht `limit`: Jede höhere Zahl ist eine
        MINDESTANZAHL, für die der Router sein Zeitfenster ausdehnt — genau das
@@ -893,6 +1040,13 @@ function planParams({ time = null, limit = PAGE_MAX, cursor = null, window = PAG
   /* Mehr Zeit zum Umsteigen geht direkt in die Anfrage. Der Router sucht dann
      ANDERE Verbindungen, die das einhalten, statt dass wir hinterher welche
      wegwerfen — und es kostet keine zusätzliche Anfrage. */
+  /* Startet die Suche am eigenen Standort, ist der erste Weg IMMER ein Fußweg —
+     und der darf länger sein als der Normalfall. MOTIS erlaubt voreingestellt
+     15 Minuten; wer irgendwo zwischen zwei Dörfern steht, hat damit gar keine
+     Verbindung. 20 Minuten sind der Kompromiss: genug für den nächsten Ort,
+     nicht so viel, dass Fußwege die Ergebnisliste bestimmen. */
+  if (from.here) params.set("maxPreTransitTime", "1200");
+  if (to.here) params.set("maxPostTransitTime", "1200");   // nach dem Tauschen
   const xf = XFER_LEVELS[settings.xferLevel] || XFER_LEVELS[0];
   if (xf.factor !== 1) params.set("transferTimeFactor", String(xf.factor));
   if (xf.extra) params.set("additionalTransferTime", String(xf.extra));
@@ -1169,6 +1323,7 @@ async function loadAllCategories() {
      Ansicht danach auf die erste Spalte (dieselbe Falle wie bei der Legende). */
   tl.keepAnchor = tlAnchor();
   tl.forceAutoZoom = true;
+  tl.forceRealign = tlAtAlign();   // wie bei der Legende: neu ausrichten, wenn man noch dort steht
   try {
     for (let i = 0; i < offen.length; i++) {
       showSearching(`${CAT_LABEL[offen[i]]} …`, i, offen.length);
@@ -1563,6 +1718,65 @@ async function runPlan(direction = null, limit = PAGE_MAX) {
    Gilt genauso für kurzfristige Verlegungen und getrennte Bus-/Bahn-Halte. */
 const geoCache = new Map();
 
+/* Ein Ort für die Anfrage: normalerweise die Halt-ID, beim eigenen Standort
+   die reinen Koordinaten. MOTIS sucht daraus selbst den besten Einstieg — das
+   ist besser, als vorher eine Haltestelle zu raten: Gemessen (Regensburg →
+   München) legt es 9 Minuten Fußweg zum Hauptbahnhof, obwohl drei nähere
+   Bushaltestellen dazwischen liegen, weil von dort die schnellere Verbindung
+   fährt. Eine selbst gewählte „nächste Haltestelle“ hätte die verpasst. */
+function placeParam(stop) {
+  if (stop.id) return stop.id;
+  return `${stop.lat},${stop.lon}`;
+}
+
+/* Der eigene Standort als Pseudo-Kachel. Er sieht für den Rest der App aus wie
+   ein Halt ohne ID — `coordsOf` ist sofort zufrieden, `dbPlaceId` baut daraus
+   einen Koordinaten-Ort für die DB, und der Ergebniskopf zeigt den Namen. */
+function hereStop(lat, lon) {
+  return { name: "Mein Standort", id: null, lat, lon, here: true };
+}
+
+const GEO_OPTS = { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 };
+
+function currentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error("nicht verfügbar")); return; }
+    navigator.geolocation.getCurrentPosition(
+      p => resolve(hereStop(p.coords.latitude, p.coords.longitude)), reject, GEO_OPTS);
+  });
+}
+
+/* Meldungen bewusst konkret: „Standort nicht verfügbar“ sagt niemandem, ob er
+   etwas erlauben muss, im Keller steht oder ob die App kaputt ist. */
+function geoFehler(e) {
+  if (e && e.code === 1) return "Standortfreigabe verweigert – in den Browser- bzw. App-Einstellungen erlauben.";
+  if (e && e.code === 2) return "Standort nicht ermittelbar – draußen oder am Fenster nochmal versuchen.";
+  if (e && e.code === 3) return "Standortsuche hat zu lange gedauert – nochmal probieren.";
+  return "Dieses Gerät gibt den Standort nicht her.";
+}
+
+/* Langer Druck auf eine Kachel: von hier aus dorthin. */
+async function searchFromHere(i) {
+  const ziel = slots[i];
+  if (!ziel || app.geoBusy) return;
+  app.geoBusy = true;
+  const hinweis = byId("grid-hint");
+  const vorher = hinweis.innerHTML;
+  hinweis.innerHTML = `Standort wird bestimmt – dann geht es nach <strong>${escapeHtml(ziel.label || ziel.name)}</strong> …`;
+  try {
+    const von = await currentPosition();
+    hinweis.innerHTML = vorher;
+    startFreshSearch(von, ziel);
+  } catch (e) {
+    hinweis.innerHTML = `<span class="hint-bad">${escapeHtml(geoFehler(e))}</span>`;
+    /* Der Hinweis ersetzt die Bedienanleitung — sie muss zurückkommen, sonst
+       weiß beim nächsten Blick niemand mehr, wie das Grid funktioniert. */
+    setTimeout(() => { if (byId("grid-hint").querySelector(".hint-bad")) byId("grid-hint").innerHTML = vorher; }, 6000);
+  } finally {
+    app.geoBusy = false;
+  }
+}
+
 async function coordsOf(stop) {
   if (Number.isFinite(stop.lat) && Number.isFinite(stop.lon)) return `${stop.lat},${stop.lon}`;
   if (geoCache.has(stop.id)) return geoCache.get(stop.id);
@@ -1852,6 +2066,15 @@ function renderLegend() {
       const c = b.dataset.cat;
       app.autoLoads = 0;
       tl.forceAutoZoom = true;   // andere Verkehrsmittel = andere Frage
+      /* … und andere Frage heißt auch: neu ausrichten. Die Antwort auf „was ist
+         die nächste erreichbare Verbindung?“ bzw. „welche ist die letzte?“ kann
+         mit den nachgeladenen Verbindungen eine andere sein — meist eine, die
+         VOR der bisherigen Spalte einsortiert wird und sonst links außerhalb des
+         Bildes stünde. Nur wenn die Ansicht noch an ihrer automatisch gesetzten
+         Stelle steht: Wer bewusst woanders hingescrollt ist, soll dort bleiben.
+         JETZT auswerten, nicht später — `showSearching` leert die Grafik gleich,
+         danach ließe sich die Position nicht mehr ablesen. */
+      tl.forceRealign = tlAtAlign();
       if (!app.hiddenCats.has(c)) {          // ausblenden kostet keine Anfrage
         app.hiddenCats.add(c);
         renderResults();
@@ -1901,6 +2124,13 @@ function renderLegend() {
 
 function renderResults() {
   byId("searching").hidden = true;   // ab hier steht echter Inhalt
+  /* Neu ausrichten heißt auch: die gesuchte Verbindung neu bestimmen. Sonst
+     bliebe bei „Letzte“ die alte Antwort stehen, obwohl das eingeblendete
+     Verkehrsmittel womöglich genau die spätere letzte Verbindung mitgebracht
+     hat — `searchFocusKey` fragt `findLastDecent` nur, wenn die gemerkte
+     Verbindung verschwunden ist. Das Flag selbst setzt `renderTimeline`
+     zurück, nicht diese Stelle. */
+  if (tl.forceRealign) app.focusKey = null;
   const graph = app.viewMode === "graph";
   // Die Grafikansicht ist bildschirmfüllend und darf nicht scrollen; das
   // steuert CSS über dieses Attribut (die Liste scrollt dagegen normal).
@@ -2302,10 +2532,14 @@ function fillDetails(container, it, foot = null) {
   a.className = "dblink";
   a.target = "_blank";
   a.rel = "noopener";
-  a.href = dbLink(
-    app.search.from, app.search.to,
-    T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival
-  );
+  /* „Mein Standort“ kann die DB nicht suchen — ihr Suchfeld will einen Ort.
+     Für den Suchlink deshalb den tatsächlichen Einstiegshalt einsetzen; das
+     ist ohnehin die Information, die drüben weiterhilft. Dasselbe rückwärts,
+     wenn der Standort nach dem Tauschen das Ziel ist. */
+  const dbVon = app.search.from.here ? T[0].from : app.search.from;
+  const dbBis = app.search.to.here ? T[T.length - 1].to : app.search.to;
+  a.href = dbLink(dbVon, dbBis,
+    T[0].from.scheduledDeparture, T[T.length - 1].to.scheduledArrival);
   a.textContent = "Bei der DB öffnen";
   if (PP.native) {
     /* Der Suchlink oben nennt die KACHELN — danach hat der Nutzer gefragt.
@@ -2577,7 +2811,8 @@ const IMPRESSUM = {
 function configLink() {
   // v2: Kacheln UND Einstellungen wandern gemeinsam
   const payload = { v: 2, slots, show: settings.show, cols: settings.cols,
-                    fill: settings.fill, fit: settings.fitBottom, connect: settings.connectMode,
+                    fillMin: settings.fillMin, fillMax: settings.fillMax,
+                    fit: settings.fitBottom, connect: settings.connectMode,
                     lastArrival: settings.lastArrival, nightFrom: settings.nightFrom,
                     nightTo: settings.nightTo, nightWait: settings.nightWait,
                     xferLevel: settings.xferLevel };
@@ -2680,7 +2915,11 @@ function applyConfig(cfg, { ask = false } = {}) {
     }
     const n = Number.isFinite(imported.cols) ? imported.cols : imported.rows;
     if (Number.isFinite(n)) settings.cols = Math.min(7, Math.max(3, Math.round(n)));
-    if (Number.isFinite(imported.fill)) settings.fill = Math.min(90, Math.max(40, Math.round(imported.fill / 5) * 5));
+    const klemmFill = v => Math.min(95, Math.max(20, Math.round(v / 5) * 5));
+    if (Number.isFinite(imported.fill)) { settings.fillMin = klemmFill(imported.fill); settings.fillMax = 90; }
+    if (Number.isFinite(imported.fillMin)) settings.fillMin = klemmFill(imported.fillMin);
+    if (Number.isFinite(imported.fillMax)) settings.fillMax = klemmFill(imported.fillMax);
+    if (settings.fillMax < settings.fillMin) settings.fillMax = settings.fillMin;
     if (typeof imported.fit === "boolean") settings.fitBottom = imported.fit;
     if (imported.connect === "tap" || imported.connect === "hybrid") settings.connectMode = imported.connect;
     for (const k of ["lastArrival", "nightFrom", "nightTo"]) {
@@ -2857,8 +3096,7 @@ byId("btn-settings").addEventListener("click", () => {
   refreshTileOpts();
   renderColsControl();
   byId("set-fitbottom").checked = !!settings.fitBottom;
-  byId("set-fill").value = settings.fill;
-  byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
+  renderFillRange();
   byId("set-lastarr").value = settings.lastArrival;
   byId("set-nightfrom").value = settings.nightFrom;
   byId("set-nightto").value = settings.nightTo;
@@ -2930,6 +3168,7 @@ byId("btn-fast").addEventListener("click", () => {
 
 byId("set-fitbottom").addEventListener("change", (e) => {
   settings.fitBottom = e.target.checked;
+  syncZoomReset();
   saveSettings();
   if (app.viewMode === "graph" && tl.itins.length) {
     tl.lastZoomIdx = null;
@@ -2938,9 +3177,37 @@ byId("set-fitbottom").addEventListener("change", (e) => {
   }
 });
 
-byId("set-fill").addEventListener("input", (e) => {
-  settings.fill = Number(e.target.value);
-  byId("set-fill-val").textContent = `${settings.fill}\u00a0%`;
+/* Die beiden Regler begrenzen einander: Die Obergrenze darf nie unter die
+   Untergrenze rutschen. Statt die Eingabe abzulehnen (der Regler spränge dann
+   unter dem Finger zurück) wird der jeweils andere mitgenommen — das ist die
+   Bewegung, die man von einem Spannen-Regler erwartet. */
+function renderFillRange() {
+  byId("set-fillmin").value = settings.fillMin;
+  byId("set-fillmax").value = settings.fillMax;
+  byId("set-fillmin-val").textContent = `${settings.fillMin}\u00a0%`;
+  byId("set-fillmax-val").textContent = `${settings.fillMax}\u00a0%`;
+  syncZoomReset();
+}
+
+/* Der Zurücksetzen-Knopf ist stumpf, solange alle drei Werte auf Standard
+   stehen — sonst verspricht er eine Wirkung, die er nicht hat. Er hängt an
+   `ZOOM_DEFAULTS`, also an derselben Quelle wie die Auslieferungswerte. */
+function zoomIsDefault() {
+  return Object.keys(ZOOM_DEFAULTS).every(k => settings[k] === ZOOM_DEFAULTS[k]);
+}
+function syncZoomReset() {
+  byId("set-zoom-reset").disabled = zoomIsDefault();
+}
+
+byId("set-zoom-reset").addEventListener("click", () => {
+  if (zoomIsDefault()) return;
+  Object.assign(settings, ZOOM_DEFAULTS);
+  byId("set-fitbottom").checked = settings.fitBottom;
+  renderFillRange();      // setzt beide Regler UND den Knopf-Zustand
+  applyZoomSetting();     // speichern und sofort in der laufenden Ansicht zeigen
+});
+
+function applyZoomSetting() {
   saveSettings();
   // sofort sichtbar machen: neuer Zoom gilt für die laufende Ansicht
   if (app.viewMode === "graph" && tl.itins.length) {
@@ -2948,6 +3215,19 @@ byId("set-fill").addEventListener("input", (e) => {
     tl.forceAutoZoom = true;   // die Einstellung steuert genau diesen Automatismus
     renderResults();
   }
+}
+
+byId("set-fillmin").addEventListener("input", (e) => {
+  settings.fillMin = Number(e.target.value);
+  if (settings.fillMax < settings.fillMin) settings.fillMax = settings.fillMin;
+  renderFillRange();
+  applyZoomSetting();
+});
+byId("set-fillmax").addEventListener("input", (e) => {
+  settings.fillMax = Number(e.target.value);
+  if (settings.fillMin > settings.fillMax) settings.fillMin = settings.fillMax;
+  renderFillRange();
+  applyZoomSetting();
 });
 
 byId("set-cols").addEventListener("click", (e) => {

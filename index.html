@@ -6,8 +6,8 @@
 <meta name="color-scheme" content="dark light">
 <title>PendelPanda</title>
 <meta name="description" content="Deine Pendelverbindung in 2 Taps – mit Echtzeit-Verspätungen.">
-<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0a0e18" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f6f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0c" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest?v=4">
 <link rel="icon" href="icons/app-192-dark.png?v=3" type="image/png">
 <link rel="apple-touch-icon" href="icons/app-192-dark.png?v=3">
@@ -29,7 +29,8 @@
     </button>
   </div>
   <div class="gridtools">
-    <p class="hint" id="grid-hint">Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel.</p>
+    <!-- Wortgleich mit HINT_GRID in app.js — hier nur für den ersten Aufbau. -->
+    <p class="hint" id="grid-hint">Tippe <strong>Start</strong>, dann <strong>Ziel</strong> – oder wische von Start zu Ziel. Lange drücken: ab eigenem Standort.</p>
     <button id="btn-editmode" class="linklike">✎ Bearbeiten</button>
   </div>
   <div id="buttongrid" class="buttongrid" aria-label="Gespeicherte Bahnhöfe"></div>
@@ -228,21 +229,46 @@
         <button type="button" data-cols="7">7</button>
       </div>
     </div>
-    <div class="rangerow">
-      <label for="set-fill">Höhe der vordersten Verbindung
-        <output id="set-fill-val">50&nbsp;%</output>
+    <!-- Eingeklappt, weil die drei Werte zusammengehören und man sie einmal
+         einstellt: Untergrenze, Obergrenze und der Schalter, der den Raum
+         dazwischen überhaupt erst nutzt. -->
+    <details class="setfold subfold">
+      <summary><h4>Zoom der Balken</h4></summary>
+      <div class="rangerow">
+        <label for="set-fillmin">Vorderste Verbindung mindestens
+          <output id="set-fillmin-val">50&nbsp;%</output>
+        </label>
+        <input type="range" id="set-fillmin" min="20" max="95" step="5">
+        <p class="finequote">So viel der Bildhöhe nimmt die vorderste Verbindung
+          mindestens ein — das ist das Ziel des normalen Zooms. Kleiner heißt mehr
+          Übersicht auf das, was danach kommt, größer heißt mehr Detail.</p>
+      </div>
+      <div class="rangerow">
+        <label for="set-fillmax">… und höchstens
+          <output id="set-fillmax-val">90&nbsp;%</output>
+        </label>
+        <input type="range" id="set-fillmax" min="20" max="95" step="5">
+        <p class="finequote">Bis hierher darf „Freifläche unten nutzen“ aufziehen. Auf
+          denselben Wert wie die Untergrenze gestellt heißt: feste Höhe, kein Spielraum —
+          so verhielt sich die App früher.</p>
+      </div>
+      <label class="countrow">Freifläche unten nutzen
+        <input type="checkbox" id="set-fitbottom">
       </label>
-      <input type="range" id="set-fill" min="40" max="90" step="5">
-      <p class="finequote">So viel der Bildhöhe nimmt die vorderste Verbindung ein. Der
-        Rest bleibt frei als Vorschau auf das, was danach kommt — kleinerer Wert heißt
-        mehr Übersicht, größerer Wert heißt mehr Detail.</p>
-    </div>
-    <label class="countrow">Freifläche unten nutzen
-      <input type="checkbox" id="set-fitbottom">
-    </label>
-    <p class="finequote">Enden alle sichtbaren Verbindungen deutlich über dem unteren Rand,
-      wird stärker gezoomt, bis die unterste Ankunft bei 90 % der Höhe liegt. Reicht auch
-      nur eine tiefer oder aus dem Bild heraus, bleibt der normale Zoom stehen.</p>
+      <p class="finequote">Enden alle sichtbaren Verbindungen deutlich über dem unteren Rand,
+        wird stärker gezoomt, bis die unterste Ankunft bei 90 % der Höhe liegt — aber nie
+        weiter, als die Obergrenze oben erlaubt. Reicht auch nur eine Verbindung tiefer oder
+        aus dem Bild heraus, bleibt der normale Zoom stehen.</p>
+      <!-- Setzt AUSSCHLIESSLICH diese drei Werte zurück, nicht den ganzen Dialog.
+           Deshalb steht er auch hier drin und nicht unten bei den allgemeinen
+           Knöpfen: Ein Zurücksetzen, das weiter reicht als der Abschnitt, in dem
+           es steht, ist die unangenehmste Art von Überraschung. -->
+      <div class="setreset">
+        <button type="button" id="set-zoom-reset" class="tinybtn"
+                title="Nur diese drei Werte auf den Auslieferungszustand zurücksetzen">
+          Standard wiederherstellen</button>
+      </div>
+    </details>
   </section>
 
   <section class="setgroup">
@@ -398,6 +424,13 @@
       fremden Server.</li>
     <li><strong>Karten-Symbole</strong> öffnen Google Maps. Der Kontakt entsteht erst,
       wenn du eines antippst.</li>
+    <li><strong>Dein Standort</strong> wird nur benutzt, wenn du eine Kachel lange
+      gedrückt hältst („von hier aus“). Er geht in die eine Fahrplanabfrage ein und
+      sonst nirgendwohin — nicht gespeichert, nicht an uns, nicht an Dritte. Ohne
+      Freigabe funktioniert alles andere unverändert.</li>
+    <li><strong>Die Schriften liegen in der App.</strong> Kein Google Fonts, kein
+      Nachladen von fremden Servern — auch nicht beim ersten Start. Verwendet wird
+      <em>Barlow</em> unter der SIL Open Font License.</li>
     <li><strong>Die Web-Version</strong> liegt auf GitHub Pages. GitHub verarbeitet beim
       Abruf technische Zugriffsdaten (u.&nbsp;a. die IP-Adresse). Die Android-App lädt
       nichts nach und kommt ohne das aus.</li>
@@ -409,25 +442,174 @@
     <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a>; die
     vollständige Liste der Quellen samt Lizenzen steht unter
     <a href="https://transitous.org/sources/" target="_blank" rel="noopener">transitous.org/sources</a>.
-    Geodaten von OpenStreetMap-Mitwirkenden.</p>
+    Geodaten von OpenStreetMap-Mitwirkenden. <strong>Schrift:</strong>
+    <a href="https://github.com/jpt/barlow" target="_blank" rel="noopener">Barlow</a>,
+    © The Barlow Project Authors, SIL Open Font License 1.1.</p>
   <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>
 </dialog>
 
 <!-- HILFE -->
 <dialog id="help-dialog">
   <h2>Hilfe</h2>
-  <ul>
-    <li>Unbelegte Buttons zeigen ein „+“ – antippen und Bahnhof suchen. Beim Bearbeiten kannst du der Kachel eine <strong>eigene Beschriftung</strong> geben (z. B. „Zuhause“) – gesucht wird weiter mit dem echten Bahnhof.</li>
-    <li><strong>Bearbeiten, löschen, verschieben:</strong> „✎ Bearbeiten“ antippen – Antippen einer Kachel ändert ihre Beschriftung oder löscht sie („Diesen Button löschen“; einen anderen Bahnhof bekommst du über Löschen + Neuanlegen). <strong>Ziehen tauscht die Position</strong> zweier Kacheln. Abkürzung: Kachel lange gedrückt halten. Die Anzahl der Kacheln stellst du im ⚙-Menü ein.</li>
-    <li>Zwei belegte Buttons antippen: der erste wird <strong>Start</strong> (markiert), der zweite <strong>Ziel</strong> – die Verbindungen ab jetzt erscheinen sofort, inklusive Verspätungen und Gleis.</li>
-    <li>Oder <strong>wischen</strong>: Finger auf den Start-Button legen und eine Linie zum Ziel-Button ziehen – beim Loslassen startet die Suche.</li>
-    <li>Nochmaliges Antippen desselben Buttons hebt die Startauswahl auf.</li>
-    <li><strong>Grafikansicht:</strong> Jede Verbindung ist ein Balken von Abfahrt (oben) bis Ankunft (unten). Scrollen in alle Richtungen; der Zoom stellt sich automatisch so ein, dass die vorderste Verbindung komplett sichtbar ist (Feinjustierung: zwei Finger oder Strg+Mausrad). Tippen auf einen Balken zeigt die Details, ☰/▦ wechselt zwischen Liste und Grafik.</li>
-    <li><strong>Legende = Filter:</strong> Ein Eintrag in der Legende unter den Ergebnissen lässt sich antippen – ausgegraut heißt, Verbindungen mit diesem Verkehrsmittel sind ausgeblendet (nochmal antippen blendet sie wieder ein). Was standardmäßig ausgeblendet ist, legst du im ⚙-Menü fest.</li>
-    <li><strong>Zeitleiste:</strong> „Jetzt“ ist die Standardsicht. In der Grafik einfach an den linken oder rechten Rand scrollen – frühere bzw. spätere Verbindungen werden automatisch nachgeladen (in der Liste über die Knöpfe oben/unten). „Letzte“ springt zur letzten Verbindung der Nacht, bei der man unterwegs nicht strandet – markiert, mit den Verbindungen davor und dem ersten Morgen-Zug daneben. 📅 öffnet die Datums- und Uhrzeitwahl – wahlweise nach Abfahrt oder Ankunft.</li>
-    <li>„Bei der DB öffnen“ führt zur Buchung, Wagenreihung &amp; Co. auf bahn.de.</li>
-    <li><strong>Buttons übertragen</strong> (im ⚙-Menü): erzeugt einen Link mit deiner Belegung und deinen Einstellungen. Ihn auf einem anderen Gerät öffnen und die Frage „Buttons übernehmen?“ bestätigen – so wandert alles mit.</li>
-  </ul>
+
+  <!-- Die Hilfe fängt bewusst mit dem WOFÜR an, nicht mit dem WIE. Wer nicht
+       weiß, für welche Frage die App gebaut ist, liest jede Bedienanleitung
+       gegen die falsche Erwartung — und wundert sich, dass es kein
+       Suchfeld für „irgendwo nach irgendwo“ gibt. -->
+  <p class="helplead"><strong>PendelPanda ist für die Wege, die du immer wieder fährst.</strong>
+    Zuhause, Arbeit, Uni, Eltern — die paar Orte, zwischen denen sich dein Alltag abspielt.
+    Die legst du einmal auf Kacheln, und danach kostet „wann fährt der nächste?“ zwei
+    Tipper. Kein Suchfeld, keine Autovervollständigung, kein Datum eintippen.</p>
+  <p class="helplead">Für eine einmalige Fahrt nach irgendwo ist sie <em>nicht</em> gedacht —
+    dafür gibt es die Fahrplanauskunft. Der Gewinn liegt in der Wiederholung.</p>
+
+  <section class="setgroup">
+    <h3>In drei Schritten</h3>
+    <ol class="helpsteps">
+      <li><span><strong>Bahnhöfe ablegen.</strong> Leere Kachel antippen, Namen eintippen,
+        aus der Liste wählen. Optional eine eigene Beschriftung geben („Zuhause“) — gesucht
+        wird trotzdem mit dem echten Bahnhof.</span></li>
+      <li><span><strong>Start, dann Ziel antippen.</strong> Oder mit dem Finger eine Linie
+        von der einen Kachel zur anderen ziehen. Eine Kachel <strong>lange gedrückt halten</strong>
+        sucht von deinem aktuellen Standort dorthin.</span></li>
+      <li><span><strong>Ergebnis lesen.</strong> Jede Verbindung ist ein Balken von der
+        Abfahrt oben bis zur Ankunft unten. Antippen zeigt alle Halte, Umstiege und Gleise.
+        Seitwärts scrollen lädt frühere und spätere Verbindungen nach.</span></li>
+    </ol>
+  </section>
+
+  <section class="setgroup">
+    <h3>Die Knöpfe im Ergebnis</h3>
+    <ul class="helplist">
+      <li>
+        <span class="helpsample"><span class="timeseg">
+          <button type="button" class="chip active" tabindex="-1">Jetzt</button>
+        </span></span>
+        <span class="helptext"><strong>Jetzt</strong>
+          <small>Was ab sofort fährt. Die Standardsicht.</small></span>
+      </li>
+      <li>
+        <span class="helpsample"><span class="timeseg">
+          <button type="button" class="chip" tabindex="-1">Letzte</button>
+        </span></span>
+        <span class="helptext"><strong>Letzte</strong>
+          <small>Die späteste Verbindung, mit der du heute Nacht noch ankommst, ohne
+            unterwegs zu stranden. Bis wann das gilt, stellst du in den Einstellungen ein.</small></span>
+      </li>
+      <li>
+        <span class="helpsample"><span class="timeseg">
+          <button type="button" class="chip chip-icon" tabindex="-1" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5V6M16 3.5V6"/><circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </span></span>
+        <span class="helptext"><strong>Datum &amp; Uhrzeit</strong>
+          <small>Ein anderer Zeitpunkt — wahlweise „ich will da losfahren“ oder
+            „ich will da ankommen“.</small></span>
+      </li>
+      <li>
+        <span class="helpsample">
+          <button type="button" class="chip chip-icon" tabindex="-1" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 18h16"/></svg>
+          </button>
+        </span>
+        <span class="helptext"><strong>Alles laden</strong>
+          <small>Fragt jedes Verkehrsmittel einzeln ab. Der Fahrplanrechner liefert sonst
+            nur die jeweils besten Verbindungen — auf dichten Strecken fehlt dadurch die
+            halbe S-Bahn. Dauert länger; für einzelne Bahnhöfe lässt es sich beim
+            Bearbeiten der Kachel dauerhaft einschalten.</small></span>
+      </li>
+      <li>
+        <span class="helpsample">
+          <button type="button" class="chip chip-icon" tabindex="-1" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5v6.2l-4 2.3v-8.5L3.5 5Z"/></svg>
+          </button>
+        </span>
+        <span class="helptext"><strong>Filter: nur die besten</strong>
+          <small>Blendet aus, was eine andere Verbindung in jeder Hinsicht schlägt
+            (siehe „grau“ unten). Nochmal antippen zeigt wieder alle.</small></span>
+      </li>
+      <li>
+        <span class="helpsample">
+          <button type="button" class="chip" tabindex="-1" aria-hidden="true">☰</button>
+        </span>
+        <span class="helptext"><strong>Liste oder Grafik</strong>
+          <small>Wechselt zwischen den beiden Ansichten. ☰ schaltet auf die Liste,
+            ▦ zurück auf die Balkengrafik.</small></span>
+      </li>
+      <li>
+        <span class="helpsample">
+          <button type="button" class="rhead-swap" tabindex="-1" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 8h13m0 0-3.2-3.2M17 8l-3.2 3.2M20 16H7m0 0 3.2-3.2M7 16l3.2 3.2"/></svg>
+          </button>
+        </span>
+        <span class="helptext"><strong>Richtung tauschen</strong>
+          <small>Steht oben zwischen Start und Ziel. Macht aus dem Hinweg den Rückweg,
+            ohne zurück auf die Abfahrtstafel zu gehen.</small></span>
+      </li>
+      <li>
+        <span class="helpsample">
+          <span class="tl-key" style="pointer-events:none"><i class="dot catdot seg-sbahn"></i>S-Bahn</span>
+        </span>
+        <span class="helptext"><strong>Legende = Filter</strong>
+          <small>Unter den Ergebnissen. Antippen blendet ein Verkehrsmittel aus,
+            nochmal antippen wieder ein. Was standardmäßig ausgeblendet ist, legst du
+            in den Einstellungen fest.</small></span>
+      </li>
+    </ul>
+  </section>
+
+  <section class="setgroup">
+    <h3>Was die Farben bedeuten</h3>
+    <ul class="helplist">
+      <li>
+        <span class="helpsample"><span class="helpbar bar-plain">S3</span></span>
+        <span class="helptext"><strong>Volle Farbe</strong>
+          <small>Fährt normal. Jedes Verkehrsmittel hat seine eigene Farbe — dieselbe
+            wie in der Legende.</small></span>
+      </li>
+      <li>
+        <span class="helpsample"><span class="helpbar bar-cancelled">RE1</span></span>
+        <span class="helptext"><strong>Rot-schwarz gestreift: fällt aus</strong>
+          <small>Dieses Teilstück ist gestrichen. Die Verbindung bleibt sichtbar, damit du
+            siehst, was eigentlich fahren sollte — fahren kannst du sie nicht.</small></span>
+      </li>
+      <li>
+        <span class="helpsample"><span class="helpbar bar-sev">SEV</span></span>
+        <span class="helptext"><strong>Gelb gestreift: Schienenersatzverkehr</strong>
+          <small>Statt des Zuges fährt ein Bus. Er ist meist langsamer, hält woanders und
+            braucht mehr Zeit zum Umsteigen — die Farbe darunter bleibt die des Busses,
+            denn genau das ist es.</small></span>
+      </li>
+      <li>
+        <span class="helpsample"><span class="helpbar bar-dom">S1</span></span>
+        <span class="helptext"><strong>Blass und ausgegraut: dominiert</strong>
+          <small>Es gibt eine andere Verbindung, die <em>nicht früher losfährt</em>,
+            <em>nicht später ankommt</em> und <em>nicht öfter umsteigt</em> — mindestens
+            eines davon sogar besser. Wer diese hier nimmt, verliert nichts als Zeit.
+            Sie bleibt trotzdem stehen, weil „schlechter“ nicht „nutzlos“ heißt: Vielleicht
+            willst du genau diesen Zug. Der Trichter oben blendet sie aus.</small></span>
+      </li>
+    </ul>
+  </section>
+
+  <section class="setgroup">
+    <h3>Noch gut zu wissen</h3>
+    <ul>
+      <li><strong>Verspätungen</strong> stehen als <span class="delay warn">+3</span> neben der
+        Zeit — aber nur, wenn der Verkehrsbetrieb tatsächlich etwas gemeldet hat. Bei einer
+        Fahrt in drei Tagen steht dort nichts, weil noch niemand etwas weiß.</li>
+      <li><strong>Zoom in der Grafik</strong> stellt sich selbst ein. Nachjustieren geht mit
+        zwei Fingern oder Strg + Mausrad.</li>
+      <li><strong>„Bei der DB öffnen“</strong> in den Verbindungsdetails führt zu Buchung und
+        Wagenreihung auf bahn.de.</li>
+      <li><strong>Kacheln bearbeiten:</strong> „✎ Bearbeiten“ oben rechts. Antippen ändert die
+        Beschriftung oder löscht, Ziehen tauscht zwei Kacheln. Die Anzahl stellst du im
+        ⚙-Menü ein.</li>
+      <li><strong>Einstellungen übertragen</strong> (⚙) erzeugt einen Link mit deinen Kacheln
+        und Einstellungen — auf dem anderen Gerät öffnen, bestätigen, fertig.</li>
+    </ul>
+  </section>
+
   <p class="finequote"><a href="HILFE.md" target="_blank" rel="noopener">Ausführliche Hilfe</a> · Fahrplandaten: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> ·
     <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Datenquellen</a></p>
   <div class="dlgfoot"><form method="dialog"><button class="widebtn">Alles klar</button></form></div>

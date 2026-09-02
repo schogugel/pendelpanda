@@ -53,7 +53,19 @@ wählen → optional eine **eigene Beschriftung** vergeben („Zuhause“, „Ar
   anlegen fest.
 - Kachel **ziehen** → tauscht die Position mit der Zielkachel (auch mit leeren
   Feldern; Lücken bleiben erhalten).
-- Abkürzung ohne Bearbeiten-Modus: Kachel **lange gedrückt halten**.
+- Im Bearbeiten-Modus geht auch langes Drücken. Außerhalb bedeutet es etwas
+  anderes — siehe unten.
+
+### Von deinem Standort aus
+Eine Kachel **lange gedrückt halten** sucht Verbindungen von deinem aktuellen
+Standort zu diesem Bahnhof. Welcher Halt der beste Einstieg ist, entscheidet der
+Fahrplanrechner selbst: Er rechnet den Fußweg mit ein und nimmt notfalls den etwas
+weiter entfernten Bahnhof, wenn von dort die schnellere Verbindung fährt.
+
+Beim ersten Mal fragt dein Gerät nach der Standortfreigabe. Sagst du nein, bleibt
+alles andere in der App wie vorher — es ist die einzige Stelle, die den Standort
+benutzt. Die grobe Ortung reicht dafür völlig. Der Standort wird nur für diese eine
+Suche verwendet, nirgends gespeichert und an niemanden geschickt.
 
 ### Einstellungen auf ein anderes Gerät übertragen
 **⚙ → „Einstellungen übertragen“** hat zwei Hälften.
@@ -187,9 +199,9 @@ danach noch fährt.
 - **Zeitfarben zeigen die Datenlage:** **grau** = nur Sollfahrplan, es liegen (noch)
   keine Echtzeitdaten vor; **grün** = per Echtzeit bestätigt und pünktlich — aber nur, solange der Halt noch
   bevorsteht; ist er passiert, wird auch er grau; **rot** =
-  Verspätung, daneben die durchgestrichene Sollzeit. Steht in der Spaltenkachel „Plan“
-  statt „+0“, gibt es für diese Fahrt noch keine Live-Meldung — „+0“ hieße sonst
-  fälschlich „bestätigt pünktlich“.
+  Verspätung, daneben die durchgestrichene Sollzeit. **Steht neben der Zeit gar nichts,
+  gibt es für diese Fahrt noch keine Live-Meldung** — bei einer Fahrt in drei Tagen weiß
+  das noch niemand. „+0“ hieße dort fälschlich „bestätigt pünktlich“.
 - **Ausfall:** betroffenes Teilstück schwarz-rot gestreift mit weißer Beschriftung,
   „Fällt aus“ in der Kopfzeile. Fahrende Abschnitte derselben Verbindung bleiben normal
   — so siehst du, wie weit du trotzdem kommst.
@@ -198,8 +210,11 @@ danach noch fährt.
 - **Schienenersatzverkehr:** gelb schraffierter Abschnitt in Busfarbe – die Linie fährt
   als Bus ab einer Ersatzhaltestelle. In den Details steht „Ersatzverkehr“, und über das
   📍 neben dem Abfahrtsort findest du die Haltestelle in Google Maps.
-- **Ausgegraute Spalte:** fährt früher, kommt aber nicht früher an — die Nachbarspalte
-  ist die bessere Wahl.
+- **Ausgegraute Spalte (dominiert):** Es gibt eine andere Verbindung, die *nicht früher
+  losfährt*, *nicht später ankommt* und *nicht öfter umsteigt* — in mindestens einem
+  Punkt sogar besser ist. Wer die blasse nimmt, verliert nur Zeit. Sie bleibt trotzdem
+  stehen, weil „schlechter“ nicht „nutzlos“ heißt: Vielleicht willst du genau diesen Zug.
+  Der Trichter oben blendet sie aus.
 
 ---
 
@@ -239,10 +254,15 @@ dann die Startseite, dann Wartung.
 
 **Balkenansicht**
 - **Verbindungen nebeneinander** — 3 bis 7 Spalten (Standard 5).
-- **Höhe der vordersten Verbindung** — wie viel der Bildhöhe sie einnimmt (Standard
-  50 %). Kleiner heißt mehr Übersicht, größer heißt mehr Detail.
-- **Freifläche unten nutzen** (Standard an) — enden alle sichtbaren Verbindungen weit
-  über dem unteren Rand, wird stärker gezoomt, statt die Fläche leer zu lassen.
+- **Zoom der Balken** (eingeklappt) — wie groß die vorderste Verbindung im Bild wird:
+  - **mindestens** (Standard 20 %) ist das Ziel des normalen Zooms. Kleiner heißt mehr
+    Übersicht auf das, was danach kommt, größer heißt mehr Detail.
+  - **höchstens** (Standard 70 %) begrenzt, wie weit „Freifläche unten nutzen“ aufziehen
+    darf. Beide Regler auf denselben Wert = feste Höhe, kein Spielraum.
+  - **Freifläche unten nutzen** (Standard an) — enden alle sichtbaren Verbindungen weit
+    über dem unteren Rand, wird stärker gezoomt, statt die Fläche leer zu lassen.
+  - **Standard wiederherstellen** setzt genau diese drei Werte zurück — sonst nichts.
+    Solange sie schon auf Standard stehen, ist der Knopf stumpf.
 
 **Startseite**
 - **Mehr als 14 Kacheln:** Standard sind 14 Kacheln, die ohne Scrollen auf den Schirm
@@ -318,6 +338,8 @@ Website-Daten entfernt sie. Vorbeugen: Übertragungs-Link aufheben.
 ## Datenquellen
 
 Fahrplan und Echtzeit: [Transitous](https://transitous.org) (offene DELFI/GTFS-Daten).
+Die Schriften ([Barlow](https://github.com/jpt/barlow), SIL Open Font License) liegen in
+der App — es wird nichts von Google Fonts oder anderen fremden Servern nachgeladen.
 Die vollständige Liste der Datenquellen samt Lizenzen: [transitous.org/sources](https://transitous.org/sources/).
 Weiterleitungen zur Buchung: bahn.de. PendelPanda speichert nichts auf fremden Servern —
 Kacheln und Einstellungen bleiben auf deinem Gerät.

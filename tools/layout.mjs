@@ -30,11 +30,28 @@ const SIZES = ["393x852", "393x740", "360x640", "412x915"];
    daran ist v1.15.1 gescheitert — bei „Letzte“ kommt eine Zeile dazu, die es bei
    „Jetzt“ nicht gibt, und die feste Grafikhöhe passte dann nicht mehr. */
 const VIEWS = {
-  start: "",
+  /* Die Startseite wird mit LANGEN Namen gemessen, nicht leer. Leere Kacheln
+     sind der harmlose Fall — sie tragen zwei kurze Zeilen. Der teure Fall ist
+     „Bochum Ruhr-Universität“ auf zwei Zeilen in großer Schrift, und genau den
+     hat dieses Werkzeug bis v1.66.0 nie gesehen: Es maß leer, meldete PASST,
+     und auf dem Telefon war die Beschriftung unten abgeschnitten. */
+  start: `
+    const namen = ["Zuhause","Regensburg Hbf","Nürnberg Hbf","Arbeit","München Ost",
+                   "Bochum Ruhr-Universität","Erlenstegen","Vorra (Pegnitz)",
+                   "Neumarkt (Oberpf)","Lauf (links Pegnitz)"];
+    slots = namen.map(n => ({ name: n, id: "x" })).concat([null, null, null, null]);
+    renderGrid();
+  `,
   ergebnis: `
     document.querySelectorAll("main.view").forEach(v => v.hidden = v.id !== "view-results");
     document.body.dataset.view = "results";
     document.body.dataset.mode = "graph";
+    /* Der Kopf wurde bis v1.70.0 LEER gemessen — und war deshalb immer flach.
+       Gemessen gehört der teure und zugleich schiefe Fall: ein einzeiliger Name
+       gegen einen zweizeiligen. Genau dabei standen „Start“ und „Ziel“ 14 px
+       gegeneinander versetzt, und der Kopf ist hier am höchsten. */
+    document.getElementById("rhead-from").textContent = "Fürth";
+    document.getElementById("rhead-to").textContent = "Bochum Ruhr-Universität";
     document.getElementById("around-note").hidden = false;
     document.getElementById("same-note").hidden = false;
     const ln = document.getElementById("last-note");
@@ -72,6 +89,19 @@ addEventListener("load", () => {
   const letzte = [...main.children].filter(el => !el.hidden)
     .map(el => el.getBoundingClientRect().bottom)
     .reduce((a, b) => Math.max(a, b), 0);
+  /* Kachel-internes Abschneiden. Ein overflow:hidden verschluckt es lautlos:
+     Die Seite läuft nicht über, der Text ist trotzdem weg. Gemessen wird die
+     Unterkante des letzten Kindes gegen den Platz bis zum unteren Polster. */
+  /* Nur SICHTBARE Kacheln: In der Ergebnisansicht liegen die der Startseite
+     versteckt im selben Dokument, und bei clientHeight 0 meldet die Rechnung
+     unten stur den padding-bottom als Überstand. Die Ergebnis-Messung stand
+     dadurch dauerhaft auf „PASST NICHT“ — ein Daueralarm, den niemand mehr
+     liest, ist schlimmer als keiner. */
+  const eng = [...document.querySelectorAll(".stationbtn")].filter(b => b.offsetParent).map((b, i) => {
+    const inner = [...b.children].reduce((m, c) => Math.max(m, c.offsetTop + c.offsetHeight), 0);
+    const platz = b.clientHeight - parseFloat(getComputedStyle(b).paddingBottom);
+    return { nr: i + 1, ueber: Math.round(inner - platz) };
+  }).filter(x => x.ueber > 0);
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;inset:0;z-index:99999;background:#fff;color:#000;"
     + "font:21px/1.6 monospace;padding:16px;white-space:pre";
@@ -81,7 +111,9 @@ addEventListener("load", () => {
     "UEBERLAUF Y  " + over + " px",
     "UEBERLAUF X  " + overX + " px",
     "unterste Kante " + Math.round(letzte),
-    "", (over <= 1 && overX <= 1 && letzte <= window.innerHeight + 1) ? "PASST" : "PASST NICHT"
+    "KACHEL ENG  " + (eng.length ? eng.map(x => x.nr + "(+" + x.ueber + ")").join(" ") : "nein"),
+    "", (over <= 1 && overX <= 1 && letzte <= window.innerHeight + 1 && !eng.length)
+          ? "PASST" : "PASST NICHT"
   ].join("\\n");
   document.body.appendChild(box);
 });

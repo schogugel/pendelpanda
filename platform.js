@@ -94,6 +94,6 @@ if (PP.native) {
   /* Helle Systemleiste über dunklem Design sieht aus wie ein Fremdkörper. */
   if (plugins.StatusBar) {
     plugins.StatusBar.setStyle({ style: "DARK" }).catch(() => {});
-    plugins.StatusBar.setBackgroundColor({ color: "#0a0e18" }).catch(() => {});
+    plugins.StatusBar.setBackgroundColor({ color: "#0d0d0c" }).catch(() => {});
   }
 }

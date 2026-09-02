@@ -20,6 +20,10 @@
    - manifest.webmanifest ... PWA-Installationsdatei; die APK IST die Installation
    - db-link-worker/ ........ ersatzlos entfallen, die App macht das selbst
    - icons/Bus|Sbahn|... .... Referenzbilder, kein App-Inhalt
+
+   fonts/ ist dagegen DABEI: Die Schriften liegen bewusst in der APK, damit die
+   App nichts von fremden Servern holt. OFL.txt muss mit — die Lizenz verlangt,
+   dass sie bei jeder Weitergabe beiliegt.
    ========================================================================== */
 
 import { cp, mkdir, rm, access, readFile, writeFile } from "node:fs/promises";
@@ -37,6 +41,15 @@ const FILES = [
   "dblink.js",
   "app.js",
   "timeline.js",
+  "fonts/barlow-400-latin-ext.woff2",
+  "fonts/barlow-400-latin.woff2",
+  "fonts/barlow-600-latin-ext.woff2",
+  "fonts/barlow-600-latin.woff2",
+  "fonts/barlow-700-latin-ext.woff2",
+  "fonts/barlow-700-latin.woff2",
+  "fonts/barlow-semicondensed-700-latin-ext.woff2",
+  "fonts/barlow-semicondensed-700-latin.woff2",
+  "fonts/OFL.txt",
   "icons/app-192-dark.png",
   "icons/app-512-dark.png",
   "icons/app-maskable-dark.png",
@@ -94,6 +107,45 @@ const code = maj * 10000 + min * 100 + pat;
     await writeFile(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
   }
   console.log(`✓ Kennung der Anfragen: ${ua}`);
+}
+
+/* ---------------------------------------------------------------------------
+   AndroidManifest: Standort-Berechtigungen
+   ---------------------------------------------------------------------------
+   „Von hier aus“ (langer Druck auf eine Kachel) benutzt `navigator.geolocation`.
+   Im Browser genügt das; in der WebView fragt Capacitors BridgeWebChromeClient
+   die Laufzeit-Berechtigung selbst ab — ABER nur, wenn sie im Manifest steht.
+   Fehlt sie dort, schlägt die Abfrage ohne sichtbaren Fehler fehl, und die App
+   bekommt nie eine Position.
+
+   Das Manifest ist ein Erzeugnis (`android/` liegt im .gitignore und wird von
+   `cap add` angelegt), deshalb wird es hier gepatcht statt von Hand gepflegt —
+   genauso wie build.gradle darunter. Der Patch ist an der Marke erkennbar und
+   läuft deshalb nicht doppelt.
+
+   COARSE steht mit dabei: Ab Android 12 darf man die genaue Ortung verweigern
+   und nur die grobe erlauben. Für „welcher Bahnhof ist in der Nähe“ reicht die
+   locker, und Capacitor akzeptiert diesen Fall ausdrücklich. */
+const manifestPath = join(HERE, "android", "app", "src", "main", "AndroidManifest.xml");
+const MANIFEST_MARK = "<!-- pendelpanda:standort -->";
+try {
+  const mf = await readFile(manifestPath, "utf8");
+  if (!mf.includes(MANIFEST_MARK)) {
+    const eingefuegt = mf.replace(
+      /(\s*<uses-permission android:name="android\.permission\.INTERNET" \/>)/,
+      `$1
+    ${MANIFEST_MARK} — „Von hier aus“; Capacitor fragt zur Laufzeit selbst nach
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />`);
+    if (eingefuegt === mf) {
+      console.error("✗ AndroidManifest: INTERNET-Zeile nicht gefunden — Patch prüfen");
+      process.exit(1);
+    }
+    await writeFile(manifestPath, eingefuegt);
+    console.log("✓ Standort-Berechtigungen ins AndroidManifest eingetragen");
+  }
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
 }
 
 const gradlePath = join(HERE, "android", "app", "build.gradle");

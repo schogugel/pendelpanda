@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE = "pendelpanda-v1.61.1";
+const CACHE = "pendelpanda-v1.71.0";
 const SHELL = [
   "./",
   "./index.html",
@@ -10,6 +10,17 @@ const SHELL = [
   "./app.js",
   "./timeline.js",
   "./manifest.webmanifest",
+  /* Die Schriften MÜSSEN mit in die Hülle: Ohne sie startet die App offline zwar,
+     zeigt aber eine andere Schrift — und beim nächsten Online-Start springt das
+     Layout. Sie liegen lokal, es geht keine Anfrage nach draußen. */
+  "./fonts/barlow-400-latin-ext.woff2",
+  "./fonts/barlow-400-latin.woff2",
+  "./fonts/barlow-600-latin-ext.woff2",
+  "./fonts/barlow-600-latin.woff2",
+  "./fonts/barlow-700-latin-ext.woff2",
+  "./fonts/barlow-700-latin.woff2",
+  "./fonts/barlow-semicondensed-700-latin-ext.woff2",
+  "./fonts/barlow-semicondensed-700-latin.woff2",
   "./icons/app-192-dark.png?v=3",
   "./icons/app-512-dark.png?v=3",
 ];

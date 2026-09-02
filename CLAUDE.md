@@ -549,8 +549,32 @@ Was ansteht, steht in `TODO.md`.
   anders aus — statt vier kleiner Balken eine große Verbindung, weil `fill` endlich
   wirkt. Wer die alte Übersicht will, stellt `fill` niedriger (bei 11-Minuten-Fahrten
   entspricht 40 % ungefähr dem früheren Bild).
-- Y-Zoom: Zielspalten-Verbindung belegt **`settings.fill` %** der Fläche (Standard 50,
-  einstellbar 40–90). Im **„Jetzt“-Modus wird von JETZT bis zur Ankunft gemessen**, nicht
+- Y-Zoom: Zielspalten-Verbindung belegt eine **SPANNE** der Fläche —
+  `settings.fillMin` (Standard 50) ist das Ziel des normalen Zooms,
+  `settings.fillMax` (Standard 90) die Decke, bis zu der `tlFitBottom` aufziehen darf.
+  Beide auf denselben Wert = Verhalten vor v1.68.0 (fester `fill`).
+  **Warum die Spanne:** Ein fester Wert nagelt die vorderste Verbindung auf genau diese
+  Höhe; „Freifläche unten nutzen“ konnte danach nur in dem Rest wirken, den die
+  Auslösegrenze übrig ließ, und lief regelmäßig ins Leere.
+  **Die Decke wird in `tlAutoZoom` berechnet und an `tlFitBottom` durchgereicht** — nur
+  dort ist `spanMin` der Fokusspalte bekannt. `tlFitBottom` misst die tiefste Ankunft
+  über ALLE sichtbaren Spalten und wüsste gar nicht, wie hoch die vorderste dabei wird.
+  **Die Decke darf den Automatik-Wert nie unterbieten** (`Math.max(ppm, …)` am Ende):
+  Sonst wäre ausgerechnet die Funktion, die nur vergrößern soll, die einzige, die
+  verkleinert — möglich, sobald `minPpm` den Grundzoom über die Decke hebt.
+  Grenzen bewusst weit (20–95 %); sie werden nach dem Ausprobieren am Gerät enger gezogen.
+  Einstellbar unter ⚙ → Balkenansicht → **„Zoom der Balken“** (eingeklappt: die drei Werte
+  gehören zusammen und werden einmal gesetzt). Standard seit v1.71.0: **20 / 70 / an** —
+  50 % Untergrenze war als ZIEL des normalen Zooms zu satt, auf Stadtstrecken blieb neben
+  der vordersten Verbindung kaum etwas übrig; 90 % Obergrenze war nahezu bildfüllend.
+  **Die Werte stehen in `ZOOM_DEFAULTS` (app.js), an genau EINER Stelle** — `loadSettings`
+  und der Knopf „Standard wiederherstellen“ lesen dieselbe Quelle, sonst stellte der Knopf
+  nach der ersten Änderung etwas anderes her als den Auslieferungszustand. Der Knopf setzt
+  **ausschließlich diese drei** zurück (deshalb steht er IN dem Abschnitt, nicht unten bei
+  den allgemeinen Knöpfen) und ist stumpf, solange nichts abweicht.
+  **Bestandsgeräte behalten ihre gespeicherten Werte** — neue Standards greifen nur bei
+  leerem `pp.settings`. Wer die neuen will, drückt den Knopf; gespeicherte Einstellungen
+  beim Update zu überschreiben wäre der schlimmere Fehler. Im **„Jetzt“-Modus wird von JETZT bis zur Ankunft gemessen**, nicht
   nur die Fahrtdauer — die Ansicht dockt dort an der Jetzt-Linie an, und bei langer
   Wartezeit schob die reine Fahrtdauer die Verbindung aus dem Bild (man sah nur den roten
   Balken). So bleiben Jetzt-Linie, ganze Verbindung und der eingestellte Puffer sichtbar;
@@ -570,6 +594,24 @@ Was ansteht, steht in `TODO.md`.
   werden chronologisch auch MITTEN einsortiert — ein Index-Anker verschiebt dann alles)
   plus Zeit-Anker für die Vertikale; `tl.lastZoomIdx` mitziehen, sonst zoomt das
   Einrasten die Spalte neu. Die Ansicht darf sich durch Nachladen NIE bewegen.
+- **Ausnahme davon: eine geänderte FRAGE richtet neu aus** (`tl.forceRealign`, v1.70.0).
+  Blättern hält die Position — ein über die Legende eingeblendetes Verkehrsmittel nicht.
+  Dabei ändert sich die ANTWORT: Im „Jetzt“-Modus kann die erste noch erreichbare
+  Verbindung eine neue, frühere sein, bei „Letzte“ eine spätere (der Fernzug ist oft
+  genau die späteste). Der Anker hielt stur die alte Spalte fest, die neue Verbindung
+  landete links außerhalb des Bildes, und weil Zoom und Y-Ausrichtung an der Fokusspalte
+  hängen, stimmte danach die ganze Ansicht nicht mehr. Erst ein erneutes Tippen auf
+  „Jetzt“/„Letzte“ half — das startet die Suche neu und richtet deshalb voll aus.
+  Beim Realign wird der Anker verworfen (die normalen Start-/Fokus-Zweige laufen) UND
+  `app.focusKey` genullt, damit `findLastDecent` auf den neuen Daten neu entscheidet.
+  **Aber nur, wenn die Ansicht noch dort steht, wo die Automatik sie hingestellt hat**
+  (`tlAtAlign()`): Wer bewusst zu morgen früh gescrollt ist und dort etwas einblendet,
+  darf nicht weggerissen werden. Gemessen wird über `tl.alignKey` — den Schlüssel der
+  Verbindung in der linkesten Spalte der letzten AUTOMATISCHEN Ausrichtung, nicht über
+  Pixel (die verschieben sich beim Nachladen) und nicht im Anker-Zweig gesetzt (der
+  hält nur fest, was schon da war, und würde die Erinnerung überschreiben).
+  `tlAtAlign()` muss **vor `showSearching`** ausgewertet werden — danach ist die Grafik
+  geleert und meldet `scrollLeft = 0`, dieselbe Falle wie beim Anker selbst.
 - **Fußfreiheit (`tlEnsureTail`) ist das Gegenstück zur Kopffreiheit** und genauso
   nötig: Die Leinwand endete 14 min nach der letzten Ankunft, dadurch ließ sich ein
   kurzer Balken am rechten Rand gar nicht bis unter die Kopf-Kachel hochschieben — der
@@ -727,8 +769,10 @@ Was ansteht, steht in `TODO.md`.
   die falsche Hälfte der Strecken falsch stehen. Gesetzt bei EINER der beiden Kacheln
   reicht (`wantsFullSearch`) — die dichte Seite verursacht die Lücke, egal ob sie
   Start oder Ziel ist. Ohne Häkchen bleibt der Knopf ⤓ der Weg auf Zuruf.
-- **`settings.fitBottom`** („Freifläche unten nutzen“, ⚙ → Balkenansicht, seit v1.59.0
-  standardmäßig AN; davor Testfunktion und AUS).
+- **`settings.fitBottom`** („Freifläche unten nutzen“, ⚙ → Balkenansicht → Zoom der
+  Balken, seit v1.59.0 standardmäßig AN; davor Testfunktion und AUS). **Seit v1.68.0 mit
+  Decke aus `fillMax`** — sie zog vorher bis `maxPpm`, die Fokusspalte konnte dabei
+  deutlich größer werden als eingestellt.
   **`loadSettings` las den Wert nie zurück** (nur `saveSettings` schrieb ihn) — solange
   der Standard AUS war, fiel das nicht auf, weil man den Schalter nur zum Ausprobieren
   anfasste. Mit Standard AN wäre das Abschalten nach jedem Neustart weg gewesen. Merke:
@@ -1036,6 +1080,81 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   *App installieren* → *Übertragen & Hilfe* → *Kontakt & Rechtliches*. Erst WAS gesucht wird, dann WIE es
   aussieht, dann Wartung. Der Unterschied Hybrid/Nur Tippen steht in einem `.miniexpl`
   Aufklapper — vier Sätze unter einem Schalter liest niemand zweimal.
+- **Die Kachelschrift wird zur LAUFZEIT gemessen** (`fitTileFont`, v1.69.0), nicht in CSS
+  gesetzt: Gesucht ist die größte Schrift, bei der JEDER Name in höchstens drei Zeilen und
+  in seine Kachel passt; die kleinste dieser Größen gilt dann für ALLE Kacheln
+  (`--tile-font` am Raster). Grenzen 12–22 px, Schritt 0,5.
+  - **Warum einheitlich:** Unterschiedliche Größen nebeneinander sehen aus wie ein Fehler.
+    Das Raster ist eine Tafel, keine Sammlung.
+  - **Warum überhaupt gemessen:** Eine feste Größe muss sich am längsten Namen orientieren
+    (dann ist „Zuhause“ winzig) oder am kürzesten (dann wird „Bochum Ruhr-Universität“
+    abgeschnitten). Beides war schon ausgeliefert.
+  - **Gemessen wird an einem unsichtbaren Doppel**, nie an den echten Kacheln: Jede
+    Größenänderung an einer sichtbaren Kachel erzwingt einen Umbruch des ganzen Rasters,
+    und davon gäbe es hier Dutzende hintereinander.
+  - **Die Schleife läuft nur ABWÄRTS und über alle Namen zusammen.** Kleiner passt immer,
+    wenn größer passte — das Ergebnis ist dasselbe wie bei einer Einzelsuche je Name, die
+    Kosten sind ein Bruchteil.
+  - **Nur im scrollfreien Raster bindet die Höhe.** Bei über 14 Kacheln wächst die Zeile
+    mit ihrem Inhalt; eine Höhenprüfung rechnete sich dort selbst ins Ergebnis. Dort
+    bindet allein die Zeilenzahl.
+  - **Nach `document.fonts.ready` neu messen.** Vorher misst der Browser mit einer
+    Ersatzschrift anderer Breite, und die Größe stünde nach dem Schriftwechsel falsch.
+  - **Kein `font-size` für `.tile-name` in einer Media Query** — die gewinnt gegen
+    `var(--tile-font)` und hebelt die Messung aus. Die frühere Regel unter `max-height:
+    680px` ist deshalb entfallen; die Messung erledigt kleine Bildschirme von selbst
+    (gemessen 360x640: „gemischt“ 17,5 px statt 22 px).
+  - Gemessen auf 393x852: nur kurze Namen 22 px / 1 Zeile · gemischt 22 px / 2 Zeilen ·
+    „Frankfurt (Main) Flughafen Fernbahnhof“ 17,5 px / 3 Zeilen — nichts abgeschnitten.
+- **Übrige Schriftgrößen auf der Startseite sind AUSGEMESSEN, nicht gewählt** (v1.66.0):
+  Titel `clamp(1.8rem, 8.4vw, 2.6rem)`, Bahnhofsname im Ergebniskopf 1,54 rem. Wer daran
+  dreht, misst nach — Größe UND Sperrung gehen in dieselbe Breite ein.
+  - **Der Titel konkurriert mit dem Zahnrad um eine Zeile.** „ABFAHRTSTAFEL“ ist
+    unteilbar; die Sperrung ist ein Vielfaches der Schriftgröße und wächst mit. Deshalb
+    musste sie beim Vergrößern von .12–.3em auf .06–.12em zurück. Gemessen auf 360 px:
+    243 von 276 px belegt.
+  - **Zwei Höhenstufen für die Kacheln** (`max-height: 800px` / `680px`). 14 Kacheln ohne
+    Scrollen schlägt große Schrift: Auf 360x640 bleiben je Kachel 64 px, auf 393x852
+    dagegen 94. Ohne die Stufen wurde die zweite Namenszeile unten abgeschnitten.
+  - **`.tile-plus` braucht `flex: none`.** Als Flex-Kind einer Spalte schrumpft der Kreis
+    sonst mit der Kachelhöhe und wird zur Ellipse — sichtbar, sobald lange Namen in
+    anderen Reihen die geteilte Zeilenhöhe drücken.
+  - **Das Plus ist gezeichnet, nicht gesetzt.** Schriften legen „+“ auf die mathematische
+    Achse, und die liegt über der Mitte des Geviertes; zentriert wird aber das Geviert.
+    Mit Barlow saß es sichtbar zu tief. Zwei Balken über die Mitte treffen sie exakt.
+  - **Der obere Innenabstand hält die Nummer frei.** `.tile-num` liegt absolut und nimmt
+    am Fluss nicht teil — ein zweizeiliger Name wuchs nach oben unter sie.
+- **`tools/layout.mjs` misst die Startseite mit LANGEN NAMEN** und meldet zusätzlich
+  Abschneiden INNERHALB einer Kachel (`KACHEL ENG`). Bis v1.66.0 maß es leere Kacheln und
+  meldete PASST, während auf dem Telefon die Beschriftung abgeschnitten war: Der teure
+  Fall ist „Bochum Ruhr-Universität“ auf zwei Zeilen, nicht „Halt speichern“. Ein
+  `overflow: hidden` verschluckt das lautlos — die Seite läuft nicht über, der Text ist
+  trotzdem weg. **Beim Bearbeiten der Datei auf Backticks achten:** Der Prüfcode steckt in
+  einem Template-Literal, ein Backtick im Kommentar beendet es.
+- **Langer Druck = „von hier aus“** (`searchFromHere`, v1.64.0), NICHT mehr Bearbeiten.
+  Das Bearbeiten war eine zweite Tür zu etwas, das „✎ Bearbeiten“ schon anbietet; die
+  Geste kann etwas leisten, das sonst gar nicht geht. **Im Bearbeiten-Modus öffnet der
+  lange Druck weiterhin die Kachel** — dort ist eine Suche das Letzte, was jemand will.
+  - **Kein Raten der nächsten Haltestelle.** Der Standort geht als `lat,lon` direkt in
+    `fromPlace` (`placeParam`), MOTIS sucht den Einstieg selbst. Gemessen Regensburg →
+    München: 9 min Fußweg zum Hbf, obwohl nähere Bushalte dazwischenliegen — von dort
+    fährt die schnellere Verbindung. Eine selbst gewählte „nächste Haltestelle“ hätte
+    die verpasst.
+  - `maxPreTransitTime` **1200 s statt der 900 s Voreinstellung**, wenn `from.here`:
+    Wer zwischen zwei Dörfern steht, hat mit 15 Minuten Fußweg sonst gar kein Ergebnis.
+    Nach dem Tauschen greift `maxPostTransitTime` genauso.
+  - **Der Pseudo-Halt `hereStop()` hat keine `id`.** Alles, was Halte anfasst, muss das
+    vertragen: `coordsOf` ist durch lat/lon sofort zufrieden, `dbPlaceId` baut einen
+    Koordinaten-Ort, und der DB-**Such**link setzt stattdessen den tatsächlichen
+    Einstiegshalt ein (`T[0].from`) — „Mein Standort“ kann die DB nicht suchen.
+  - **Berechtigungen:** Web und PWA fragt der Browser (HTTPS ist Pflicht, GitHub Pages
+    erfüllt das). In der APK fragt Capacitors `BridgeWebChromeClient` von selbst — aber
+    NUR, wenn `ACCESS_COARSE_LOCATION`/`ACCESS_FINE_LOCATION` im Manifest stehen. Das
+    Manifest ist ein Erzeugnis, deshalb patcht `native/sync.mjs` es an einer Marke.
+    COARSE muss mit dabei sein: Ab Android 12 darf man nur die grobe Ortung erlauben,
+    und Capacitor wertet genau diesen Fall noch als Erfolg.
+  - **Fehler bekommen konkrete Sätze** (`geoFehler`): verweigert / nicht ermittelbar /
+    zu lange gedauert. „Standort nicht verfügbar“ sagt niemandem, was zu tun ist.
 - Edit-Flow: Bearbeiten = nur Label + Löschen (Stationswechsel = löschen+neu);
   Neuanlage zweiphasig (Suche → `pendingStation` → Label optional → Speichern).
 - Übertragungs-Link `#cfg=` = Base64-JSON `{v:2, slots, show, cols, fill, connect}`;
@@ -1051,12 +1170,61 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
 
 ## Design-Tokens & Stil
 
+- **GENAU ZWEI Schriften, beide MITGELIEFERT** (`--font-ui`, `--font-station`, v1.63.0).
+  `--font-station` trägt die Bahnhofsnamen (Kachel, Ergebniskopf, Bearbeiten-Ansicht) und
+  den Seitentitel, `--font-ui` alles andere. Wer eine dritte einführt, macht die
+  Unterscheidung wertlos — sie funktioniert nur, weil sie EINE Rolle markiert.
+  - **Barlow + Barlow Semi Condensed als woff2 in `fonts/`**, SIL OFL 1.1 (`fonts/OFL.txt`
+    liegt daneben, die Lizenz verlangt das bei jeder Weitergabe). EINE Familie in zwei
+    Breiten — die Schnitte sind füreinander gezeichnet. Bahnschrift wäre die naheliegende
+    Wahl gewesen, darf aber nicht mitgeliefert werden (gehört zu Windows); Barlow kommt
+    ihr nahe: flache Abschlüsse, geometrisches R und a.
+  - **KEIN Nachladen von fremden Servern, auch nicht beim ersten Start.** Das ist der
+    ganze Punkt: Die App spricht mit Transitous und (nativ, auf Knopfdruck) mit der DB —
+    sonst mit niemandem. Ein `<link>` auf fonts.googleapis.com hätte eine Zeile im
+    Datenschutz-Dialog gebraucht. **Wer die Schriften auf eine CDN umstellt, muss den
+    Dialog ändern** — dort steht jetzt ausdrücklich, dass nichts nachgeladen wird.
+  - **v1.62.0 hatte nur eine Systemschrift-Liste** (Bahnschrift/DIN Alternate/Roboto
+    Condensed …). Die machte zwar auch keine Anfragen, sah aber auf jedem Gerät anders
+    aus — genau das, was „vereinheitlichen“ verhindern sollte. Die Reste der Liste stehen
+    weiterhin HINTER der eigenen Schrift, als Absicherung für den Fall, dass eine Datei
+    fehlt (abgebrochener erster Aufruf, ausgeräumter Cache).
+  - **Nur die benutzten Schnitte: 400/600/700 normal, 700 schmal.** Die früheren
+    `font-weight: 800` (4×) und der eine `300` sind auf diese gezogen — einen fehlenden
+    Schnitt rechnet der Browser künstlich nach, und das sieht schlechter aus als der
+    echte Nachbarschnitt. Zusammen 147 KB; `unicode-range` lädt latin-ext nur bei Bedarf.
+  - **Eigene Familiennamen (`"Barlow PP"`)**, damit eine zufällig installierte Barlow in
+    anderer Fassung nicht dazwischenfunkt.
+  - **Neue Schriftdatei? → `sw.js` SHELL UND `native/sync.mjs` Allowlist.** Ohne SHELL
+    startet die App offline mit anderer Schrift und springt beim nächsten Online-Start;
+    ohne Allowlist fehlt sie in der APK.
+  - **Der schmale Schnitt kauft Platz.** „Lauf (links Pegnitz)“ und „Neumarkt (Oberpf)“
+    fielen vorher auf zwei Zeilen, jetzt passen sie auf eine. `node tools/layout.mjs`
+    bestätigt alle acht Messungen als PASST.
+  - **`document.fonts.check` taugt NICHT zur Prüfung, welche Schrift greift.** Auf Linux
+    ersetzt fontconfig jede unbekannte Familie und meldet für alles `true`. Wer wissen
+    will, was wirklich rendert, vergleicht Screenshots oder liest `fc-list`.
+
 - **Erweiterte Einstellungen sind eingeklappt** (`<details class="setgroup setfold">`,
   ohne JS): „Umsteigen“ und „Letzte Verbindung“ stellt man einmal ein. Gemessen ist der
   Dialog dadurch 1576 statt 2113 px hoch, ein Viertel kürzer. Das `h3` steckt dabei im
   `<summary>` — der Selektor `.setgroup > h3` trifft es NICHT mehr, `.setfold > summary >
   h3` muss danebenstehen, sonst steht dort eine große Serifen-Überschrift zwischen lauter
   kleinen Versalzeilen.
+- **Die Hilfe zeigt ECHTE Knöpfe, keine Beschreibungen** (`#help-dialog`, `.helplist` /
+  `.helpsample`, v1.65.0). „Das Symbol mit dem Trichter“ verlangt vom Leser genau die
+  Übersetzung, die ihm fehlt. Die Muster tragen deshalb dieselben Klassen wie im Betrieb
+  und sehen damit automatisch gleich aus — eine Änderung am Knopf zieht in der Hilfe mit.
+  - **Neue Elemente in `.helpsample` brauchen ggf. ihre Strichfarbe.** Genau daran ist
+    der Tausch-Knopf zuerst gescheitert: Sein Pfad hat keine Füllung, `stroke` kam nur
+    über den Elternteil `.rhead`. Der Selektor listet `.helpsample` jetzt mit auf.
+  - **Die Warnmuster stehen als Tokens in `:root`** (`--stripe-cancelled`,
+    `--stripe-sev`), weil sie an drei Stellen auftauchen: Balken in der Grafik,
+    Linienmarke in der Detailansicht, Farblegende in der Hilfe. Getrennt gepflegt erklärt
+    die Hilfe irgendwann ein Muster, das es nicht mehr gibt.
+  - **Die Hilfe beginnt mit dem WOFÜR, nicht mit dem WIE.** Wer nicht weiß, dass die App
+    für wiederkehrende Wege gebaut ist, liest jede Bedienanleitung gegen die falsche
+    Erwartung und sucht ein Suchfeld, das es absichtlich nicht gibt.
 - **Rechtliches gehört zu Kontakt, nicht zu Hilfe:** „Daten & Datenschutz“ steht zwischen
   „Schreib mir“ und „Impressum“ unter **Kontakt & Rechtliches**; darüber steht
   **Übertragen & Hilfe**. Vorher hing der Datenschutz im Hilfe-Abschnitt und zwang dessen
@@ -1182,13 +1350,26 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
   (`--tl-link`), nicht `--border`. Der ist auf ruhige Trennlinien ausgelegt und kam hier
   auf 1,4:1 gegen den Kartengrund — die Linie trägt aber Bedeutung („hier wird
   gewartet“) und gehört sichtbar: jetzt 11:1 dunkel, 5,4:1 hell.
-- Dark-first. bg `#0a0e18`, card `#131928`, Akzent Amber `#f0a63a` (hell `#b97800`).
-  Status semantisch: ok grün, warn orange, bad rot — nie als Deko missbrauchen.
+- Dark-first, **neutrale Flächen mit minimalem Warmstich** (Hue 30°, 5–10 % Sättigung;
+  v1.67.0). Dunkel bg `#0d0d0c`, card `#191817`; hell bg `#f7f6f5`, card `#ffffff`.
+  Akzent Amber `#f0a63a` (hell `#b97800`).
+  **Der frühere Blaustich (Hue 222°, bis 41 %) ist raus:** Neben einem orangen Akzent
+  liest er sich als zweite Farbe, die niemand bestellt hat. **Vollständig neutral (Hue
+  egal, Sättigung 0) ist aber die falsche Korrektur** — beziehungslose Grautöne neben
+  einer gesättigten Farbe sehen nach Standardeinstellung aus. Der Rest Wärme ist nicht
+  wahrnehmbar, aber spürbar, und genau das ist der Unterschied.
+  **Eine Änderung an `--bg` betrifft FÜNF Dateien:** `style.css`, die beiden
+  `theme-color`-Metas in `index.html`, `manifest.webmanifest` (background + theme),
+  `platform.js` (StatusBar) und `native/capacitor.config.json` (zweimal). Bleibt eine
+  zurück, blitzt beim App-Start kurz die alte Farbe auf.
+  Kontraste nachgerechnet, alle über AA: Text 16,7:1 dunkel / 15,7:1 hell, gedämpfter
+  Text 7,8:1 / 4,8:1. Status semantisch: ok grün, warn orange, bad rot — nie als Deko.
 - Formen: Kacheln 4 px (Farbbalken INNEN an der Oberkante, eingerückt), Karten/Chips 8 px,
   Segmente 3 px. Typo-Akzente versal-gesperrt (Seitentitel, BEARBEITEN, START-Flag).
-- Verspätungs-Abzeichen zeigt IMMER die Zahl (`+0`, `+3`, …), auch ohne Echtzeitdaten.
-  Ein Sonderzustand „Plan“ war ausdrücklich unerwünscht — die Datenlage steckt in der
-  Textfarbe der Uhrzeit, nicht im Abzeichen.
+- Verspätungs-Abzeichen NUR mit Echtzeitdaten (seit v1.61.1, siehe „Grid & Kacheln“).
+  Bis dahin stand hier das Gegenteil: „zeigt IMMER die Zahl, auch ohne Echtzeitdaten“.
+  Das war als bewusste Entscheidung notiert, ist es aber nicht mehr — ein grünes „+0“ an
+  einer Fahrt in drei Tagen behauptet Pünktlichkeit, die niemand kennt.
 - **Kopf-Kachel = SOLLZEIT, Balken = PROGNOSE.** In der Kachel steht das
   Verspätungs-Abzeichen direkt daneben, und „10:15 +5“ liest sich sonst wie eine
   Rechenaufgabe — man addiert im Kopf und landet fünf Minuten zu spät. Sollzeit plus

@@ -1,12 +1,27 @@
+/* ---------- Neutrale, leicht warme Graustufen ----------
+   Die Flächen trugen bis v1.66.0 einen deutlichen Blaustich (Hue 222°, bis 41 %
+   Sättigung). Neben einem orangen Akzent liest sich das als zweite Farbe, die
+   niemand bestellt hat — die Seite wirkte kühl und die Kacheln wie ein eigenes
+   Thema.
+
+   Jetzt Hue 30° bei 5–10 % Sättigung: Das ist praktisch Grau, kippt aber
+   minimal in Richtung des Akzents. Genau dieser Rest ist der Unterschied
+   zwischen „elegant“ und „billig“ — vollkommen neutrale Grautöne (Hue egal,
+   Sättigung 0) stehen neben einer gesättigten Farbe beziehungslos da und
+   sehen nach Standardeinstellung aus. Wahrnehmbar ist die Wärme nicht, spürbar
+   schon.
+
+   Die Verkehrsmittel-Farben bleiben unangetastet: Sie sind eine Zuordnung,
+   keine Gestaltung. */
 :root {
-  --bg: #f3f5f9;
+  --bg: #f7f6f5;
   --card: #ffffff;
-  --text: #151c28;
-  --muted: #5b6b80;
+  --text: #1f1c19;
+  --muted: #736b64;
   --accent: #b97800;
   --accent-soft: #f6e8cf;
-  --border: #d6dde8;
-  --tl-link: #5b6b80;   /* Verbindungslinie zwischen den Balken-Segmenten */
+  --border: #e1dedb;
+  --tl-link: #736b64;   /* Verbindungslinie zwischen den Balken-Segmenten */
   --ok: #1e7d32;
   --warn: #b26a00;
   --bad: #c62828;
@@ -25,14 +40,17 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0e18;
-    --card: #131928;
-    --text: #e6eaf2;
-    --muted: #93a0b4;
+    /* Dunkler als vorher (Helligkeit 7 % → 5 %) und ohne Blaustich. Kontraste
+       nachgerechnet und durchweg besser als zuvor: Text auf Fläche 16,7:1
+       (vorher 16,0), gedämpfter Text 7,8:1 (vorher 7,3) — beides über AA. */
+    --bg: #0d0d0c;
+    --card: #191817;
+    --text: #efedec;
+    --muted: #a9a39e;
     --accent: #f0a63a;
     --accent-soft: #35280f;
-    --border: #273246;
-    --tl-link: #c3cede;
+    --border: #3b3835;
+    --tl-link: #cfccc9;
     --ok: #7cc47f;
     --warn: #ffb74d;
     --bad: #ef7070;
@@ -46,11 +64,101 @@
   }
 }
 
+/* ---------- Schriften: MITGELIEFERT, nicht nachgeladen ----------
+   Die Dateien liegen in `fonts/` — im Web hinter dem Service Worker, in der APK
+   auf dem Gerät. Es geht dabei KEINE Anfrage an Google, Microsoft oder sonst
+   jemanden hinaus; die App spricht ausschließlich mit Transitous (und nativ mit
+   der DB, wenn man den Knopf drückt). Genau deshalb steht dazu auch nichts im
+   Datenschutz-Dialog, das wäre sonst nötig.
+
+   Barlow, SIL Open Font License 1.1 (`fonts/OFL.txt`) — weitergeben und
+   mitliefern ausdrücklich erlaubt. Bahnschrift wäre die naheliegende Wahl
+   gewesen, darf aber NICHT mitgeliefert werden: Sie gehört zu Windows.
+   Barlow kommt ihr nahe (flache Abschlüsse, geometrisches R und a) und deckt
+   beide Rollen aus EINER Familie ab — der schmale Schnitt und der normale sind
+   füreinander gezeichnet.
+
+   Eigene Namen („Barlow PP“), damit eine zufällig auf dem System installierte
+   Barlow in anderer Fassung nicht dazwischenfunkt.
+
+   Nur die wirklich benutzten Schnitte: 400/600/700 normal, 700 schmal. Die
+   früheren 800er und der eine 300er sind auf diese gezogen — einen fehlenden
+   Schnitt rechnet der Browser sonst künstlich nach, und das sieht schlechter
+   aus als der echte Nachbarschnitt. Zusammen 147 KB, einmalig.
+   `unicode-range` sorgt dafür, dass latin-ext nur lädt, wenn ein Name es
+   braucht (tschechische und polnische Halte). */
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/barlow-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/barlow-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/barlow-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/barlow-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("fonts/barlow-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Barlow PP"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("fonts/barlow-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Barlow SemiCondensed PP"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("fonts/barlow-semicondensed-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Barlow SemiCondensed PP"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("fonts/barlow-semicondensed-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+:root {
+  /* ZWEI Schriften, sonst keine — beide liegen als Datei in `fonts/`.
+
+     --font-ui      alles Laufende: Bedienung, Fließtext, Zahlen
+     --font-station Bahnhofsnamen und der Seitentitel — schmal und technisch,
+                    wie die Beschriftung einer echten Abfahrtstafel
+
+     Wer eine dritte einführt, macht die Unterscheidung wertlos: Sie funktioniert
+     nur, weil sie GENAU EINE Rolle markiert.
+
+     Hinter der mitgelieferten Barlow stehen trotzdem noch Systemschriften. Das
+     ist kein zweiter Plan, sondern die Absicherung für den einen Fall, in dem
+     eine Datei fehlt (abgebrochener erster Aufruf, ausgeräumter Cache) — dann
+     steht dort eine ähnliche schmale Schrift statt einer beliebigen. */
+  /* Die beiden Warnmuster stehen HIER, weil sie an drei Stellen auftauchen:
+     Balken in der Grafik, Linienmarke in der Detailansicht und Farblegende in
+     der Hilfe. Getrennt gepflegt erklärt die Hilfe irgendwann ein Muster, das
+     es so nicht mehr gibt. */
+  --stripe-cancelled: repeating-linear-gradient(135deg, #161616 0 7px, #b02525 7px 14px);
+  --stripe-sev: repeating-linear-gradient(135deg, rgba(0,0,0,0) 0 8px, rgba(240,166,58,.92) 8px 16px);
+  --font-ui: "Barlow PP", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Cantarell, sans-serif;
+  --font-station: "Barlow SemiCondensed PP", "DIN Alternate", "Roboto Condensed",
+                  sans-serif-condensed, "Nimbus Sans Narrow", "DejaVu Sans Condensed",
+                  "Arial Narrow", var(--font-ui);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; color-scheme: light dark; }
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--text);
   /* `svh`, nicht `dvh`: `dvh` ist die AKTUELLE Höhe. Solange die Adressleiste
@@ -102,8 +210,34 @@ body[data-view="grid"].fitgrid #buttongrid {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   grid-auto-rows: minmax(44px, 1fr);
 }
+/* Der obere Abstand hält die Nummer frei. Sie liegt absolut bei top .95rem und
+   nimmt am Fluss nicht teil — der zentrierte Name wuchs deshalb bei zwei Zeilen
+   nach oben unter sie und überschrieb sie. Das Polster verschiebt die Mittelachse
+   des Inhalts nach unten, statt die Nummer zu verschieben; sie soll oben bleiben. */
 body[data-view="grid"].fitgrid .stationbtn {
-  min-height: 0; padding: .7rem .55rem .6rem; overflow: hidden;
+  min-height: 0; padding: 1.6rem .55rem .5rem; overflow: hidden;
+}
+/* Kurze Bildschirme. 14 Kacheln OHNE Scrollen ist das Versprechen der
+   Startseite — das schlägt große Schrift. Auf 360x640 bleiben je Kachel
+   gemessen 64 px, auf 393x852 dagegen 94; mit einem festen Polster passte die
+   zweite Namenszeile unten nicht mehr hinein und wurde abgeschnitten.
+   Zwei Stufen, beide nachgemessen (Probe: Inhaltshöhe gegen Kachelhöhe):
+     bis 800 px  nur enger gepackt, Namen bleiben groß
+     bis 680 px  zusätzlich kleinere Namen — dort ist die Höhe schlicht alle */
+@media (max-height: 800px) {
+  body[data-view="grid"].fitgrid .stationbtn { padding: 1.1rem .5rem .3rem; gap: .2rem; }
+  body[data-view="grid"].fitgrid .tile-num { top: .68rem; }
+  body[data-view="grid"].fitgrid .tile-hint { font-size: .76rem; }
+  body[data-view="grid"].fitgrid .tile-plus { width: 30px; height: 30px; }
+  body[data-view="grid"].fitgrid .tile-plus::before { width: 13px; }
+  body[data-view="grid"].fitgrid .tile-plus::after { height: 13px; }
+}
+@media (max-height: 680px) {
+  body[data-view="grid"].fitgrid .stationbtn { padding: 1.05rem .5rem .3rem; gap: .2rem; }
+  body[data-view="grid"].fitgrid .tile-hint { font-size: .7rem; }
+  body[data-view="grid"].fitgrid .tile-plus { width: 24px; height: 24px; }
+  body[data-view="grid"].fitgrid .tile-plus::before { width: 11px; }
+  body[data-view="grid"].fitgrid .tile-plus::after { height: 11px; }
 }
 
 /* Markanter Seitentitel (Screenshot-Design) mit ⚙ rechtsbündig */
@@ -116,8 +250,19 @@ body[data-view="grid"].fitgrid .stationbtn {
      rund 290 px — auf einem 360-px-Gerät passt das neben dem ⚙ nicht mehr und
      schob die Seite ein paar Pixel nach rechts. Größe und Sperrung wachsen
      deshalb mit der Bildbreite mit. */
-  font-size: clamp(1.05rem, 5vw, 1.55rem); font-weight: 800;
-  text-transform: uppercase; letter-spacing: clamp(.12em, 1vw, .3em);
+  /* Die schmale Schrift kauft hier Platz zurück: Gesperrte Versalien in einer
+     Condensed sind genau das, was an einer Bahnhofstafel steht — und „ABFAHRTS-
+     TAFEL“ passt damit auf 360 px wieder in einem Stück neben das Zahnrad. */
+  font-family: var(--font-station);
+  /* Rund 55 % größer als bis v1.65.0 (1,15–1,7 rem). Die Sperrung MUSSTE dabei
+     zurück: Sie ist ein Vielfaches der Schriftgröße, wächst also mit — und
+     „ABFAHRTSTAFEL“ ist ein unteilbares Wort, das neben dem Zahnrad Platz
+     finden muss. Gemessen auf 360 px: 276 px Platz neben dem Zahnrad, mit der
+     alten Sperrung wäre der Titel darüber hinausgelaufen. Die Werte hier sind
+     ausgemessen, nicht geschätzt — bei einer Änderung an Größe ODER Sperrung
+     neu nachmessen, beide gehen in dieselbe Breite ein. */
+  font-size: clamp(1.8rem, 8.4vw, 2.6rem); font-weight: 700;
+  text-transform: uppercase; letter-spacing: clamp(.06em, .8vw, .12em);
   margin: .55rem 0 .1rem; min-width: 0;
 }
 /* Scroll-Modus bei vielen Kacheln: Wisch-Verbinden aus → normales Scrollen */
@@ -166,6 +311,10 @@ body[data-view="results"][data-mode="graph"] #timeline {
 
 .view { max-width: 640px; margin: 0 auto; padding: 0 1rem 2rem; }
 .hint { color: var(--muted); font-size: .9rem; margin: .2rem 0 .8rem; }
+/* Fehlschlag der Standortsuche — steht anstelle der Bedienanleitung und kommt
+   nach ein paar Sekunden von selbst wieder weg. Rot, weil es eine Absage ist
+   und keine Zwischenmeldung. */
+.hint-bad { color: var(--bad); font-weight: 600; }
 .hint strong {
   text-transform: uppercase; letter-spacing: .07em; font-weight: 700;
   text-decoration: underline; text-underline-offset: 2px;
@@ -269,15 +418,42 @@ body[data-view="results"][data-mode="graph"] #timeline {
 }
 .tile-flag {
   position: absolute; top: .95rem; right: .65rem;
-  font-size: .66rem; font-weight: 800; letter-spacing: .14em;
+  font-size: .66rem; font-weight: 700; letter-spacing: .14em;
   text-transform: uppercase; color: var(--accent);
 }
-.tile-name { font-weight: 700; font-size: 1.05rem; text-align: center; overflow-wrap: anywhere; }
-.tile-plus {
-  width: 36px; height: 36px; border: 1.5px solid var(--muted); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.35rem; font-weight: 300; color: var(--muted); line-height: 1;
+.tile-name {
+  font-family: var(--font-station);
+  /* 40 % größer als bis v1.65.0 (1,1 rem). Die schmale Schrift trägt das: Ein
+     langer Name braucht damit nicht mehr Zeilen als vorher der kurze. */
+  /* Die Größe wird GEMESSEN, nicht gesetzt: `fitTileFont()` in app.js sucht die
+     größte Schrift, bei der jeder Name in höchstens drei Zeilen und in seine
+     Kachel passt, und schreibt sie als `--tile-font` ans Raster. Der Wert hier
+     gilt nur für das eine Bild davor — er muss deshalb konservativ sein, sonst
+     zuckt das Raster beim Aufbau. */
+  font-weight: 700; font-size: var(--tile-font, clamp(1rem, 4.6vw, 1.3rem)); line-height: 1.1;
+  text-align: center; overflow-wrap: anywhere;
 }
+/* Das Plus ist GEZEICHNET, nicht gesetzt. Als Zeichen hing es sichtbar zu tief
+   im Kreis: Schriften legen „+“ auf die mathematische Achse, und die liegt über
+   der Mitte des Geviertes — zentriert wird aber das Geviert, nicht das Zeichen.
+   Der Versatz wandert also mit jeder Schriftart, und mit Barlow war er deutlich.
+   Zwei Balken über die Mitte treffen sie exakt, egal welche Schrift läuft. */
+.tile-plus {
+  position: relative; font-size: 0;
+  /* `flex: none` ist PFLICHT: Als Flex-Kind einer Spalte schrumpft der Kreis
+     sonst mit der Kachelhöhe und wird zur Ellipse — sichtbar, sobald lange
+     Namen in anderen Reihen die geteilte Zeilenhöhe drücken. */
+  flex: none; width: 36px; height: 36px;
+  border: 1.5px solid var(--muted); border-radius: 50%;
+  color: var(--muted);
+}
+.tile-plus::before, .tile-plus::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor; border-radius: 1px;
+}
+.tile-plus::before { width: 15px; height: 1.8px; }
+.tile-plus::after { width: 1.8px; height: 15px; }
 .tile-hint { font-size: .82rem; color: var(--muted); }
 .stationbtn.empty { box-shadow: none; }
 .stationbtn.selected {
@@ -307,7 +483,13 @@ body[data-view="results"][data-mode="graph"] #timeline {
    Stationsnamen werden mitten in der zweiten Zeile abgeschnitten. */
 .rhead {
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: .55rem; flex: none;
+  /* `stretch`, NICHT `center`: Beide Seiten werden so hoch wie die höhere von
+     beiden. Vorher wurde jede Seite für sich mittig gesetzt — bei „Start“ über
+     einem einzeiligen und „Ziel“ über einem zweizeiligen Namen standen die
+     beiden Beschriftungen dadurch auf verschiedenen Höhen, versetzt gegen-
+     einander. Jetzt liegen sie auf EINER Linie, und darunter steht beiden
+     dasselbe Namensfeld zur Verfügung (siehe `.rhead-side strong`). */
+  align-items: stretch; gap: .55rem; flex: none;
   background: var(--card); border: 1.5px solid var(--border);
   border-radius: 12px; padding: .45rem .7rem .5rem;
   margin: .2rem 0 .6rem;
@@ -329,14 +511,28 @@ body[data-view="results"][data-mode="graph"] #timeline {
    damit es beim Abschneiden langer Namen nicht mitgeht. */
 #results-title small::before { content: "‹ "; color: var(--accent); }
 .rhead-side strong {
-  font-size: 1.02rem; font-weight: 700; line-height: 1.22;
+  /* Derselbe Bahnhofsname wie auf der Kachel, einen Tipp später — also auch
+     dieselbe Schrift. Etwas größer als vorher, weil die schmale Schrift bei
+     gleicher Größe kleiner wirkt und hier zwei Zeilen zur Verfügung stehen. */
+  font-family: var(--font-station);
+  /* Dieselben 40 % wie auf der Kachel — es ist derselbe Name in derselben
+     Rolle, und ein Sprung dazwischen läse sich wie ein anderer Ort. */
+  font-size: 1.54rem; font-weight: 700; line-height: 1.14;
   overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Mittig im Raum unter der Beschriftung. Beide Seiten sind gleich hoch, der
+     zweizeilige Name füllt sie aus — der einzeilige bekäme sonst oben Anschluss
+     und darunter ein totes Loch. Mit `auto` auf beiden Rändern teilt sich der
+     Überschuss und der kurze Name steht auf halber Höhe des langen. */
+  margin: auto 0;
 }
 .rhead-side:active { opacity: .6; }
 .rhead-swap {
   display: grid; place-items: center;
+  /* Die Seiten strecken sich jetzt über die volle Kopfhöhe — der Knopf nicht,
+     der bleibt in der Mitte zwischen ihnen stehen. */
+  align-self: center;
   width: 38px; height: 38px; padding: 0; cursor: pointer;
   border: 1.5px solid var(--border); border-radius: 10px;
   background: var(--bg); color: var(--text);
@@ -344,7 +540,10 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .rhead-swap svg { width: 20px; height: 20px; }
 /* Strichzeichnungen statt Emoji: Emoji bringen ihre eigene Farbe mit und
    springen im dunklen Design heraus; `currentColor` folgt dem Thema. */
-.rhead svg, .chip svg {
+/* `.helpsample` steht mit dabei, weil die Hilfe dieselben Knöpfe zeigt — ohne
+   das blieb der Tausch-Knopf dort LEER: Sein Pfad hat keine Füllung, die
+   Strichfarbe kam bisher nur über den Elternteil `.rhead`. */
+.rhead svg, .chip svg, .helpsample svg {
   fill: none; stroke: currentColor; stroke-width: 1.7;
   stroke-linecap: round; stroke-linejoin: round;
 }
@@ -352,6 +551,44 @@ body[data-view="results"][data-mode="graph"] #timeline {
   border: 1.5px solid var(--border); background: var(--card); color: var(--text);
   border-radius: 10px; min-width: 42px; height: 42px; font-size: 1.15rem; cursor: pointer;
 }
+
+/* ---------- Hilfe: Muster links, Erklärung rechts ----------
+   Ein Knopf lässt sich nicht beschreiben, ohne ihn zu zeigen — „das Symbol mit
+   dem Trichter“ verlangt vom Leser genau die Übersetzung, die ihm fehlt.
+   Deshalb steht links das ECHTE Element (dieselben Klassen wie im Betrieb, also
+   automatisch dieselbe Darstellung) und rechts, was es tut. */
+.helplist { list-style: none; display: flex; flex-direction: column; gap: .8rem; margin: .8rem 0 0; }
+.helplist > li { display: flex; align-items: flex-start; gap: .8rem; }
+.helpsample {
+  flex: none; width: 74px; display: flex; justify-content: center;
+  padding-top: .1rem; pointer-events: none;
+}
+.helptext { font-size: .9rem; line-height: 1.4; min-width: 0; }
+.helptext strong { display: block; font-weight: 700; }
+.helptext small { display: block; color: var(--muted); font-size: .84rem; margin-top: .1rem; }
+/* Musterbalken für die Farblegende — Maße wie ein schmales Balkenstück in der
+   Grafik, damit man es wiedererkennt. */
+.helpbar {
+  width: 46px; height: 34px; border-radius: 4px;
+  display: grid; place-items: center;
+  font-size: .62rem; font-weight: 700; color: #fff;
+}
+.helpbar.bar-cancelled { background: var(--stripe-cancelled); }
+.helpbar.bar-sev { background-color: var(--seg-bus); background-image: var(--stripe-sev); color: #131313; }
+.helpbar.bar-dom { background: var(--seg-sbahn); filter: grayscale(.45); opacity: .72; }
+.helpbar.bar-plain { background: var(--seg-sbahn); }
+/* Nummerierte Schritte: die Zahl als Marke, nicht als Aufzählungspunkt. */
+.helpsteps { list-style: none; counter-reset: hs; display: flex; flex-direction: column; gap: .7rem; margin: .8rem 0 0; }
+.helpsteps > li { counter-increment: hs; display: flex; align-items: flex-start; gap: .7rem; font-size: .9rem; line-height: 1.4; }
+.helpsteps > li::before {
+  content: counter(hs); flex: none;
+  width: 1.55rem; height: 1.55rem; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: .82rem;
+}
+@media (prefers-color-scheme: dark) { .helpsteps > li::before { color: var(--bg); } }
+.helplead { font-size: .95rem; line-height: 1.45; margin-bottom: .2rem; }
+.helplead + .helplead { margin-top: .6rem; }
 
 /* ---------- Stationssuche ---------- */
 .labelrow { display: block; font-size: .9rem; color: var(--muted); margin-bottom: .7rem; }
@@ -363,7 +600,10 @@ body[data-view="results"][data-mode="graph"] #timeline {
 }
 .labelrow input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
 /* Bearbeiten: gewählter Bahnhof prominent */
-.edit-station { font-size: 1.25rem; font-weight: 700; margin: .2rem 0 .9rem; }
+.edit-station {
+  font-family: var(--font-station);
+  font-size: 1.3rem; font-weight: 700; margin: .2rem 0 .9rem;
+}
 #stationinput {
   width: 100%; font: inherit; font-size: 1.05rem;
   padding: .8rem .9rem; border-radius: 12px;
@@ -445,7 +685,7 @@ body[data-view="results"][data-mode="graph"] #timeline {
 .daysep::before { width: 14px; flex: none; }
 .daysep::after { flex: 1; }
 .daysep-tag {
-  font-size: .74rem; font-weight: 800; letter-spacing: .04em;
+  font-size: .74rem; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; color: var(--muted);
   white-space: nowrap;
 }
@@ -662,7 +902,7 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
   line-height: 1.15;
 }
 .tl-date b {
-  font-size: .64rem; font-weight: 800; letter-spacing: .06em;
+  font-size: .64rem; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted);
 }
 .tl-date span { font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -751,9 +991,7 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
 /* Über der Schraffur der dominierten Spalten, nicht darunter. */
 .seg-txt { position: relative; z-index: 1; }
 /* Ausgefallenes Teilstück: schwarz-rot schräg gestreift, Kategorie-Farbe egal */
-.tl-seg.seg-cancelled {
-  background: repeating-linear-gradient(135deg, #161616 0 7px, #b02525 7px 14px);
-}
+.tl-seg.seg-cancelled { background: var(--stripe-cancelled); }
 .seg-cancelled .seg-label {
   background: #111; color: #fff;
   padding: 0 5px; border-radius: 4px; line-height: 1.35;
@@ -771,10 +1009,7 @@ dialog:has(.dlgfoot) { padding-bottom: 0; }
 .seg-fernbus { background: var(--seg-fernbus); color: #131313; }
 /* Schienenersatzverkehr: Kategoriefarbe bleibt (es IST ein Bus), zusätzlich
    gelbe Schrägstreifen als Warnmuster — analog zu Ausfällen, nur in Gelb */
-.tl-seg.seg-sev {
-  background-image: repeating-linear-gradient(135deg,
-    rgba(0,0,0,0) 0 8px, rgba(240,166,58,.92) 8px 16px);
-}
+.tl-seg.seg-sev { background-image: var(--stripe-sev); }
 /* Bewusst OHNE text-shadow: Ein weißer Schein um die schwarze Schrift ließ
    „RB23“ ausgewaschen und grau aussehen, während dieselbe Linie ohne
    Ersatzverkehr sauber schwarz stand. Die Streifen sind das Warnsignal, die
@@ -976,13 +1211,9 @@ body[data-view="results"][data-mode="graph"] #searching:not([hidden]) {
 .linechip { display: inline-block; padding: 0 .4em; border-radius: 5px; font-weight: 700; }
 .linextra { color: var(--muted); font-weight: 400; font-size: .85em; }
 /* Ersatzverkehr in der Detailansicht */
-.linechip.chip-sev {
-  background-image: repeating-linear-gradient(135deg,
-    rgba(0,0,0,0) 0 6px, rgba(240,166,58,.92) 6px 12px);
-  color: #131313;
-}
+.linechip.chip-sev { background-image: var(--stripe-sev); color: #131313; }
 .sev-badge {
-  background: var(--warn); color: #131313; font-size: .7rem; font-weight: 800;
+  background: var(--warn); color: #131313; font-size: .7rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: .06em;
   padding: .1rem .4rem; border-radius: 4px; white-space: nowrap;
 }
@@ -1350,6 +1581,20 @@ dialog form { margin-top: 1rem; }
 @media (prefers-reduced-motion: reduce) {
   .setfold > summary::after { transition: none; }
 }
+/* Zurücksetzen NUR für den Abschnitt, in dem der Knopf steht. Bewusst klein und
+   leise und rechts außen: Er soll auffindbar sein, wenn man ihn sucht, und nicht
+   mit den Reglern darüber um Aufmerksamkeit ringen. Ist nichts abgewichen, wird
+   er stumpf und lässt sich nicht drücken — das beantwortet die Frage „ist das
+   hier gerade Standard?“ ohne ein weiteres Wort. */
+.setreset { display: flex; justify-content: flex-end; margin-top: .7rem; }
+.tinybtn {
+  font: inherit; font-size: .78rem; font-weight: 600;
+  padding: .3rem .6rem; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+}
+.tinybtn:active { opacity: .6; }
+.tinybtn:disabled { opacity: .4; cursor: default; }
+
 /* Unterpunkt innerhalb eines Abschnitts — leiser als die Abschnitts-Überschrift,
    aber deutlich genug, dass man den Bruch sieht. */
 .setgroup > h4 {

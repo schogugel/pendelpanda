@@ -40,7 +40,7 @@ const crossFile = [
   "attachStopAlerts", "stopAlerts", "dbLink", "saveSettings", "saveSlots",
   // timeline.js
   "TL", "tl", "tlY", "renderTimeline", "tlAutoZoom", "tlAlignTopFor", "tlEdgeCheck",
-  "tlSetZoom", "tlHeadClear", "tlStop", "tlGlideTo", "tlAnchor", "tlAnchorMs", "classFromRouteType", "dominatedFlags", "depOfIt", "tlNearestIdx", "productClass", "legCancelled", "cancelledTransitLegs",
+  "tlSetZoom", "tlHeadClear", "tlStop", "tlGlideTo", "tlAnchor", "tlAtAlign", "tlAnchorMs", "classFromRouteType", "dominatedFlags", "depOfIt", "tlNearestIdx", "productClass", "legCancelled", "cancelledTransitLegs",
   // `tlTagKey` bildet den Tagesschlüssel in Europe/Berlin. Seit v1.57.0 braucht
   // ihn auch die Liste (Tagestrenner) — bewusst dieselbe Funktion, damit Grafik
   // und Liste den Tag nie verschieden schneiden.
