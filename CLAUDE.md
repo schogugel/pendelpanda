@@ -40,6 +40,34 @@ Signatur fest, mit der ALLE künftigen Fassungen signiert sein müssen.
 Commit und Push nach `main` sind davon unberührt — sie folgen dem Arbeitsritual unten
 und aktualisieren nur die Web-App.
 
+## Fallstrick: Debug-APK und Release-APK schließen einander aus
+
+Beide tragen dieselbe `applicationId` (`de.pendelpanda.app`), aber **verschiedene
+Signaturen**: die Debug-APK den Android-Debug-Schlüssel (`CN=Android Debug`), die
+Release-APK den Projektschlüssel (`CN=PendelPanda`). Android verweigert deshalb, die
+eine über die andere zu installieren — „App nicht installiert“ oder „Paket steht im
+Konflikt mit einem vorhandenen Paket“. Wer zum Testen Debug-APKs installiert hat, muss
+sie **deinstallieren**, bevor eine Release-APK aufs selbe Gerät kommt (und umgekehrt).
+
+**Das sieht aus wie ein kaputter Signaturschlüssel und ist keiner.** Genau diese
+Verwechslung stand in v1.71.0 kurz davor, einen neuen Keystore erzeugen zu lassen — der
+GAU: Ein Signaturwechsel sperrt JEDEN aus, der die veröffentlichte Fassung installiert
+hat, dauerhaft vom Update aus, und zwar ohne Rückweg.
+
+**Vor jedem Verdacht auf den Schlüssel erst messen**, nicht raten:
+
+```
+~/Android/Sdk/build-tools/36.0.0/apksigner verify --print-certs <apk> | grep -i "SHA-256 digest"
+```
+
+Der Wert der neuen Release-APK muss dem der zuletzt veröffentlichten gleichen (per
+`gh release download <tag>` holen). Stimmen sie überein, ist der Schlüssel in Ordnung und
+das Problem liegt woanders. Stand v1.71.0: `a4feeb49…fc2b00`.
+
+**Vor dem Deinstallieren die Daten retten:** Kacheln und Einstellungen wandern gemeinsam
+über den Übertragungslink (`configLink()`, ⚙ → Teilen) — Deinstallieren löscht den
+localStorage der WebView restlos.
+
 ## Arbeitsritual (bei jeder Änderung)
 
 1. Code ändern → **`node tools/check.mjs`** (Pflicht, nicht optional).
