@@ -40,7 +40,20 @@ Signatur fest, mit der ALLE künftigen Fassungen signiert sein müssen.
 Commit und Push nach `main` sind davon unberührt — sie folgen dem Arbeitsritual unten
 und aktualisieren nur die Web-App.
 
-## Fallstrick: Debug-APK und Release-APK schließen einander aus
+## Test-App und Schlüssel auf mehreren Rechnern (v1.73.1)
+
+Der Debug-Build ist eine EIGENE App: `de.pendelpanda.app.test`, Name „Panda TEST“, Icon
+mit orangem Band, getrennte Daten, kein Update-Hinweis (`PP.test`). Sie liegt neben der
+echten, deinstalliert werden muss nichts. Signiert mit `native/testschluessel.p12` — der
+liegt samt Passwort absichtlich im Repo, sonst hätte jeder Rechner einen anderen
+Debug-Schlüssel und Test-APKs zweier Rechner schlössen einander aus.
+**Der Release-Schlüssel liegt nur auf EINEM Rechner** (plus Backup), nie im Repo.
+`npm run apk` bricht ohne ihn ab; das ist gewollt. Keinen neuen erzeugen.
+Alles Testspezifische schreibt `native/sync.mjs` (Erzeugnis, nicht in android/ editieren).
+
+## Fallstrick (bis v1.73.0): Debug-APK und Release-APK schließen einander aus
+
+**Seit v1.73.1 gilt das nur noch für ALTE Debug-APKs** (gleiche Kennung wie das Release).
 
 Beide tragen dieselbe `applicationId` (`de.pendelpanda.app`), aber **verschiedene
 Signaturen**: die Debug-APK den Android-Debug-Schlüssel (`CN=Android Debug`), die

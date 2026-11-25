@@ -58,13 +58,13 @@ irgendwann Verschiedenes an.
 
 ## Eine teilbare APK bauen
 
-Die Debug-APK ist zum Ausprobieren gedacht, **nicht zum Weitergeben**: Sie trägt
+Die Debug-APK ist seit v1.73.1 eine eigene App („Panda TEST“, `de.pendelpanda.app.test`)
+und liegt neben der echten; jeder Rechner kann sie bauen, der Testschlüssel
+(`testschluessel.p12`) liegt im Repo. Sie ist zum Ausprobieren gedacht, **nicht zum Weitergeben**: Sie trägt
 das `debuggable`-Flag (jeder mit einem USB-Kabel kann sich in die laufende App
-einklinken) und ist mit Androids öffentlich bekanntem Debug-Schlüssel signiert,
-den jeder besitzt. Der Launcher zeigt zwar schon „PendelPanda“ — das ist nicht
-der Unterschied.
+einklinken) und ist mit einem öffentlich bekannten Testschlüssel signiert.
 
-### 1. Signaturschlüssel anlegen (einmalig)
+### 1. Signaturschlüssel anlegen (einmalig — existiert bereits, NICHT neu erzeugen)
 
     cd native
     keytool -genkeypair -v -keystore pendelpanda.keystore \
@@ -95,9 +95,8 @@ zwecklos, `android/` wird jederzeit neu erzeugt.
 Ergebnis: `android/app/build/outputs/apk/release/pendelpanda-<version>-release.apk`.
 Der Dateiname trägt die Version, damit Obtainium Updates zuverlässig erkennt.
 
-Ohne `keystore.properties` läuft der Build zwar durch, die APK ist dann aber
-**unsigniert und nicht installierbar** — das ist der Normalzustand eines frischen
-Capacitor-Projekts, kein Fehler in diesem Repo.
+Ohne `keystore.properties` bricht `npm run apk` ab. Das ist Absicht: Der Schlüssel
+liegt nur auf einem Rechner, alle anderen bauen die Test-App.
 
 ### 3b. Signatur gegenprüfen
 
@@ -143,7 +142,7 @@ zum Deinstallieren; siehe Schritt 1.
   der sie die Datei öffnen (Dateimanager, Browser, Messenger).
 - **Play Protect warnt** bei jeder sideloadbaren App („unbekannter Entwickler“).
   Das ist normal und lässt sich nur über einen Store vermeiden.
-- **Wer schon die Debug-APK hat, muss sie zuerst deinstallieren.** Debug- und
+- **Wer noch eine Debug-APK bis v1.73.0 hat, muss sie zuerst deinstallieren.** Debug- und
   Release-Signatur passen nicht zusammen; Android verweigert das Drüberinstallieren
   mit einer wenig hilfreichen Fehlermeldung. Ab der ersten Release-Version laufen
   Updates dann normal.

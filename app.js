@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.73.0";
+const APP_VERSION = "1.73.1";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -3398,7 +3398,9 @@ function showUpdate(tag) {
 }
 
 async function checkForUpdate() {
-  if (!PP.native) return;
+  /* Die Test-App ist eine eigene App: Das Release aktualisiert sie nicht, sondern
+     installierte sich daneben. */
+  if (!PP.native || PP.test) return;
   let cache = null;
   try { cache = JSON.parse(localStorage.getItem(UPDATE_KEY) || "null"); } catch { /* egal */ }
   if (cache && cache.tag) showUpdate(cache.tag);          // sofort, ohne aufs Netz zu warten

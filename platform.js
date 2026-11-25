@@ -28,12 +28,16 @@ const PP = (() => {
   const cap = window.Capacitor;
   const native = !!(cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform());
   const plugins = (cap && cap.Plugins) || {};
+  /* Debug-Build = eigenständige Test-App. Capacitor setzt DEBUG aus dem
+     debuggable-Flag der APK, es ist also nichts von Hand zu pflegen. */
+  const test = native && !!cap.DEBUG;
 
   return {
     native,
+    test,
     /* Kurzname für die Versionszeile in den Einstellungen. Wenn etwas klemmt,
        sieht man dort sofort, welche der beiden Auslieferungen läuft. */
-    kind: native ? "App" : "Web",
+    kind: test ? "Test-App" : native ? "App" : "Web",
     http: plugins.CapacitorHttp || null,
 
     /* Nach draußen öffnen. Nativ bewusst über den AppLauncher (Intent

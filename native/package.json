@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "sync": "node sync.mjs && cap sync android",
-    "apk": "npm run sync && cd android && ./gradlew assembleRelease",
-    "apk:debug": "npm run sync && cd android && ./gradlew assembleDebug",
+    "apk": "npm run sync && node gradle.mjs release",
+    "apk:debug": "npm run sync && node gradle.mjs debug",
     "open": "cap open android"
   },
   "dependencies": {

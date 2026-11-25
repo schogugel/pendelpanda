@@ -207,6 +207,84 @@ android.applicationVariants.all { variant ->
 `;
 }
 
+/* ---------------------------------------------------------------------------
+   Test-App: der Debug-Build als EIGENE App neben der echten
+
+   Eigene applicationId, eigener Name, eigenes Icon — beide liegen gleichzeitig
+   auf dem Telefon, mit getrennten Daten. Signiert wird mit testschluessel.p12,
+   der samt Passwort ABSICHTLICH im Repo liegt: Androids Debug-Schlüssel ist auf
+   jedem Rechner ein anderer, Test-APKs zweier Rechner ließen sich sonst nicht
+   übereinander installieren. Geheim ist er nicht und darf nie ein Release
+   signieren; der echte Schlüssel bleibt in keystore.properties.
+   --------------------------------------------------------------------------- */
+const TEST_MARK = "// pendelpanda:test";
+if (!patched.includes(TEST_MARK)) {
+  patched += `
+${TEST_MARK} — Debug-Build als eigenständige Test-App
+android {
+    signingConfigs {
+        debug {
+            storeFile rootProject.file("../testschluessel.p12")
+            storeType "pkcs12"
+            storePassword "pendelpanda-test"
+            keyAlias "pendelpandatest"
+            keyPassword "pendelpanda-test"
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            applicationIdSuffix ".test"
+            versionNameSuffix "-test"
+        }
+    }
+}
+`;
+  // Der Name sagt sonst doppelt dasselbe: pendelpanda-1.2.3-test-debug.apk
+  patched = patched.replace(
+    "pendelpanda-${variant.versionName}-${variant.buildType.name}.apk",
+    "pendelpanda-${variant.versionName}${variant.buildType.name == 'debug' ? '' : '-' + variant.buildType.name}.apk");
+}
+
+/* Name und Icon nur für den Debug-Build (src/debug überlagert src/main). Das
+   orange Band mit „TEST“ liegt innerhalb der Kreismaske (72 von 108 dp). */
+const testRes = join(HERE, "android", "app", "src", "debug", "res");
+const ICON_XML = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background><inset android:drawable="@mipmap/ic_launcher_background" android:inset="16.7%" /></background>
+    <foreground android:drawable="@drawable/ic_launcher_test" />
+</adaptive-icon>
+`;
+const TEST_FILES = {
+  "values/strings.xml": `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Panda TEST</string>
+    <string name="title_activity_main">Panda TEST</string>
+</resources>
+`,
+  "mipmap-anydpi-v26/ic_launcher.xml": ICON_XML,
+  "mipmap-anydpi-v26/ic_launcher_round.xml": ICON_XML,
+  "drawable/ic_launcher_test.xml": `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" /></item>
+    <item android:drawable="@drawable/test_band" />
+</layer-list>
+`,
+  "drawable/test_band.xml": `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#f0a63a" android:pathData="M0,72h108v36h-108z" />
+    <path android:strokeColor="#000000" android:strokeWidth="2.2"
+        android:pathData="M39,75.6h7M42.5,75.6v9M55.5,75.6h-5v7.9h5M50.5,79.5h4.5M64,75.6h-5v3.9h4.5v4h-5M66,75.6h7M69.5,75.6v9" />
+</vector>
+`,
+};
+for (const [name, inhalt] of Object.entries(TEST_FILES)) {
+  const ziel = join(testRes, name);
+  await mkdir(dirname(ziel), { recursive: true });
+  await writeFile(ziel, inhalt);
+}
+
 if (patched !== gradle) await writeFile(gradlePath, patched);
 
 const ksProps = join(HERE, "keystore.properties");
