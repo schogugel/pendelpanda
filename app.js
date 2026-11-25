@@ -3,7 +3,7 @@
 /* App-Version — einzige Quelle der Wahrheit.
    Bei JEDER Änderung erhöhen (PATCH = Fix/Detail, MINOR = neue Funktion,
    MAJOR = grundlegender Umbau) und `CACHE` in sw.js gleichlautend mitziehen. */
-const APP_VERSION = "1.71.0";
+const APP_VERSION = "1.73.0";
 
 const API = "https://api.transitous.org/api/v1";
 const BASE_SLOTS = 14, MAX_SLOTS = 40;
@@ -578,15 +578,17 @@ let geocodeAbort = null;
 /* Kachel bearbeiten: nur Beschriftung + Löschen (Station wechseln = löschen
    und neu anlegen). Neuanlage: Bahnhof suchen → Auswahl → optionale
    Beschriftung → Speichern (leer = automatischer Name). */
-function openEdit(i) {
+function openEdit(i, { remap = false } = {}) {
   app.editSlot = i;
+  app.editRemap = remap;   // Kachel behält Beschriftung und Häkchen, nur der Halt wechselt
   app.pendingStation = null;
   const slot = slots[i];
-  byId("edit-title").textContent = slot ? "Kachel bearbeiten" : "Station wählen";
-  stationInput.hidden = !!slot;
-  stationInput.value = "";
+  byId("edit-title").textContent = remap ? "Haltestelle neu zuordnen"
+    : slot ? "Kachel bearbeiten" : "Station wählen";
+  stationInput.hidden = !!slot && !remap;
+  stationInput.value = remap ? slot.name : "";
   suggestionsEl.innerHTML = "";
-  byId("edit-current").hidden = !slot;
+  byId("edit-current").hidden = !slot || remap;
   if (slot) byId("edit-current").textContent = slot.name;
   byId("label-row").hidden = !slot;
   byId("labelinput").value = slot ? (slot.label || "") : "";
@@ -595,7 +597,8 @@ function openEdit(i) {
   byId("btn-save-slot").hidden = !slot;
   clearSlotBtn.hidden = !slot;
   navigate("edit");
-  setTimeout(() => (slot ? byId("labelinput") : stationInput).focus(), 60);
+  if (remap) runGeocode(slot.name);
+  setTimeout(() => (slot && !remap ? byId("labelinput") : stationInput).focus(), 60);
 }
 
 /* Übernimmt die Bearbeitung. Wird sowohl von „Speichern“ als auch beim
@@ -611,6 +614,7 @@ function commitEdit() {
     name: station.name, id: station.id,
     ...(Number.isFinite(station.lat) ? { lat: station.lat, lon: station.lon } : {}),
     ...(station.city ? { city: station.city } : {}),
+    ...(station.modes ? { modes: station.modes } : {}),
     ...(v && v !== station.name ? { label: v } : {}),
     ...(byId("edit-full").checked ? { full: true } : {}),
   };
@@ -648,6 +652,18 @@ async function runGeocode(q) {
   }
 }
 
+/* Was sich eine Kachel merkt. Die Kennung allein genügt NICHT: Sie trägt den
+   Namen des Datensatzes in sich (teils samt Jahreszahl) und kann über Nacht
+   verschwinden. Name, Ort, Lage und Verkehrsmittel sind das, woran sich der
+   Halt dann wiederfinden lässt (siehe findReplacements). */
+function hitArea(s) { return (s.areas || []).find(a => a.default) || (s.areas || [])[0] || null; }
+function stationFromHit(s) {
+  const area = hitArea(s);
+  return { name: s.name, id: s.id, lat: s.lat, lon: s.lon,
+           city: area ? area.name : null,
+           ...(s.modes?.length ? { modes: s.modes } : {}) };
+}
+
 function renderSuggestions(stops) {
   suggestionsEl.innerHTML = "";
   if (!stops.length) {
@@ -655,7 +671,7 @@ function renderSuggestions(stops) {
     return;
   }
   for (const s of stops) {
-    const area = (s.areas || []).find(a => a.default) || (s.areas || [])[0];
+    const area = hitArea(s);
     const b = document.createElement("button");
     b.className = "suggestion";
     b.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(area ? area.name : "")}</small>`;
@@ -666,16 +682,17 @@ function renderSuggestions(stops) {
          nackten Namen („Klinikum“). Für den DB-Link braucht es die Schreibweise
          der DB („Klinikum, Regensburg“) — sonst steht im Suchfeld drüben ein
          Wort, das es hundertfach gibt. Siehe dbPlaceId(). */
-      app.pendingStation = { name: s.name, id: s.id, lat: s.lat, lon: s.lon,
-                             city: area ? area.name : null };
+      app.pendingStation = stationFromHit(s);
       stationInput.hidden = true;
       suggestionsEl.innerHTML = "";
       byId("edit-current").hidden = false;
       byId("edit-current").textContent = s.name;
       byId("label-row").hidden = false;
-      byId("labelinput").value = "";
       byId("full-row").hidden = false;
-      byId("edit-full").checked = false;
+      if (!app.editRemap) {
+        byId("labelinput").value = "";
+        byId("edit-full").checked = false;
+      }
       byId("btn-save-slot").hidden = false;
       setTimeout(() => byId("labelinput").focus(), 50);
     });
@@ -709,6 +726,8 @@ function startSearch(from, to) {
   app.aroundTried = false;
   app.aroundUsed = false;
   app.aroundPlaces = null;
+  app.deadIds = new Set();   // Kennungen, die der Fahrplan nicht mehr kennt
+  app.staleStops = [];       // Halte, die es gibt, an denen aber nichts fährt
   /* Laufende Anfragen der VORHERIGEN Suche abbrechen. Ohne das laufen sie
      weiter, verbrauchen weiter vom Anfragebudget und können obendrein ihr
      Ergebnis in den frischen Pool schreiben. Gemessen drosselt Transitous ab
@@ -1097,7 +1116,7 @@ async function fetchPage(direction, limit = PAGE_MAX, fensterFest = null) {
 
   {
     const res = await fetch(`${API}/plan?${params}`, { signal });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) throw Object.assign(new Error("HTTP " + res.status), { status: res.status });
     const data = await res.json();
     /* Verspätete Antwort einer ÜBERHOLTEN Suche verwerfen. Ohne diese Prüfung
        konnte sie den Pool der aktuellen Suche überschreiben — man sah dann
@@ -1526,6 +1545,7 @@ function showSearching(text, step = 0, total = 1) {
   byId("last-note").hidden = true;
   byId("around-note").hidden = true;
   byId("same-note").hidden = true;
+  byId("remap-note").hidden = true;
 }
 
 /* Start und Ziel am selben Bahnhof? Kommt leichter vor, als man denkt: „München
@@ -1660,7 +1680,22 @@ function renderPlanLog() {
 async function runPlan(direction = null, limit = PAGE_MAX) {
   if (!direction) showSearching("Verbindungen suchen …", 0, 3);
   try {
-    const { params } = await fetchPage(direction, limit);
+    const myTag = app.searchTag;
+    let page;
+    try {
+      page = await fetchPage(direction, limit);
+    } catch (e) {
+      /* 404 heißt: Der Fahrplan kennt eine der beiden Kennungen nicht mehr.
+         Dann mit der gemerkten LAGE weitersuchen (placeParam) statt gar
+         nichts zu zeigen; die Kachel bekommt einen Hinweis zum Neuzuordnen. */
+      if (direction || e.status !== 404) throw e;
+      showSearching("Haltestelle nicht gefunden – prüfe die Kachel …", 0, 3);
+      const weiter = await markDeadStops();
+      if (myTag !== app.searchTag) return;
+      if (!weiter) throw e;
+      page = await fetchPage(direction, limit);
+    }
+    const { params } = page;
     if (!direction) {
       // Nichts gefunden? Ersatzverkehr fährt oft ab einem Nachbarhalt →
       // einmalig mit Koordinaten und großzügigem Fußweg nachfassen.
@@ -1704,6 +1739,7 @@ async function runPlan(direction = null, limit = PAGE_MAX) {
       byId("timeline-wrap").hidden = app.viewMode !== "graph";
       resultsList.innerHTML = msg;
       byId("timeline").innerHTML = msg;
+      updateRemapNote();
     }
   }
 }
@@ -1725,7 +1761,7 @@ const geoCache = new Map();
    Bushaltestellen dazwischen liegen, weil von dort die schnellere Verbindung
    fährt. Eine selbst gewählte „nächste Haltestelle“ hätte die verpasst. */
 function placeParam(stop) {
-  if (stop.id) return stop.id;
+  if (stop.id && !app.deadIds?.has(stop.id)) return stop.id;
   return `${stop.lat},${stop.lon}`;
 }
 
@@ -1814,36 +1850,238 @@ async function planAround(baseParams) {
 /* Leeres Ergebnis erklären statt schweigen: Für beide Halte prüfen, ob dort
    überhaupt etwas fährt. Deckt Datenlücken (Fahrplan beginnt erst später),
    stillgelegte/saisonale Halte und echte „keine Verbindung“-Fälle ab. */
-async function nextDeparture(stopId) {
+/* Zustand einer Haltestelle:
+     ok      es fährt etwas innerhalb von 36 Stunden
+     idle    Halt bekannt, aber vorerst ohne Fahrten (next = nächste, falls bekannt)
+     gone    Kennung unbekannt (404)
+     unknown Dienst nicht erreichbar — daraus darf NIE „verschwunden“ werden */
+const STOP_SOON_MS = 36 * 3600e3;
+async function stopHealth(stopId) {
+  if (!stopId) return { state: "ok", next: null };   // eigener Standort
   try {
     const res = await fetch(`${API}/stoptimes?stopId=${encodeURIComponent(stopId)}&n=1`,
       { signal: app.planAbort?.signal });
-    if (!res.ok) return null;
+    if (res.status === 404) return { state: "gone", next: null };
+    if (!res.ok) return { state: "unknown", next: null };
     const d = await res.json();
     const s = (d.stopTimes || [])[0];
-    return s ? new Date(s.place.departure || s.place.scheduledDeparture) : null;
-  } catch { return null; }
+    const next = s ? new Date(s.place.departure || s.place.scheduledDeparture) : null;
+    return { state: next && +next <= Date.now() + STOP_SOON_MS ? "ok" : "idle", next };
+  } catch { return { state: "unknown", next: null }; }
+}
+
+/* Nach einem 404 von /plan: Welcher der beiden Halte ist verschwunden?
+   Liefert true, wenn die Suche über die Lage weitergehen kann. */
+async function markDeadStops() {
+  const myTag = app.searchTag;
+  const { from, to } = app.search;
+  const health = await Promise.all([from, to].map(s => stopHealth(s.id)));
+  if (myTag !== app.searchTag) return false;
+  const dead = [from, to].filter((s, i) => health[i].state === "gone");
+  for (const s of dead) app.deadIds.add(s.id);
+  const coords = await Promise.all(dead.map(coordsOf));
+  return dead.length > 0 && coords.every(Boolean);
+}
+
+/* ---------------- Verschwundene Haltestelle wiederfinden ----------------
+
+   Gesucht wird doppelt: über den gemerkten Namen (samt Ort) und rund um die
+   gemerkte Lage. Nur der Name fände nach einer Umbenennung nichts, nur die Lage
+   böte an einem Bahnhof jeden Bussteig gleichrangig an. */
+const REMAP_RADIUS_M = 3000;
+const REMAP_MAX = 5;
+
+function metersBetween(a, b) {
+  const p = Math.PI / 180;
+  const h = Math.sin((b.lat - a.lat) * p / 2) ** 2
+    + Math.cos(a.lat * p) * Math.cos(b.lat * p) * Math.sin((b.lon - a.lon) * p / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(h));
+}
+
+/* „Nürnberg Hbf“ und „Nürnberg Hauptbahnhof“ sind derselbe Name. */
+function nameWords(s) {
+  return new Set(String(s || "").toLowerCase().replace(/hauptbahnhof/g, "hbf")
+    .split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+}
+function nameLikeness(a, b) {
+  const A = nameWords(a), B = nameWords(b);
+  const gemeinsam = [...A].filter(w => B.has(w)).length;
+  return gemeinsam / Math.max(1, A.size + B.size - gemeinsam);
+}
+
+async function findReplacements(stop) {
+  await coordsOf(stop);
+  const hasPos = Number.isFinite(stop.lat) && Number.isFinite(stop.lon);
+  const ort = stop.city && !nameWords(stop.name).has(stop.city.toLowerCase()) ? ` ${stop.city}` : "";
+  const get = async (pfad) => {
+    const res = await fetch(`${API}/${pfad}`, { signal: app.planAbort?.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  };
+  const near = hasPos ? `&place=${stop.lat},${stop.lon}&placeBias=5` : "";
+  const antworten = await Promise.allSettled([
+    get(`geocode?text=${encodeURIComponent(stop.name + ort)}&language=de&type=STOP${near}`),
+    ...(hasPos ? [get(`reverse-geocode?place=${stop.lat},${stop.lon}&type=STOP&language=de`)] : []),
+  ]);
+  if (antworten.every(a => a.status === "rejected")) throw antworten[0].reason;
+  const seen = new Set([stop.id]);
+  const treffer = [];
+  for (const s of antworten.flatMap(a => (a.status === "fulfilled" ? a.value : []))) {
+    if (s.type !== "STOP" || seen.has(s.id)) continue;
+    seen.add(s.id);
+    const dist = hasPos ? metersBetween(stop, s) : null;
+    if (dist !== null && dist > REMAP_RADIUS_M) continue;
+    const modeHit = (stop.modes || []).some(m => (s.modes || []).includes(m)) ? 0.15 : 0;
+    treffer.push({ s, dist, rang: nameLikeness(stop.name, s.name) + modeHit
+      - (dist === null ? 0 : dist / REMAP_RADIUS_M / 2) });
+  }
+  treffer.sort((a, b) => b.rang - a.rang);
+  const beste = treffer.slice(0, REMAP_MAX);
+  /* Einen Ersatz vorzuschlagen, an dem ebenfalls nichts fährt, hülfe niemandem.
+     Was sich nicht prüfen ließ, bleibt stehen. */
+  const health = await Promise.all(beste.map(t => stopHealth(t.s.id)));
+  return beste.filter((t, i) => health[i].state === "ok" || health[i].state === "unknown");
+}
+
+const REMAP_MODE = [
+  [/RAIL|LONG_DISTANCE|SUBURBAN|METRO/, "Zug/S-Bahn"], [/SUBWAY/, "U-Bahn"],
+  [/TRAM/, "Tram"], [/^BUS$/, "Bus"], [/COACH/, "Fernbus"], [/FERRY/, "Fähre"],
+];
+function modeText(modes) {
+  return REMAP_MODE.filter(([re]) => (modes || []).some(m => re.test(m)))
+    .map(([, t]) => t).join(", ");
+}
+
+function remapProblems() {
+  if (!app.search) return [];
+  return [app.search.from, app.search.to].filter(s => s.id)
+    .map(stop => ({ stop, state: app.deadIds?.has(stop.id) ? "gone"
+      : app.staleStops?.includes(stop.id) ? "idle" : null }))
+    .filter(p => p.state);
+}
+
+/* Hinweiszeile über dem Ergebnis. Läuft die Suche im Umkreis-Modus, ist noch
+   offen, ob der Halt nur vorübergehend leer ist (Baustelle) oder die Kachel
+   veraltet — dann wird erst auf Antippen geprüft, das kostet Anfragen. */
+function updateRemapNote() {
+  const el = byId("remap-note");
+  const probleme = remapProblems();
+  el.hidden = !probleme.length && !app.aroundUsed;
+  if (el.hidden) return;
+  const nm = p => `<strong>${escapeHtml(p.stop.label || p.stop.name)}</strong>`;
+  const text = probleme.map(p => p.state === "gone"
+    ? `Die gespeicherte Haltestelle ${nm(p)} gibt es im Fahrplan so nicht mehr${
+        app.itins.length ? " – gesucht wurde rund um ihre alte Lage" : ""}.`
+    : `An der gespeicherten Haltestelle ${nm(p)} fährt derzeit nichts.`).join(" ");
+  el.innerHTML = `<span>${text ? "⚠ " + text : "Stimmen die gespeicherten Haltestellen noch?"}</span> `
+    + `<button type="button" class="notebtn">Kachel prüfen</button>`;
+  el.querySelector("button").addEventListener("click", () => checkTiles());
+  /* Verschwundene Halte ungefragt melden — aber je Halt nur EINMAL pro Sitzung,
+     sonst stünde bei jeder Suche derselbe Dialog im Weg. */
+  app.remapAsked ||= new Set();
+  const neu = probleme.find(p => p.state === "gone" && !app.remapAsked.has(p.stop.id));
+  if (neu && document.body.dataset.view === "results" && !document.querySelector("dialog[open]")) {
+    app.remapAsked.add(neu.stop.id);
+    openRemap(neu.stop, neu.state);
+  }
+}
+
+async function checkTiles() {
+  const myTag = app.searchTag;
+  let probleme = remapProblems();
+  if (!probleme.length) {
+    const halte = [app.search.from, app.search.to].filter(s => s.id);
+    const health = await Promise.all(halte.map(s => stopHealth(s.id)));
+    if (myTag !== app.searchTag) return;
+    for (let i = 0; i < halte.length; i++) {
+      if (health[i].state === "gone") app.deadIds.add(halte[i].id);
+      if (health[i].state === "idle" && !app.staleStops.includes(halte[i].id)) app.staleStops.push(halte[i].id);
+    }
+    probleme = remapProblems();
+    if (!probleme.length) {
+      byId("remap-note").textContent = health.some(h => h.state === "unknown")
+        ? "Die Prüfung hat nicht geklappt – bist du online?"
+        : "✓ Beide gespeicherten Haltestellen sind im Fahrplan und werden bedient.";
+      return;
+    }
+  }
+  /* Sind BEIDE betroffen, kommt die zweite nach dem Zuordnen der ersten dran:
+     Die neu gestartete Suche stößt von selbst wieder auf sie. */
+  openRemap(probleme[0].stop, probleme[0].state);
+}
+
+async function openRemap(stop, state) {
+  const myTag = app.searchTag;
+  const dlg = byId("remap-dialog"), list = byId("remap-list");
+  const name = escapeHtml(stop.name);
+  const eigene = stop.label ? ` (Kachel „${escapeHtml(stop.label)}“)` : "";
+  byId("remap-text").innerHTML = state === "gone"
+    ? `Die Haltestelle <strong>${name}</strong>${eigene} ist unter ihrer gespeicherten Kennung nicht mehr im Fahrplan. Vermutlich wurde sie in den Daten umgestellt. Welche ist es jetzt?`
+    : `An <strong>${name}</strong>${eigene} fährt derzeit nichts – etwa wegen einer Baustelle, oder weil die Haltestelle in den Daten umgestellt wurde. Soll die Kachel eine andere benutzen?`;
+  list.innerHTML = `<p class="status">Vorschläge werden gesucht …</p>`;
+  const slot = slots.findIndex(s => s && s.id === stop.id);
+  byId("remap-search").hidden = slot < 0;
+  byId("remap-search").onclick = () => { dlg.close(); openEdit(slot, { remap: true }); };
+  byId("remap-later").onclick = () => dlg.close();
+  if (!dlg.open) dlg.showModal();
+  let treffer;
+  try {
+    treffer = await findReplacements(stop);
+  } catch {
+    treffer = null;
+  }
+  if (myTag !== app.searchTag || !dlg.open) return;
+  if (!treffer || !treffer.length) {
+    list.innerHTML = `<p class="status">${treffer
+      ? "Keine passende Haltestelle gefunden." : "Vorschläge konnten nicht geladen werden."}</p>`;
+    return;
+  }
+  list.innerHTML = "";
+  for (const { s, dist } of treffer) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "suggestion";
+    const weg = dist === null ? "" : dist < 1000 ? `${Math.round(dist / 10) * 10} m entfernt`
+      : `${(dist / 1000).toFixed(1).replace(".", ",")} km entfernt`;
+    const info = [hitArea(s)?.name, modeText(s.modes), weg].filter(Boolean).join(" · ");
+    b.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(info)}</small>`;
+    b.addEventListener("click", () => { dlg.close(); applyRemap(stop, s); });
+    list.appendChild(b);
+  }
+}
+
+/* Alle Kacheln mit der alten Kennung umstellen (Beschriftung und Häkchen
+   bleiben) und die laufende Suche mit dem neuen Halt wiederholen. */
+function applyRemap(stop, hit) {
+  const neu = stationFromHit(hit);
+  const tausche = s => ({ ...neu, ...(s.label ? { label: s.label } : {}), ...(s.full ? { full: true } : {}) });
+  slots = slots.map(s => (s && s.id === stop.id ? tausche(s) : s));
+  saveSlots();
+  const halt = s => (s.id === stop.id ? slots.find(x => x && x.id === neu.id) || tausche(s) : s);
+  startSearch(halt(app.search.from), halt(app.search.to));
 }
 
 async function diagnoseEmpty() {
   app.diagnosing = true;
   const myTag = app.searchTag;
   const { from, to } = app.search;
-  const [a, b] = await Promise.all([nextDeparture(from.id), nextDeparture(to.id)]);
+  const [a, b] = await Promise.all([stopHealth(from.id), stopHealth(to.id)]);
   app.diagnosing = false;
   if (myTag !== app.searchTag || app.itins.length) return;
   const parts = [];
-  const soon = Date.now() + 36 * 3600e3;
-  for (const [stop, next] of [[from, a], [to, b]]) {
+  for (const [stop, { state, next }] of [[from, a], [to, b]]) {
     const nm = escapeHtml(stop.label || stop.name);
+    if (state === "ok" || state === "unknown") continue;
+    if (state === "gone") app.deadIds.add(stop.id);
+    else app.staleStops.push(stop.id);
     if (!next) parts.push(`Für <strong>${nm}</strong> liegen keine Fahrplandaten vor.`);
-    else if (+next > soon) {
+    else {
       parts.push(`Für <strong>${nm}</strong> beginnt der hinterlegte Fahrplan erst am ` +
         `<strong>${next.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</strong>.`);
     }
   }
   app.emptyReason = parts.length
-    ? parts.join(" ") + " Deshalb findet die Suche hier nichts – das ist eine Lücke in den offenen Fahrplandaten, keine fehlende Verbindung."
+    ? parts.join(" ") + " Deshalb findet die Suche hier nichts – entweder eine Lücke in den offenen Fahrplandaten, oder die Haltestelle wurde umgestellt. „Kachel prüfen“ sucht passende Haltestellen."
     : "Keine Verbindungen im gewählten Zeitraum – auch nicht über Halte in der Nähe. Über 📅 einen anderen Zeitpunkt wählen oder in der Legende weitere Verkehrsmittel einblenden.";
   renderResults();
 }
@@ -2143,6 +2381,7 @@ function renderResults() {
   renderLegend();
   // Hinweis, wenn nur die Umkreis-Suche etwas fand (Ersatzverkehr o. Ä.)
   byId("around-note").hidden = !app.aroundUsed;
+  updateRemapNote();
   const visible = visibleItins();
   // Warum ist nichts da? Einmal pro Suche klären (Guard gegen Re-Entry).
   if (!app.itins.length && app.search && !app.emptyReason && !app.diagnosing) diagnoseEmpty();
@@ -2525,6 +2764,7 @@ function fillDetails(container, it, foot = null) {
   });
   requestAnimationFrame(relayout);
   attachStopAlerts(jrn, T, relayout);
+  attachTracks(jrn, T, relayout);
   startJourneyTicker();
   container.appendChild(jrn);
 
@@ -2576,6 +2816,127 @@ function fillDetails(container, it, foot = null) {
    Schlägt es fehl, fehlen nur die Zusatztexte — die gerechneten Hinweise
    (Umstieg zu knapp usw.) stehen unabhängig davon.
    --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Fehlende Gleise bei der DB nachschlagen (IRIS)
+
+   Der DELFI-Datensatz hinter Transitous hängt viele Züge an den BAHNHOF statt
+   an einen Bahnsteig — dort gibt es kein Gleis (Transitous-Issue #2299). IRIS,
+   der Dienst hinter den Bahnhofsanzeigen, kennt sie und lässt Browser zu.
+
+   Nur beim ÖFFNEN einer Verbindung, nur für Züge, nur wo das Gleis fehlt. Der
+   Dienst ist inoffiziell und reicht rund 18 Stunden voraus: Jeder Fehler heißt
+   schlicht „kein Gleis“, also derselbe Stand wie ohne ihn.
+
+   Übernommen wird nur, was in Sollminute, Linie UND Fahrweg übereinstimmt und
+   eindeutig ist. Ein falsches Gleis ist schlimmer als keines: Zwei S-Bahnen
+   derselben Linie fahren oft zur selben Minute in Gegenrichtung.
+   --------------------------------------------------------------------------- */
+const IRIS = "https://iris.noncd.db.de/iris-tts/timetable";
+const IRIS_PAST_MS = 2 * 3600e3, IRIS_AHEAD_MS = 22 * 3600e3;
+const irisCache = new Map();   // Pfad → { at, doc }
+
+function irisGet(pfad, maxAge) {
+  const alt = irisCache.get(pfad);
+  if (alt && Date.now() - alt.at < maxAge) return alt.doc;
+  const doc = (async () => {
+    try {
+      const res = await fetch(`${IRIS}/${pfad}`,
+        { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return null;
+      return new DOMParser().parseFromString(await res.text(), "text/xml");
+    } catch { return null; }
+  })();
+  irisCache.set(pfad, { at: Date.now(), doc });
+  // Ein Fehlschlag darf nicht stundenlang im Gedächtnis bleiben
+  doc.then(d => { if (!d && irisCache.get(pfad)?.doc === doc) irisCache.delete(pfad); });
+  return doc;
+}
+
+function irisKey(s) {
+  return String(s || "").toLowerCase().replace(/hauptbahnhof/g, "hbf").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+/* IRIS kennt Stationen nur in der Schreibweise der DB: „Vorra(Pegnitz)“ ohne
+   Leerzeichen, „Hbf“ statt „Hauptbahnhof“. Gilt nur bei gleichem Namen — sonst
+   wird aus „Neukirchen“ eines in Österreich. */
+async function irisEvas(name) {
+  const kurz = String(name || "").replace(/,?\s*Hauptbahnhof/g, " Hbf").trim()
+    .replace(/^Frankfurt \(Main\) Hbf tief$/, "Frankfurt Hbf (tief)");
+  const formen = new Set([kurz.replace(/\s*\(\s*/g, "(").replace(/\s*\)\s*/g, ")"),
+    kurz.replace(/\s+\(/g, "("), kurz]);
+  for (const f of formen) {
+    const doc = await irisGet(`station/${encodeURIComponent(f)}`, 24 * 3600e3);
+    const st = doc && [...doc.querySelectorAll("station")].find(x => irisKey(x.getAttribute("name")) === irisKey(kurz));
+    if (!st) continue;
+    // `meta` sind die Nebenanlagen desselben Bahnhofs (z. B. ein Tiefbahnhof)
+    return [st.getAttribute("eva"), ...(st.getAttribute("meta") || "").split("|").filter(Boolean)].slice(0, 3);
+  }
+  return [];
+}
+
+function irisLineMatch(leg, tl, ev) {
+  const n = s => String(s || "").toLowerCase().replace(/\s+/g, "");
+  const c = n(tl?.getAttribute("c")), nr = n(tl?.getAttribute("n")), l = n(ev.getAttribute("l"));
+  const iris = new Set([l, l && c + l, nr && c + nr, n(ev.getAttribute("fb"))].filter(Boolean));
+  if (/^\d+$/.test(l)) iris.delete(l);   // „3“ allein sagt nichts, erst „S3“
+  const unser = [lineParts(leg).main, leg.displayName, leg.tripShortName].map(n).filter(Boolean);
+  return unser.some(u => iris.has(u)) || (nr && n(leg.tripShortName).replace(/^\D+/, "") === nr);
+}
+
+async function irisTrack(leg, kind) {
+  const place = kind === "dp" ? leg.from : leg.to;
+  const soll = kind === "dp" ? place.scheduledDeparture : place.scheduledArrival;
+  const ms = +new Date(soll);
+  if (!Number.isFinite(ms) || ms < Date.now() - IRIS_PAST_MS || ms > Date.now() + IRIS_AHEAD_MS) return null;
+  const stunde = t => {
+    const [, y, m, d, h, min] = localMinuteIso(new Date(t).toISOString()).match(/^\d\d(\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d)/);
+    return { datei: `${y}${m}${d}/${h}`, pt: `${y}${m}${d}${h}${min}` };
+  };
+  const { datei, pt } = stunde(ms);
+  /* Halte, an denen der Zug über die volle Stunde steht, liegen teils in der
+     Stunde der Ankunft — deshalb kurz nach voll auch die davor ansehen. */
+  const dateien = [datei];
+  if (Number(pt.slice(-2)) < 15) dateien.push(stunde(ms - 3600e3).datei);
+  const weg = new Set([leg.from, leg.to, ...(leg.intermediateStops || [])]
+    .filter(p => p !== place).map(p => irisKey(p.name)));
+  for (const eva of await irisEvas(place.name)) {
+    for (const f of dateien) {
+      const doc = await irisGet(`plan/${eva}/${f}`, 3600e3);
+      if (!doc) continue;
+      const treffer = [...doc.querySelectorAll("s")].filter(s => {
+        const ev = s.querySelector(`:scope > ${kind}`);
+        return ev && ev.getAttribute("pt") === pt && ev.getAttribute("pp")
+          && irisLineMatch(leg, s.querySelector(":scope > tl"), ev)
+          && (ev.getAttribute("ppth") || "").split("|").some(x => weg.has(irisKey(x)));
+      });
+      if (!treffer.length) continue;
+      const gleise = new Set(treffer.map(s => s.querySelector(`:scope > ${kind}`).getAttribute("pp")));
+      if (gleise.size > 1) return null;   // nicht eindeutig → lieber nichts
+      const plan = [...gleise][0];
+      const fchg = await irisGet(`fchg/${eva}`, 60e3);
+      const neu = fchg && [...fchg.querySelectorAll("s")].find(s => s.getAttribute("id") === treffer[0].getAttribute("id"))
+        ?.querySelector(`:scope > ${kind}`)?.getAttribute("cp");
+      return { plan, jetzt: neu || plan };
+    }
+  }
+  return null;
+}
+
+async function attachTracks(jrn, T, relayout) {
+  const rows = jrn.querySelectorAll(".jrn-stop");   // je Fahrt genau zwei: ab, an
+  await Promise.all(T.flatMap((leg, i) => ["dp", "ar"].map(async (kind, k) => {
+    const place = kind === "dp" ? leg.from : leg.to;
+    if (place.track || !/^(fern|regio|sbahn)$/.test(productClass(leg.mode, leg.routeType))) return;
+    const t = await irisTrack(leg, kind).catch(() => null);
+    if (!t || place.track) return;
+    place.track = t.jetzt;
+    place.scheduledTrack = t.plan;
+    const el = rows[i * 2 + k]?.querySelector(".jrn-track");
+    if (el) el.innerHTML = trackChip(place, kind === "dp" ? "Abfahrtsort" : "Ankunftsort");
+    relayout();
+  })));
+}
 
 const alertCache = new Map();
 

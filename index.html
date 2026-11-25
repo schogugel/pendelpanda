@@ -114,6 +114,7 @@
     </button>
   </div>
   <p id="around-note" class="around-note" hidden>ℹ️ Am Halt selbst fährt derzeit nichts – angezeigt werden Verbindungen über <strong>Halte in der Nähe</strong> (z.&nbsp;B. Schienenersatzverkehr). Fußwege sind in den Details enthalten.</p>
+  <p id="remap-note" class="around-note remap-note" hidden></p>
   <p id="last-note" class="around-note" hidden></p>
   <p id="same-note" class="around-note" hidden>ℹ️ Start und Ziel liegen am <strong>selben Bahnhof</strong> – die Suche läuft trotzdem, liefert aber meist nur Rundfahrten.</p>
   <div id="searching" class="searching" hidden aria-live="polite">
@@ -348,6 +349,17 @@
   <div class="dlgfoot"><form method="dialog"><button class="widebtn">Fertig</button></form></div>
 </dialog>
 
+<!-- HALTESTELLE NEU ZUORDNEN (Kennung im Fahrplan verschwunden) -->
+<dialog id="remap-dialog">
+  <h2>Haltestelle prüfen</h2>
+  <p id="remap-text"></p>
+  <div id="remap-list" class="suggestions"></div>
+  <div class="dlgfoot">
+    <button type="button" id="remap-search" class="widebtn">Andere suchen</button>
+    <button type="button" id="remap-later" class="widebtn">Später</button>
+  </div>
+</dialog>
+
 <!-- VERBINDUNGSDETAILS (Grafikansicht) -->
 <dialog id="trip-dialog">
   <!-- Kein ✕ mehr: Geschlossen wird über den Zurück-Knopf in der Fußleiste.
@@ -418,6 +430,10 @@
       <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a>
       (freies Projekt, DELFI-/GTFS-Daten). Dabei erfährt Transitous (wie bei jedem
       Seitenaufruf) deine IP-Adresse und welche Halte du abfragst.</li>
+    <li><strong>Fehlende Gleise</strong> fragt dein Gerät direkt bei der Deutschen Bahn nach
+      (iris.noncd.db.de) – nur wenn du eine Verbindung öffnest, in der bei einem Zug das
+      Gleis fehlt. Dabei erfährt die DB deine IP-Adresse und welche Bahnhöfe und Stunden
+      abgefragt werden.</li>
     <li><strong>„Bei der DB öffnen“.</strong> Im Browser wird nur ein Link zu bahn.de
       geöffnet. In der Android-App fragt dein Gerät zusätzlich direkt bei der Bahn nach,
       um den Link auf genau deine Verbindung zu setzen — auch das ohne Umweg über einen

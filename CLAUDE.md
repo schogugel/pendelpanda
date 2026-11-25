@@ -538,6 +538,20 @@ Was ansteht, steht in `TODO.md`.
   auch jedes BLÄTTERN mit Koordinaten + den Fußweg-Parametern laufen
   (`app.aroundPlaces`). Cursor einer Koordinaten-Antwort zusammen mit Haltestellen-IDs
   ergeben 0 Treffer — dann „lädt“ die App endlos ohne Ergebnis.
+- **Halt-Kennungen sind NICHT dauerhaft** (v1.72.0). Sie tragen den Feed-Namen, teils
+  samt Jahr (`at-Railway-Current-Reference-Data-2026_…`); fällt der Feed weg, antwortet
+  `/plan` mit 404 („unknown feed id“ / „Could not find timetable location“). Dann klärt
+  `markDeadStops` per `stopHealth`, welcher Halt fehlt, und `placeParam` sucht über seine
+  LAGE weiter; `openRemap` schlägt Ersatz vor (Name + Ort + Lage + `modes` der Kachel),
+  `openEdit(i, {remap:true})` ist der freie Weg. Nur 404 heißt „verschwunden“ — Netzfehler
+  (`unknown`) nie. `deadIds`/`staleStops` gelten je Suche.
+- **Fehlende Gleise kommen aus DELFI, nicht aus der App** (gemessen 25.11.2026, vom
+  Transitous-Team in Issue #2299 am Rohdatensatz bestätigt): Viele Züge hängen am Bahnhof
+  statt am Steig, und Bahnhöfe haben kein Gleis. Regensburg/Nürnberg/Köln/Frankfurt fast
+  keine Regio-Gleise, Stuttgart fast alle. `attachTracks` holt sie
+  seit v1.73.0 beim ÖFFNEN einer Verbindung von `iris.noncd.db.de` (inoffiziell, CORS offen,
+  Horizont ~18 h; vom Nutzer freigegeben, steht im Datenschutz-Dialog). Nur Züge, nur wo
+  das Gleis fehlt, nur bei gleicher Sollminute + Linie + Fahrweg — sonst lieber keines.
 - **SEV erkennen:** Ersatzverkehr fährt als `mode: BUS` mit `routeType: 3`, trägt aber
   die BAHN-Liniennummer (`routeShortName: "RB30"`). `isReplacementService()` prüft genau
   das (plus „SEV“/„Ersatz“ im Namen) — an echten Strecken validiert: 10/10 Treffer im
@@ -1208,7 +1222,7 @@ Halt (ab) → Fahrt-Block → Halt (an) → Umstieg → …
     Wahl gewesen, darf aber nicht mitgeliefert werden (gehört zu Windows); Barlow kommt
     ihr nahe: flache Abschlüsse, geometrisches R und a.
   - **KEIN Nachladen von fremden Servern, auch nicht beim ersten Start.** Das ist der
-    ganze Punkt: Die App spricht mit Transitous und (nativ, auf Knopfdruck) mit der DB —
+    ganze Punkt: Die App spricht mit Transitous und mit der DB (Gleise; nativ auch DB-Link) —
     sonst mit niemandem. Ein `<link>` auf fonts.googleapis.com hätte eine Zeile im
     Datenschutz-Dialog gebraucht. **Wer die Schriften auf eine CDN umstellt, muss den
     Dialog ändern** — dort steht jetzt ausdrücklich, dass nichts nachgeladen wird.

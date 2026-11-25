@@ -223,8 +223,10 @@ danach noch fährt.
 Ein Tipp auf einen Balken (oder eine Listenkarte) zeigt die Verbindung im Detail:
 farbiger Linien-Chip mit Fahrtnummer, Fahrtziel sowie Abfahrts- und Ankunftszeit auf
 einer durchgehenden Linie. **Gleis und Kartenlink** stehen als ein Feld hinter dem Halt
-(„Gl. 8 📍“) – bei Ein- und Ausstieg, denn nur dort braucht man sie. Eine
-Gleisänderung ist rot hervorgehoben; der Pin führt bahnsteiggenau in Google Maps.
+(„Gl. 8 📍“) – bei Ein- und Ausstieg, denn nur dort braucht man sie.
+Fehlt bei einem Zug das Gleis in den Fahrplandaten, fragt die App beim Öffnen die DB
+(reicht etwa 18 Stunden voraus). Eine Gleisänderung ist rot
+hervorgehoben; der Pin führt bahnsteiggenau in Google Maps.
 
 - **„Zwischenhalte & Infos“** klappt die vollständige Haltefolge auf — mit Echtzeit,
   Gleis, entfallenden Halten sowie Angaben zu Barrierefreiheit und Fahrradmitnahme,
